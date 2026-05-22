@@ -825,6 +825,11 @@ const CURRICULUM={
 const DB={students:[],attendance:{},testEvents:[],testFees:[],inventory:[],orders:[],invoices:[],customEmailTemplates:[],promotions:[],monthHistory:[],classDates:[],scoreboard:{label:'',fee:31.50,start:'',end:''},curriculumOverrides:{},nextId:1};
 
 // ══════════════════════════════════════════════════════
+// ELEMENT HELPER (needed before Supabase sync badge)
+// ══════════════════════════════════════════════════════
+const $=id=>document.getElementById(id);
+
+// ══════════════════════════════════════════════════════
 // SUPABASE CLIENT
 // ══════════════════════════════════════════════════════
 const SUPA_URL='https://erqblpewozxkpornohvq.supabase.co';
@@ -944,7 +949,7 @@ DB.students.forEach(s=>{if(!s.history)s.history=[];});
 // ══════════════════════════════════════════════════════
 // UTILITIES
 // ══════════════════════════════════════════════════════
-const $=id=>document.getElementById(id);
+// $ defined above
 function initials(s){return(s.first||'')[0]+(s.last||'')[0];}
 function maxStripes(s){return TWO_CYCLE_BELTS.has(s.belt)?5:2;}
 function stripeEligible(s){
