@@ -218,12 +218,67 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
 .sync-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;flex-shrink:0;}
 .sync-dot.saving{background:#fbbf24;animation:sdpulse .9s infinite;}
 .sync-dot.error{background:#f87171;}
+.gmail-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;font-size:13px;font-family:var(--font-body);cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-weight:500;transition:all .15s;}
+.gmail-btn.connected{background:#eef7f2;border-color:var(--green);color:var(--green);}
+.gmail-btn:hover{opacity:.85;}
+.bulk-chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:12px;cursor:pointer;transition:all .12s;}
+.bulk-chip.selected{background:var(--ink);color:#fff;border-color:var(--ink);}
+.bulk-chip:hover{border-color:var(--border-strong);}
+.send-progress{background:var(--paper);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:13px;margin-top:10px;}
 @keyframes sdpulse{0%,100%{opacity:1;}50%{opacity:.3;}}
-@media print{.no-print{display:none!important;}.letter-page{page-break-after:always;border:none;}}
+#login-overlay{position:fixed;inset:0;background:#1a1a1a;z-index:99998;display:flex;align-items:center;justify-content:center;}
+.login-card{background:#242424;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:40px 44px;text-align:center;max-width:380px;width:100%;}
+.login-logo{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#fff;margin-bottom:6px;}
+.login-sub{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:32px;}
+.login-google-btn{display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1a1a1a;border:none;border-radius:10px;padding:13px 22px;font-size:14px;font-weight:600;cursor:pointer;width:100%;font-family:inherit;transition:opacity .15s;}
+.login-google-btn:hover{opacity:.9;}
+.login-user{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(255,255,255,.07);border-radius:10px;margin-bottom:16px;}
+.login-user img{width:36px;height:36px;border-radius:50%;}
+.login-user-info{text-align:left;flex:1;}
+.login-user-name{font-weight:600;font-size:14px;color:#fff;}
+.login-user-email{font-size:12px;color:rgba(255,255,255,.5);}
+.logout-btn{background:none;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit;margin-top:12px;}
+.logout-btn:hover{border-color:rgba(255,255,255,.4);color:#fff;}
+#user-avatar{width:30px;height:30px;border-radius:50%;cursor:pointer;border:2px solid rgba(255,255,255,.2);}
+#user-menu{position:fixed;top:55px;right:16px;background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:8px;z-index:9999;display:none;min-width:180px;}
+#user-menu.open{display:block;}
+#user-menu .um-email{font-size:12px;color:rgba(255,255,255,.5);padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:4px;}
+#user-menu button{display:block;width:100%;text-align:left;background:none;border:none;color:rgba(255,255,255,.8);padding:8px 10px;font-size:13px;cursor:pointer;border-radius:6px;font-family:inherit;}
+#user-menu button:hover{background:rgba(255,255,255,.08);}
+@media print{
+.no-print{display:none!important;}
+.sidebar{display:none!important;}
+.main{overflow:visible!important;}
+.page{display:block!important;padding:16px!important;max-width:100%!important;}
+.page:not(.active){display:none!important;}
+.table-wrap{border:none!important;border-radius:0!important;}
+thead th{background:#f0f0f0!important;font-size:10px!important;}
+tbody td{font-size:11px!important;}
+.btn,.table-toolbar,.att-bar,.scoreboard,.stats-row,.section-divider{display:none!important;}
+.letter-page{page-break-after:always;border:none;}
+#login-overlay,#loading-overlay,#sync-badge,#user-menu{display:none!important;}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="NMA CRM">
 </head>
 <body>
+<div id="login-overlay" style="display:none;">
+  <div class="login-card">
+    <div class="login-logo">Noble's Martial Arts</div>
+    <div class="login-sub">Instructor CRM — Sign in to continue</div>
+    <button class="login-google-btn" onclick="signInWithGoogle()">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+    <div style="margin-top:20px;font-size:11px;color:rgba(255,255,255,.25);">Only your noblesmartialarts@gmail.com account can access this app.</div>
+  </div>
+</div>
 <div id="loading-overlay">
   <div class="lo-spinner"></div>
   <div class="lo-logo">Noble's Martial Arts</div>
@@ -236,7 +291,7 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
 <nav class="sidebar">
   <div class="sidebar-logo">
     <div class="wordmark">Noble's<br>Martial Arts</div>
-    <div class="sub">Instructor CRM v4</div>
+    <div class="sub">Instructor CRM v4</div><img id="user-avatar" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='12' fill='%23555'/><circle cx='12' cy='9' r='4' fill='%23fff'/><path d='M4 20c0-4 3.6-7 8-7s8 3 8 7' fill='%23fff'/></svg>" onclick="toggleUserMenu()" style="margin-top:10px;display:none;">
   </div>
   <div class="sidebar-nav">
     <div class="nav-section-label">Overview</div>
@@ -256,8 +311,15 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
     <div class="nav-item" data-page="curriculum" onclick="nav('curriculum')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Curriculum</span></div>
     <div class="nav-item" data-page="vendors" onclick="nav('vendors')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span>Vendors</span></div>
     <div class="nav-item" data-page="belts" onclick="nav('belts')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Belt Paths</span></div>
+    <div class="nav-section-label">Communication</div>
+    <div class="nav-item" data-page="inbox" onclick="nav('inbox')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><span>Inbox <span id="inbox-badge" style="display:none;background:#c8392b;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:2px;"></span></span></div>
+    <div class="nav-section-label">Tools</div>
+    <div class="nav-item" data-page="broadcast" onclick="nav('broadcast')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg><span>Broadcast</span></div>
+    <div class="nav-item" data-page="commlog" onclick="nav('commlog')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Comm Log</span></div>
+    <div class="nav-item" data-page="promoreport" onclick="nav('promoreport')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Promo Report</span></div>
     <div class="nav-section-label">Data</div>
     <div class="nav-item" data-page="letters" onclick="nav('letters')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Promote Letters</span></div>
+    <div class="nav-item" data-page="ai" onclick="nav('ai')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg><span>AI Assistant</span></div>
     <div class="nav-item" data-page="backup" onclick="nav('backup')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Backup / Restore</span></div>
   </div>
 </nav>
@@ -309,7 +371,7 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
           <th class="sortable" data-col="name" onclick="sortBy('name')">Student</th>
           <th class="sortable" data-col="group" onclick="sortBy('group')">Group</th>
           <th class="sortable" data-col="belt" onclick="sortBy('belt')">Belt</th>
-          <th>Stripes</th><th>Flags</th>
+          <th>Stripes</th><th>Attend.</th><th>Flags</th>
           <th class="sortable" data-col="registered" onclick="sortBy('registered')">Registered</th>
           <th>Actions</th>
         </tr></thead>
@@ -459,8 +521,15 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
 <!-- EMAILS -->
 <div id="page-emails" class="page">
   <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-    <div><div class="page-title">Email Templates</div><div class="page-subtitle">Edit inline — copy to send via Gmail</div></div>
-    <button class="btn primary" onclick="openCustomTemplateModal()">+ Custom Template</button>
+    <div><div class="page-title">Email</div><div class="page-subtitle">Send directly from noblesmartialarts@gmail.com</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button id="gmail-connect-btn" class="gmail-btn" onclick="connectGmail()">
+        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#EA4335" d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.908 1.528-1.147C21.69 2.28 24 3.434 24 5.457z"/></svg>
+        Connect Gmail
+      </button>
+      <button class="btn" onclick="openContactsImportModal()">📇 Import Gmail Contacts</button>
+      <button class="btn primary" onclick="openCustomTemplateModal()">+ Custom Template</button>
+    </div>
   </div>
 
   <!-- Missed registration list -->
@@ -478,10 +547,31 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
     <div id="missed-reg-list" style="display:flex;flex-wrap:wrap;gap:7px;"></div>
   </div>
 
-  <div class="att-bar" style="margin-bottom:16px;">
-    <div><label>Student</label><div><select id="em-student" class="form-select" style="width:206px;margin-top:4px;" onchange="renderEmailTemplates()"><option value="">Select student…</option></select></div></div>
-    <div><label>Template</label><div><select id="em-template" class="form-select" style="width:240px;margin-top:4px;" onchange="renderEmailTemplates()"></select></div></div>
+  <!-- Bulk send bar -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+      <div style="font-family:var(--font-display);font-size:13px;font-weight:700;">Recipients</div>
+      <button class="btn small" onclick="bulkSelectGroup('')">All active</button>
+      <button class="btn small" onclick="bulkSelectGroup('Little Dragons')">Little Dragons</button>
+      <button class="btn small" onclick="bulkSelectGroup('Karate Kids')">Karate Kids</button>
+      <button class="btn small" onclick="bulkSelectGroup('Black Belt Club')">BBC</button>
+      <button class="btn small" onclick="bulkSelectGroup("Master's Club")">Master's</button>
+      <button class="btn small" onclick="bulkSelectGroup('Legends Club')">Legends</button>
+      <button class="btn small" onclick="bulkSelectUnregistered()">Unregistered</button>
+      <button class="btn small" onclick="bulkClearAll()">Clear</button>
+    </div>
+    <div id="bulk-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;"></div>
+    <div style="margin-top:10px;font-size:12px;color:var(--ink-muted);" id="bulk-count"></div>
   </div>
+
+  <!-- Template + send -->
+  <div class="att-bar" style="margin-bottom:16px;">
+    <div><label>Template</label><div><select id="em-template" class="form-select" style="width:240px;margin-top:4px;" onchange="renderEmailPreview()"></select></div></div>
+    <div><label>Preview as</label><div><select id="em-student" class="form-select" style="width:200px;margin-top:4px;" onchange="renderEmailPreview()"><option value="">Select student…</option></select></div></div>
+    <div class="spacer"></div>
+    <button class="btn success" id="send-btn" onclick="sendEmails()" style="display:none;">✉ Send to <span id="send-count">0</span></button>
+  </div>
+  <div id="send-progress"></div>
   <div id="email-output"></div>
 </div>
 
@@ -515,6 +605,7 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
     <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
       <select id="letter-event-sel" class="form-select" style="width:240px;" onchange="generateLetters()"><option value="">— Select test event —</option></select>
       <button class="btn primary" onclick="printLettersOnly()">🖨 Print Letters</button>
+      <button class="btn success no-print" onclick="emailLetters()">✉ Email to Parents</button>
     </div>
   </div>
   <div id="letters-content"></div>
@@ -528,6 +619,7 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
       <h3>📤 Export JSON Backup</h3>
       <p>Downloads a complete snapshot of all students, attendance, tests, revenue, curriculum state, and month history.</p>
       <button class="btn primary" onclick="exportJSON()">Download Backup</button>
+      <button class="btn success" id="backup-now-btn" onclick="sendBackupNow()" style="margin-top:8px;">✉ Email Backup Now</button>
       <div style="margin-top:8px;font-size:12px;color:var(--ink-muted);" id="backup-meta"></div>
     </div>
     <div class="backup-card">
@@ -541,6 +633,140 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
   <div id="month-history-list"></div>
 </div>
 
+
+<!-- INBOX -->
+<div id="page-inbox" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div class="page-title">Parent Inbox</div><div class="page-subtitle">Emails from parent addresses in your roster</div></div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn small" onclick="setInboxFilter('all')" id="inbox-filter-all" style="font-weight:600;">All</button>
+      <button class="btn small" onclick="setInboxFilter('unread')" id="inbox-filter-unread">Unread</button>
+      <button class="btn primary" onclick="refreshInbox()">↻ Refresh</button>
+    </div>
+  </div>
+  <div id="inbox-connect-prompt" style="display:none;background:var(--amber-light);border:1px solid var(--amber);border-radius:12px;padding:16px 20px;margin-bottom:16px;font-size:13px;color:var(--amber);">
+    ⚠ Connect Gmail on the Emails tab to enable the inbox.
+  </div>
+  <div id="inbox-loading" style="display:none;text-align:center;padding:48px;color:var(--ink-muted);">
+    <div style="display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--ink);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px;"></div>
+    <div style="font-size:13px;">Loading emails from Gmail…</div>
+  </div>
+  <div style="display:flex;gap:0;height:calc(100vh - 160px);overflow:hidden;">
+    <!-- Thread list -->
+    <div id="inbox-list" style="width:360px;min-width:320px;border:1px solid var(--border);border-right:none;border-radius:12px 0 0 12px;overflow-y:auto;background:var(--surface);"></div>
+    <!-- Thread detail -->
+    <div id="inbox-detail" style="flex:1;border:1px solid var(--border);border-radius:0 12px 12px 0;overflow-y:auto;background:var(--surface);">
+      <div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--ink-muted);font-size:13px;">Select an email to read</div>
+    </div>
+  </div>
+</div>
+
+<!-- AI ASSISTANT -->
+<div id="page-ai" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div class="page-title">AI Assistant</div><div class="page-subtitle">Ask anything about your students, get email drafts, class plans &amp; more — powered by Google Gemini</div></div>
+    <button class="btn small" onclick="clearAIChat()">Clear chat</button>
+  </div>
+  <!-- Quick prompts -->
+  <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px;" id="ai-quick-prompts">
+    <button class="btn small" onclick="aiQuick('Who is closest to testing this month?')">Who's closest to testing?</button>
+    <button class="btn small" onclick="aiQuick('Which students have missed the most classes this month?')">Attendance concerns?</button>
+    <button class="btn small" onclick="aiQuick('Who is unregistered for this month?')">Unregistered students?</button>
+    <button class="btn small" onclick="aiQuick('Generate a Challenge of the Month based on the current curriculum cycle')">Challenge of the Month</button>
+    <button class="btn small" onclick="aiQuick('Draft a class plan for today based on the current curriculum cycles')">Class plan</button>
+    <button class="btn small" onclick="aiQuick('Summarize this month so far — attendance, registrations, upcoming tests')">Month summary</button>
+    <button class="btn small" onclick="aiQuick('Which students are birthday this month?')">Birthdays this month?</button>
+    <button class="btn small" onclick="aiQuick('Who should I prioritize reaching out to this week?')">Who needs attention?</button>
+  </div>
+  <!-- Chat window -->
+  <div id="ai-chat-window" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;min-height:380px;max-height:520px;overflow-y:auto;padding:16px;margin-bottom:14px;display:flex;flex-direction:column;gap:14px;">
+    <div style="text-align:center;color:var(--ink-muted);font-size:13px;margin:auto;">Ask me anything about your students, curriculum, or class management. I have full access to your CRM data.</div>
+  </div>
+  <!-- Input -->
+  <div style="display:flex;gap:8px;">
+    <input type="text" id="ai-input" class="form-input" placeholder="Ask anything… or describe an email you want to draft" style="flex:1;" onkeydown="if(event.key==='Enter')sendAIMessage()">
+    <button class="btn primary" onclick="sendAIMessage()" id="ai-send-btn">Send</button>
+  </div>
+</div>
+
+<!-- BROADCAST EMAIL -->
+<div id="page-broadcast" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div class="page-title">Broadcast Email</div><div class="page-subtitle">Send announcements to all parents or by group</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 2fr;gap:16px;">
+    <div>
+      <div class="section-divider"><span>Recipients</span></div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">
+        <div style="margin-bottom:10px;font-size:12px;color:var(--ink-muted);font-weight:500;text-transform:uppercase;letter-spacing:.06em;">Groups</div>
+        <div id="broadcast-group-list"></div>
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;color:var(--ink-muted);" id="broadcast-recipient-count"></div>
+      </div>
+      <div class="section-divider"><span>Include in email</span></div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:9px;">
+        <label class="checkbox-row"><input type="checkbox" id="bc-include-linktree" checked> NMA Parent Hub link</label>
+        <label class="checkbox-row"><input type="checkbox" id="bc-include-reg"> Registration link for group</label>
+        <label class="checkbox-row"><input type="checkbox" id="bc-include-challenge"> Challenge of the Month</label>
+        <label class="checkbox-row"><input type="checkbox" id="bc-include-playlist"> Current curriculum playlist</label>
+      </div>
+    </div>
+    <div>
+      <div class="section-divider"><span>Message</span></div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);background:var(--paper);display:flex;gap:8px;align-items:center;">
+          <div style="font-size:12px;color:var(--ink-muted);">Subject:</div>
+          <input type="text" id="bc-subject" class="form-input" style="flex:1;" placeholder="e.g. NMA — May Announcement">
+        </div>
+        <textarea id="bc-body" style="width:100%;min-height:280px;padding:16px;font-family:Georgia,serif;font-size:13px;line-height:1.8;border:none;outline:none;resize:vertical;background:#fff;" placeholder="Type your announcement here…"></textarea>
+      </div>
+      <div id="bc-preview-additions" style="background:var(--amber-light);border:1px solid var(--amber);border-radius:8px;padding:11px 14px;margin-top:10px;font-size:12px;color:var(--amber);display:none;"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+        <button class="btn" onclick="previewBroadcast()">Preview</button>
+        <button class="btn primary" onclick="sendBroadcast()" id="bc-send-btn">✉ Send Broadcast</button>
+      </div>
+      <div id="bc-send-progress" style="margin-top:10px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- COMMUNICATION LOG -->
+<div id="page-commlog" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div class="page-title">Communication Log</div><div class="page-subtitle">Record calls, texts, and in-person conversations with parents</div></div>
+    <button class="btn primary" onclick="openAddCommLog()">+ Log Conversation</button>
+  </div>
+  <div class="table-toolbar" style="background:var(--surface);border:1px solid var(--border);border-radius:12px 12px 0 0;border-bottom:none;">
+    <input type="text" id="commlog-search" class="form-input" placeholder="Search by name or notes…" oninput="renderCommLog()">
+    <select id="commlog-type" class="form-select" onchange="renderCommLog()">
+      <option value="">All types</option>
+      <option>Phone call</option>
+      <option>Text message</option>
+      <option>In person</option>
+      <option>Email</option>
+      <option>Other</option>
+    </select>
+    <select id="commlog-student" class="form-select" style="width:180px;" onchange="renderCommLog()">
+      <option value="">All students</option>
+    </select>
+  </div>
+  <div class="table-wrap" style="border-radius:0 0 12px 12px;">
+    <table><thead><tr><th>Date</th><th>Student</th><th>Type</th><th>Notes</th><th>Follow-up</th><th></th></tr></thead>
+    <tbody id="commlog-tbody"></tbody></table>
+  </div>
+</div>
+
+<!-- PROMOTION REPORT -->
+<div id="page-promoreport" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div class="page-title">Promotion Report</div><div class="page-subtitle">Summary of all promotions from a test event</div></div>
+    <div style="display:flex;gap:8px;">
+      <select id="pr-event-sel" class="form-select" style="width:220px;" onchange="renderPromoReport()"><option value="">— Select test event —</option></select>
+      <button class="btn primary" onclick="printPromoReport()">🖨 Print</button>
+      <button class="btn success" onclick="emailPromoReport()">✉ Email Report</button>
+    </div>
+  </div>
+  <div id="promo-report-content"></div>
+</div>
 </div><!-- /main -->
 </div><!-- /app -->
 
@@ -556,6 +782,7 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
         <div class="form-group"><label class="form-label">Parent email</label><input class="form-input" id="f-email" type="email"></div>
         <div class="form-group"><label class="form-label">Parent phone</label><input class="form-input" id="f-phone"></div>
         <div class="form-group"><label class="form-label">First class date</label><input class="form-input" id="f-firstdate" type="date"></div>
+        <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-input" id="f-dob" type="date"></div>
         <div class="form-group"><label class="form-label">Class group</label><select class="form-select" id="f-group" onchange="updateBeltOptions()"><option>Little Dragons</option><option>Karate Kids</option><option>Black Belt Club</option><option>Master's Club</option><option>Legends Club</option></select></div>
         <div class="form-group"><label class="form-label">Current belt</label><select class="form-select" id="f-belt"></select></div>
         <div class="form-group"><label class="form-label">Stripe count</label><select class="form-select" id="f-stripes"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
@@ -722,6 +949,36 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
   </div>
 </div>
 
+<div class="modal-backdrop" id="modal-gmail-contacts">
+  <div class="modal modal-lg">
+    <div class="modal-header"><div class="modal-title">📇 Import Gmail Contacts</div><button class="btn ghost" onclick="closeModal('modal-gmail-contacts')">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--ink-muted);margin-bottom:14px;">Loading contacts from your noblesmartialarts@gmail.com account. Matching to students by name.</p>
+      <div id="gmail-contacts-body"><div style="text-align:center;padding:30px;color:var(--ink-muted);">Connect Gmail first to import contacts.</div></div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('modal-gmail-contacts')">Cancel</button><button class="btn primary" onclick="applyGmailContacts()">Apply Matches</button></div>
+  </div>
+</div>
+
+<div id="user-menu">
+  <div class="um-email" id="um-email"></div>
+  <button onclick="signOut()">Sign out</button>
+</div>
+<div class="modal-backdrop" id="modal-commlog">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-header"><div class="modal-title" id="commlog-modal-title">Log Conversation</div><button class="btn ghost" onclick="closeModal('modal-commlog')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Student</label><select class="form-select" id="cl-student"></select></div>
+        <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="cl-date" type="date"></div>
+        <div class="form-group"><label class="form-label">Type</label><select class="form-select" id="cl-type"><option>Phone call</option><option>Text message</option><option>In person</option><option>Email</option><option>Other</option></select></div>
+        <div class="form-group"><label class="form-label">Follow-up needed?</label><select class="form-select" id="cl-followup"><option value="">No</option><option>Yes</option></select></div>
+        <div class="form-group full"><label class="form-label">Notes</label><textarea class="form-input" id="cl-notes" rows="4" style="resize:vertical;" placeholder="What was discussed…"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('modal-commlog')">Cancel</button><button class="btn primary" onclick="saveCommLog()">Save</button></div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -822,7 +1079,7 @@ const CURRICULUM={
 // ══════════════════════════════════════════════════════
 // DATABASE
 // ══════════════════════════════════════════════════════
-const DB={students:[],attendance:{},testEvents:[],testFees:[],inventory:[],orders:[],invoices:[],customEmailTemplates:[],promotions:[],monthHistory:[],classDates:[],scoreboard:{label:'',fee:31.50,start:'',end:''},curriculumOverrides:{},nextId:1};
+const DB={students:[],attendance:{},testEvents:[],testFees:[],inventory:[],orders:[],invoices:[],customEmailTemplates:[],promotions:[],monthHistory:[],classDates:[],commLog:[],challengeOfMonth:'',scoreboard:{label:'',fee:31.50,start:'',end:''},curriculumOverrides:{},nextId:1};
 
 // ══════════════════════════════════════════════════════
 // ELEMENT HELPER (needed before Supabase sync badge)
@@ -921,6 +1178,8 @@ if(!DB.promotions)DB.promotions=[];
 if(!DB.monthHistory)DB.monthHistory=[];
 if(!DB.curriculumOverrides)DB.curriculumOverrides={};
 if(!DB.classDates)DB.classDates=[];
+if(!DB.commLog)DB.commLog=[];
+if(!DB.challengeOfMonth)DB.challengeOfMonth='';
 
 // Apply saved curriculum overrides
 Object.entries(DB.curriculumOverrides).forEach(([k,v])=>{if(CURRICULUM[k])CURRICULUM[k].currentCycle=v;});
@@ -1008,7 +1267,7 @@ function nav(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+page).classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup};
+  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,ai:initAI,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport};
   fns[page]?.();
 }
 
@@ -1161,6 +1420,7 @@ function renderRoster(){
       <td><span style="font-weight:500;color:var(--blue);text-decoration:underline;cursor:pointer;" onclick="openProfile(${s.id})">${s.first} ${s.last}</span><div style="font-size:11px;color:var(--ink-muted);">${s.parent||''}</div></td>
       <td style="font-size:12px;color:var(--ink-muted);">${s.group}</td>
       <td><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></td>
+      <td>${attSummaryBadge(s.id)}</td>
       <td><div style="display:flex;align-items:center;gap:4px;">${stripeDots(s.stripes,maxStripes(s),TWO_CYCLE_BELTS.has(s.belt))}<button class="btn ghost" style="font-size:11px;padding:2px 4px;" onclick="adjustStripe(${s.id},-1)">−</button><button class="btn ghost" style="font-size:11px;padding:2px 4px;" onclick="adjustStripe(${s.id},1)">+</button></div></td>
       <td><div class="flags">${flags.join('')}</div></td>
       <td>${regBadge}</td>
@@ -1231,7 +1491,7 @@ function deleteStudent(id){if(!confirm('Delete this student?'))return;DB.student
 function exportCSV(){
   const cols=['ID','First','Last','Parent','Email','Phone','Group','Belt','Stripes','Belt Size','Uniform Size','Status','Registered','Leader','AI','First Date','Notes'];
   const rows=DB.students.map(s=>[s.id,s.first,s.last,s.parent,s.email,s.phone,s.group,s.belt,s.stripes,s.beltSize,s.uniformSize||'',s.status,s.registered,s.leader?'Yes':'No',s.ai?'Yes':'No',s.firstDate,s.notes]);
-  const csv=[cols,...rows].map(r=>r.map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+    const csv=[cols,...rows].map(r=>r.map(v=>'"'+((v||'').toString().replace(/"/g,'""'))+'"').join(',')).join('\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='nobles_roster.csv';a.click();
 }
 
@@ -1253,7 +1513,7 @@ function openEditStudent(id){
   $('student-modal-title').textContent='Edit Student';
   $('f-first').value=s.first;$('f-last').value=s.last;$('f-parent').value=s.parent||'';
   $('f-email').value=s.email||'';$('f-phone').value=s.phone||'';$('f-notes').value=s.notes||'';
-  $('f-firstdate').value=s.firstDate||'';$('f-group').value=s.group;$('f-status').value=s.status;
+  $('f-firstdate').value=s.firstDate||'';$('f-dob').value=s.dob||'';$('f-group').value=s.group;$('f-status').value=s.status;
   $('f-registered').value=s.registered;$('f-stripes').value=s.stripes;
   $('f-beltsize').value=s.beltSize||'0';$('f-uniformsize').value=s.uniformSize||'';
   $('f-leader').checked=s.leader;$('f-ai').checked=s.ai;
@@ -1262,7 +1522,7 @@ function openEditStudent(id){
 function saveStudent(){
   const first=$('f-first').value.trim(),last=$('f-last').value.trim();
   if(!first||!last){alert('First and last name required.');return;}
-  const data={first,last,parent:$('f-parent').value.trim(),email:$('f-email').value.trim(),phone:$('f-phone').value.trim(),group:$('f-group').value,belt:$('f-belt').value,stripes:parseInt($('f-stripes').value),beltSize:$('f-beltsize').value,uniformSize:$('f-uniformsize').value.trim(),status:$('f-status').value,registered:$('f-registered').value,leader:$('f-leader').checked,ai:$('f-ai').checked,firstDate:$('f-firstdate').value,notes:$('f-notes').value.trim()};
+  const data={first,last,parent:$('f-parent').value.trim(),email:$('f-email').value.trim(),phone:$('f-phone').value.trim(),group:$('f-group').value,belt:$('f-belt').value,stripes:parseInt($('f-stripes').value),beltSize:$('f-beltsize').value,uniformSize:$('f-uniformsize').value.trim(),status:$('f-status').value,registered:$('f-registered').value,leader:$('f-leader').checked,ai:$('f-ai').checked,firstDate:$('f-firstdate').value,dob:$('f-dob').value,notes:$('f-notes').value.trim()};
   if(editingStudentId){const idx=DB.students.findIndex(s=>s.id===editingStudentId);DB.students[idx]={...DB.students[idx],...data};toast('Student updated.');}
   else{data.id=DB.nextId++;data.history=[];DB.students.push(data);toast('Student added!');}
   save();closeModal('modal-student');renderRoster();
@@ -1614,7 +1874,7 @@ function renderBeltOrder(){
   const today=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
   $('bo-print-area').innerHTML=`<div id="printable-order" style="font-family:'DM Sans',sans-serif;font-size:13px;"><div style="display:flex;justify-content:space-between;margin-bottom:16px;padding-bottom:13px;border-bottom:2px solid #1a1a1a;"><div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;">Noble's Martial Arts</div><div style="font-size:12px;color:#6b6b6b;">Belt Order Sheet — Generated ${today}</div></div>${ev?`<div style="text-align:right;font-size:12px;color:#6b6b6b;">${ev.name}<br>${fmtFull(ev.date)}</div>`:''}</div><table style="width:100%;border-collapse:collapse;margin-bottom:14px;"><thead><tr style="border-bottom:1px solid #ddd;"><th style="text-align:left;padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Belt</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Size</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;text-align:center;">Qty</th></tr></thead><tbody>${tallyArr.map(t=>`<tr style="border-bottom:1px solid #f0f0f0;"><td style="padding:6px;">${t.belt}</td><td style="padding:6px;">${t.size}</td><td style="padding:6px;text-align:center;font-weight:700;">${t.qty}</td></tr>`).join('')||'<tr><td colspan="3" style="padding:9px;color:#aaa;">No belts needed</td></tr>'}</tbody></table><table style="width:100%;border-collapse:collapse;"><thead><tr style="border-bottom:1px solid #ddd;"><th style="text-align:left;padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Student</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Current</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Next Belt</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Size</th></tr></thead><tbody>${students.map(s=>{const next=getNextBelt(s);return `<tr style="border-bottom:1px solid #f0f0f0;"><td style="padding:6px;">${s.first} ${s.last}</td><td style="padding:6px;">${s.belt}</td><td style="padding:6px;font-weight:600;">${next||'—'}</td><td style="padding:6px;">${s.beltSize||'0'}</td></tr>`;}).join('')}</tbody></table></div>`;
 }
-function printBeltOrder(){const c=$('printable-order');if(!c){alert('Generate an order first.');return;}const w=window.open('','_blank');w.document.write(`<!DOCTYPE html><html><head><title>Belt Order</title><link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"><style>body{font-family:'DM Sans',sans-serif;padding:34px;max-width:740px;margin:0 auto;}table{width:100%;border-collapse:collapse;}th,td{padding:6px;text-align:left;border-bottom:1px solid #e0e0e0;}</style></head><body>${c.innerHTML}</body></html>`);w.document.close();w.print();}
+function printBeltOrder(){const c=$('printable-order');if(!c){alert('Generate an order first.');return;}const w=window.open('','_blank');w.document.write(`<!DOCTYPE html><html><head><title>Belt Order</title><link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"><style>body{font-family:'DM Sans',sans-serif;padding:34px;max-width:740px;margin:0 auto;}table{width:100%;border-collapse:collapse;}th,td{padding:6px;text-align:left;border-bottom:1px solid #e0e0e0;}</style></head><body>${c.innerHTML}</body></html>\`);w.document.close();w.print();}</html>`);w.document.close();w.print();}
 
 // ══════════════════════════════════════════════════════
 // INVENTORY
@@ -1670,15 +1930,181 @@ const BUILTIN_TEMPLATES=[
 ];
 function getAllTemplates(){return [...BUILTIN_TEMPLATES,...(DB.customEmailTemplates||[]).map(t=>({id:'custom_'+t.id,name:t.name+' ✦',custom:true,subject:s=>fillPlaceholders(t.subject,s),body:s=>fillPlaceholders(t.body,s)}))];}
 function fillPlaceholders(tmpl,s){return(tmpl||'').replace(/\{first\}/g,s.first||'').replace(/\{last\}/g,s.last||'').replace(/\{parent\}/g,s.parent||'').replace(/\{belt\}/g,s.belt||'').replace(/\{group\}/g,s.group||'').replace(/\{stripes\}/g,s.stripes||0);}
+// ── Gmail OAuth state
+let gmailToken=null;
+let bulkSelected=new Set();
+let gmailContactMatches=[];
+
 function initEmails(){
-  // Populate student selector — all active students
+  if(DB.gmailToken&&DB.gmailToken.expires>Date.now()){
+    gmailToken=DB.gmailToken.token;updateGmailBtn(true);
+  }
   $('em-student').innerHTML='<option value="">Select student…</option>'+
-    DB.students.filter(s=>s.status==='Active').map(s=>`<option value="${s.id}">${s.first} ${s.last}</option>`).join('');
-  // Populate template selector
-  $('em-template').innerHTML=getAllTemplates().map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
-  renderMissedRegPanel();
+    DB.students.filter(s=>s.status==='Active').map(s=>'<option value="'+s.id+'">'+s.first+' '+s.last+'</option>').join('');
+  $('em-template').innerHTML=getAllTemplates().map(t=>'<option value="'+t.id+'">'+t.name+'</option>').join('');
+  renderMissedRegPanel();renderBulkChips();renderEmailPreview();
+}
+
+function updateGmailBtn(connected){
+  const btn=$('gmail-connect-btn');if(!btn)return;
+  btn.className='gmail-btn'+(connected?' connected':'');
+  btn.innerHTML=(connected
+    ?'<svg width="16" height="16" viewBox="0 0 24 24"><path fill="#2e7d4f" d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.908 1.528-1.147C21.69 2.28 24 3.434 24 5.457z"/></svg> Gmail Connected ✓'
+    :'<svg width="16" height="16" viewBox="0 0 24 24"><path fill="#EA4335" d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.908 1.528-1.147C21.69 2.28 24 3.434 24 5.457z"/></svg> Connect Gmail');
+}
+
+function connectGmail(){
+  if(gmailToken){
+    if(!confirm('Disconnect Gmail?'))return;
+    gmailToken=null;delete DB.gmailToken;save();updateGmailBtn(false);toast('Gmail disconnected.');return;
+  }
+  if(!window.google?.accounts?.oauth2){alert('Google Sign-In is still loading. Wait a moment and try again.');return;}
+  google.accounts.oauth2.initTokenClient({
+    client_id:'198044968744-8sr41pe9995b07pg0c9l55h9pp1ff0j7.apps.googleusercontent.com',
+    scope:'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/contacts.readonly',
+    callback:(resp)=>{
+      if(resp.error){toast('Gmail connection failed: '+resp.error);return;}
+      gmailToken=resp.access_token;
+      DB.gmailToken={token:resp.access_token,expires:Date.now()+(resp.expires_in||3600)*1000};
+      save();updateGmailBtn(true);toast('Gmail connected! You can now send emails directly.');
+    }
+  }).requestAccessToken();
+}
+
+// ── Bulk recipient selection
+function renderBulkChips(){
+  const chips=$('bulk-chips');const countEl=$('bulk-count');const sendBtn=$('send-btn');const sendCount=$('send-count');
+  if(!chips)return;
+  const active=DB.students.filter(s=>s.status==='Active');
+  chips.innerHTML=active.map(s=>{
+    const sel=bulkSelected.has(s.id);
+    return '<span class="bulk-chip'+(sel?' selected':'')+'" onclick="toggleBulkStudent('+s.id+')" title="'+s.group+' · '+s.belt+'">'+s.first+' '+s.last+(s.email?'':' ⚠')+' </span>';
+  }).join('');
+  const n=bulkSelected.size;
+  if(countEl)countEl.textContent=n?n+' recipient'+(n!==1?'s':'')+' selected'+(active.filter(s=>bulkSelected.has(s.id)&&!s.email).length?' · ⚠ some have no email':''):'No recipients selected — use the group buttons or click names above';
+  if(sendBtn){sendBtn.style.display=n?'inline-flex':'none';}
+  if(sendCount)sendCount.textContent=n;
+}
+function toggleBulkStudent(id){if(bulkSelected.has(id))bulkSelected.delete(id);else bulkSelected.add(id);renderBulkChips();}
+function bulkSelectGroup(group){
+  DB.students.filter(s=>s.status==='Active'&&(group===''||s.group===group)).forEach(s=>bulkSelected.add(s.id));
+  renderBulkChips();
+}
+function bulkSelectUnregistered(){
+  DB.students.filter(s=>s.status==='Active'&&s.registered!=='Yes'&&!s.omitFromReg).forEach(s=>bulkSelected.add(s.id));
+  renderBulkChips();
+}
+function bulkClearAll(){bulkSelected.clear();renderBulkChips();}
+
+// ── Send emails
+async function sendEmails(){
+  const recipients=[...bulkSelected].map(id=>DB.students.find(s=>s.id===id)).filter(Boolean);
+  const noEmail=recipients.filter(s=>!s.email);
+  if(!recipients.length){toast('No recipients selected.');return;}
+  const tmplId=$('em-template').value;
+  const t=getAllTemplates().find(x=>x.id===tmplId);
+  if(!t){toast('Select a template.');return;}
+  const withEmail=recipients.filter(s=>s.email);
+  if(!withEmail.length){alert('None of the selected students have email addresses on file.');return;}
+  if(noEmail.length){
+    const skipMsg=withEmail.length+' will receive this email. '+noEmail.length+' have no email and will be skipped: '+noEmail.map(s=>s.first+' '+s.last).join(', ')+'. Continue?';if(!confirm(skipMsg))return;
+  }
+  if(!gmailToken){
+    alert('Connect Gmail first using the "Connect Gmail" button at the top.');return;
+  }
+  const prog=$('send-progress');
+  if(prog)prog.innerHTML='<div class="send-progress">Sending… 0 / '+withEmail.length+'</div>';
+  let sent=0,failed=[];
+  for(const s of withEmail){
+    const subject=typeof t.subject==='function'?t.subject(s):t.subject;
+    const body=typeof t.body==='function'?(t.body.length>1?t.body(s,DB.testEvents):t.body(s)):t.body;
+    const ok=await sendGmailMessage(s.email,subject,body);
+    if(ok){sent++;addHistory(s,'reg','Missed registration email sent');}
+    else failed.push(s.first+' '+s.last);
+    if(prog)prog.innerHTML='<div class="send-progress">Sending… '+sent+' / '+withEmail.length+(failed.length?' · '+failed.length+' failed':'')+'</div>';
+  }
+  save();
+  if(prog)prog.innerHTML='<div class="send-progress" style="background:var(--green-light);border-color:var(--green);color:var(--green);">✓ Sent '+sent+' email'+(sent!==1?'s':'')+(failed.length?' · Failed: '+failed.join(', '):'')+'</div>';
+  toast('Done! '+sent+' email'+(sent!==1?'s':'')+' sent.');
+}
+
+async function sendGmailMessage(to,subject,body){
+  try{
+    const CRLF='\r\n';const msg='To: '+to+CRLF+'Subject: '+subject+CRLF+'Content-Type: text/plain; charset=utf-8'+CRLF+CRLF+body;
+    const encoded=btoa(unescape(encodeURIComponent(msg))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+gmailToken,'Content-Type':'application/json'},
+      body:JSON.stringify({raw:encoded})
+    });
+    return res.ok;
+  }catch(e){console.warn('Send failed:',e);return false;}
+}
+
+// ── Gmail Contacts import
+async function openContactsImportModal(){
+  if(!gmailToken){alert('Connect Gmail first using the "Connect Gmail" button.');return;}
+  $('modal-gmail-contacts').classList.add('open');
+  const body=$('gmail-contacts-body');
+  body.innerHTML='<div style="text-align:center;padding:30px;color:var(--ink-muted);">Loading contacts…</div>';
+  try{
+    const res=await fetch('https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,phoneNumbers&pageSize=500',{
+      headers:{Authorization:'Bearer '+gmailToken}
+    });
+    const data=await res.json();
+    const connections=data.connections||[];
+    gmailContactMatches=[];
+    connections.forEach(person=>{
+      const names=person.names||[];
+      const emails=person.emailAddresses||[];
+      const phones=person.phoneNumbers||[];
+      if(!emails.length)return;
+      const email=emails[0].value;
+      const phone=phones[0]?.value||'';
+      const displayName=names[0]?.displayName||'';
+      const firstName=names[0]?.givenName||'';
+      const lastName=names[0]?.familyName||'';
+      // Match to students
+      DB.students.forEach(s=>{
+        const match=(
+          (s.last.toLowerCase()===lastName.toLowerCase()&&s.first.toLowerCase()===firstName.toLowerCase())||
+          displayName.toLowerCase().includes(s.first.toLowerCase())
+        );
+        if(match)gmailContactMatches.push({student:s,displayName,email,phone});
+      });
+    });
+    if(!gmailContactMatches.length){
+      body.innerHTML='<div style="color:var(--ink-muted);padding:20px;text-align:center;">No matches found between your Gmail contacts and student roster.</div>';
+      return;
+    }
+    body.innerHTML='<div style="font-size:13px;color:var(--ink-muted);margin-bottom:12px;">'+gmailContactMatches.length+' match'+(gmailContactMatches.length!==1?'es':'')+' found:</div>'+
+      gmailContactMatches.map((m,i)=>'<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;">'+
+        '<input type="checkbox" id="gcc-'+i+'" checked style="accent-color:var(--ink);cursor:pointer;">'+
+        '<div style="flex:1;"><strong>'+m.student.first+' '+m.student.last+'</strong> <span style="color:var(--ink-muted);">← '+m.displayName+'</span></div>'+
+        '<div style="font-size:12px;color:var(--ink-muted);">'+m.email+(m.phone?' · '+m.phone:'')+'</div>'+
+      '</div>').join('');
+  }catch(e){
+    body.innerHTML='<div style="color:var(--red);padding:20px;">Failed to load contacts: '+e.message+'</div>';
+  }
+}
+
+function applyGmailContacts(){
+  let applied=0;
+  gmailContactMatches.forEach((m,i)=>{
+    const cb=document.getElementById('gcc-'+i);if(!cb||!cb.checked)return;
+    const s=DB.students.find(x=>x.id===m.student.id);if(!s)return;
+    if(!s.email&&m.email)s.email=m.email;
+    if(!s.phone&&m.phone)s.phone=m.phone;
+    applied++;
+  });
+  save();closeModal('modal-gmail-contacts');renderRoster();
+  toast('Applied contact info to '+applied+' student'+(applied!==1?'s':'')+'!');
+}
+
+function renderEmailPreview(){
   renderEmailTemplates();
 }
+
 
 function renderMissedRegPanel(){
   const panel=$('missed-reg-panel');const list=$('missed-reg-list');const sub=$('missed-reg-subtitle');
@@ -2008,7 +2434,13 @@ function importJSONFile(input){
 }
 function renderBackup(){
   const meta=$('backup-meta');
-  if(meta){const size=Math.round(JSON.stringify(DB).length/1024);meta.textContent=`${DB.students.length} students · ~${size} KB`;}
+  if(meta){
+    const size=Math.round(JSON.stringify(DB).length/1024);
+    const lastBackup=DB.lastAutoBackupMonth;
+    const gmailStatus=gmailToken?'Gmail connected':'Gmail not connected';
+    meta.innerHTML=DB.students.length+' students · ~'+size+' KB<br>'+
+      'Auto-backup: '+(lastBackup?'Last sent '+lastBackup:'Not yet sent this month')+' · '+gmailStatus;
+  }
   const el=$('month-history-list');if(!el)return;
   if(!DB.monthHistory?.length){el.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--ink-muted);">No archived months yet. Archive via Revenue → Advance Month.</div>';return;}
   el.innerHTML=DB.monthHistory.slice().reverse().map((snap,i)=>{
@@ -2200,6 +2632,21 @@ function importRealRoster(manual){
   const overlay=$('loading-overlay');
   const loStatus=$('lo-status');
 
+  // Check authentication first
+  if (!checkAuth()) {
+    showLoginScreen();
+    // Wait for login
+    await new Promise(resolve => {
+      const check = setInterval(() => {
+        if (currentUser) { clearInterval(check); resolve(); }
+      }, 300);
+    });
+    // Show loading again while data loads
+    if(overlay) { overlay.style.display='flex'; overlay.style.opacity='1'; }
+    if(loStatus) loStatus.textContent='Loading your data…';
+  }
+  showAppAfterLogin();
+
   // Load data
   if(loStatus)loStatus.textContent='Loading your data…';
   await load();
@@ -2215,6 +2662,8 @@ function importRealRoster(manual){
   if(!DB.monthHistory)DB.monthHistory=[];
   if(!DB.curriculumOverrides)DB.curriculumOverrides={};
   if(!DB.classDates)DB.classDates=[];
+if(!DB.commLog)DB.commLog=[];
+if(!DB.challengeOfMonth)DB.challengeOfMonth='';
 
   // Migrate belt names (idempotent)
   if(!DB._migrated_v4){
@@ -2241,6 +2690,9 @@ function importRealRoster(manual){
 
   // Render
   renderDashboard();updateBeltOptions();renderTestSelect();
+
+  // Check monthly auto-backup
+  setTimeout(checkMonthlyBackup, 4000);
 
   // Hide loading overlay
   if(overlay){
@@ -2742,6 +3194,1080 @@ renderRevenue=function(){_origRenderRevenue();renderRevHistory();};
 // Patch renderLetters to use new function (called from renderTestSelect)
 function renderLetters(){initLetters();}
 
+
+
+// ══════════════════════════════════════════════════════
+// AUTH — Google Sign-In
+// ══════════════════════════════════════════════════════
+let currentUser = null;
+
+function signInWithGoogle() {
+  if (!window.google?.accounts?.id) {
+    alert('Google Sign-In is loading. Please wait a moment and try again.');
+    return;
+  }
+  google.accounts.id.initialize({
+    client_id: '198044968744-8sr41pe9995b07pg0c9l55h9pp1ff0j7.apps.googleusercontent.com',
+    callback: handleGoogleCredential,
+    auto_select: false
+  });
+  google.accounts.id.prompt(notification => {
+    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+      // Fallback: show one-tap or redirect
+      const popup = window.open(
+        'https://accounts.google.com/gsi/select?client_id=' + encodeURIComponent('198044968744-8sr41pe9995b07pg0c9l55h9pp1ff0j7.apps.googleusercontent.com') + '&ux_mode=popup&auto_select=false',
+        'google-signin', 'width=480,height=600'
+      );
+    }
+  });
+}
+
+function handleGoogleCredential(response) {
+  try {
+    const parts = response.credential.split('.');
+    const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+    currentUser = { email: payload.email, name: payload.name, picture: payload.picture };
+    sessionStorage.setItem('nma_user', JSON.stringify(currentUser));
+    showAppAfterLogin();
+  } catch(e) {
+    alert('Sign-in failed. Please try again.');
+  }
+}
+
+function checkAuth() {
+  const saved = sessionStorage.getItem('nma_user');
+  if (saved) { try { currentUser = JSON.parse(saved); return true; } catch(e) {} }
+  return false;
+}
+
+function showLoginScreen() {
+  const lo = $('loading-overlay'); if(lo) lo.style.display = 'none';
+  const li = $('login-overlay'); if(li) li.style.display = 'flex';
+  // Initialize Google Sign-In
+  if (window.google?.accounts?.id) {
+    google.accounts.id.initialize({ client_id: '198044968744-8sr41pe9995b07pg0c9l55h9pp1ff0j7.apps.googleusercontent.com', callback: handleGoogleCredential });
+  } else {
+    // Wait for GIS to load
+    let tries = 0;
+    const wait = setInterval(() => {
+      tries++;
+      if (window.google?.accounts?.id) {
+        google.accounts.id.initialize({ client_id: '198044968744-8sr41pe9995b07pg0c9l55h9pp1ff0j7.apps.googleusercontent.com', callback: handleGoogleCredential });
+        clearInterval(wait);
+      }
+      if (tries > 20) clearInterval(wait);
+    }, 500);
+  }
+}
+
+function showAppAfterLogin() {
+  const li = $('login-overlay'); if(li) li.style.display = 'none';
+  const av = $('user-avatar');
+  if(av && currentUser) {
+    av.src = currentUser.picture || av.src;
+    av.style.display = 'block';
+  }
+  const ue = $('um-email'); if(ue && currentUser) ue.textContent = currentUser.email;
+}
+
+function toggleUserMenu() {
+  const menu = $('user-menu');
+  if(menu) menu.classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  const menu = $('user-menu');
+  if(menu && !menu.contains(e.target) && e.target.id !== 'user-avatar') menu.classList.remove('open');
+});
+
+function signOut() {
+  sessionStorage.removeItem('nma_user');
+  currentUser = null;
+  gmailToken = null;
+  if(window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
+  location.reload();
+}
+
+// ══════════════════════════════════════════════════════
+// INBOX — Parent Gmail inbox
+// ══════════════════════════════════════════════════════
+let inboxThreads = [];
+let inboxFilter = 'all';
+let selectedThreadId = null;
+
+function initInbox() {
+  if (!gmailToken) {
+    $('inbox-connect-prompt').style.display = 'block';
+    return;
+  }
+  if (!inboxThreads.length) refreshInbox();
+}
+
+function setInboxFilter(f) {
+  inboxFilter = f;
+  $('inbox-filter-all').style.fontWeight = f === 'all' ? '700' : '400';
+  $('inbox-filter-unread').style.fontWeight = f === 'unread' ? '700' : '400';
+  renderInboxList();
+}
+
+async function refreshInbox() {
+  if (!gmailToken) {
+    $('inbox-connect-prompt').style.display = 'block';
+    return;
+  }
+  $('inbox-connect-prompt').style.display = 'none';
+  $('inbox-loading').style.display = 'block';
+  $('inbox-list').innerHTML = '';
+  try {
+    const parentEmails = DB.students
+      .filter(s => s.status === 'Active' && s.email)
+      .map(s => s.email);
+    if (!parentEmails.length) {
+      $('inbox-loading').style.display = 'none';
+      $('inbox-list').innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink-muted);font-size:13px;">No parent emails in your roster yet.</div>';
+      return;
+    }
+    const query = parentEmails.map(e => 'from:' + e).join(' OR ');
+    const res = await fetch(
+      'https://gmail.googleapis.com/gmail/v1/users/me/threads?maxResults=30&q=' + encodeURIComponent(query),
+      { headers: { Authorization: 'Bearer ' + gmailToken } }
+    );
+    const data = await res.json();
+    if (!data.threads || !data.threads.length) {
+      $('inbox-loading').style.display = 'none';
+      $('inbox-list').innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink-muted);font-size:13px;">No emails from parents found in your Gmail.</div>';
+      return;
+    }
+    // Fetch snippet for each thread
+    const threads = await Promise.all(data.threads.slice(0, 25).map(async t => {
+      const tr = await fetch(
+        'https://gmail.googleapis.com/gmail/v1/users/me/threads/' + t.id + '?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date',
+        { headers: { Authorization: 'Bearer ' + gmailToken } }
+      );
+      return tr.json();
+    }));
+    inboxThreads = threads.map(t => {
+      const msgs = t.messages || [];
+      const last = msgs[msgs.length - 1] || {};
+      const headers = last.payload?.headers || [];
+      const get = name => (headers.find(h => h.name === name) || {}).value || '';
+      const fromRaw = get('From');
+      const fromEmail = (fromRaw.match(/[\w.+\-]+@[\w.\-]+\.\w+/) || [''])[0].toLowerCase();
+      const parent = DB.students.find(s => s.email && s.email.toLowerCase() === fromEmail);
+      const unread = msgs.some(m => (m.labelIds || []).includes('UNREAD'));
+      return {
+        id: t.id,
+        subject: get('Subject') || '(no subject)',
+        from: fromRaw,
+        fromEmail,
+        date: get('Date'),
+        snippet: last.snippet || '',
+        unread,
+        parent: parent || null
+      };
+    });
+    const unreadCount = inboxThreads.filter(t => t.unread).length;
+    const badge = $('inbox-badge');
+    if (badge) {
+      badge.textContent = unreadCount || '';
+      badge.style.display = unreadCount ? 'inline' : 'none';
+    }
+    $('inbox-loading').style.display = 'none';
+    renderInboxList();
+  } catch(e) {
+    $('inbox-loading').style.display = 'none';
+    $('inbox-list').innerHTML = '<div style="padding:20px;color:var(--red);font-size:13px;">Failed to load inbox: ' + e.message + '</div>';
+  }
+}
+
+function renderInboxList() {
+  const el = $('inbox-list'); if (!el) return;
+  const filtered = inboxFilter === 'unread' ? inboxThreads.filter(t => t.unread) : inboxThreads;
+  if (!filtered.length) {
+    el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink-muted);font-size:13px);">' +
+      (inboxFilter === 'unread' ? 'No unread parent emails.' : 'No emails found.') + '</div>';
+    return;
+  }
+  el.innerHTML = filtered.map(t => {
+    const isSelected = t.id === selectedThreadId;
+    const senderName = t.parent ? t.parent.parent || t.from.replace(/<.*>/, '').trim()
+                                : t.from.replace(/<.*>/, '').trim();
+    const initials = senderName.split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
+    const colors = ['#2d7dd2','#9b5de5','#2ec060','#c8392b','#c97a10','#1e5fa8'];
+    const color = colors[Math.abs(senderName.split('').reduce((a,c)=>a*31+c.charCodeAt(0),0)) % colors.length];
+    const relDate = (() => {
+      try {
+        const d = new Date(t.date); const now = new Date();
+        const h = (now - d) / 3600000;
+        if (h < 1) return Math.round((now-d)/60000) + 'm ago';
+        if (h < 24) return Math.round(h) + 'h ago';
+        if (h < 48) return 'Yesterday';
+        return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      } catch(e) { return ''; }
+    })();
+    return '<div onclick="openThread(\'' + t.id + '\')" style="padding:13px 14px;border-bottom:1px solid #f0ede8;cursor:pointer;' +
+      'background:' + (isSelected?'#f0f4ff':t.unread?'#fff':'#fafaf8') + ';' +
+      'border-left:3px solid ' + (isSelected?'#2d7dd2':t.unread?'#c8392b':'transparent') + ';' +
+      'display:flex;gap:10px;align-items:flex-start;">' +
+      '<div style="width:36px;height:36px;border-radius:50%;background:' + color + ';color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;">' + initials + '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">' +
+          '<span style="font-weight:' + (t.unread?'700':'500') + ';font-size:13px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + senderName + '</span>' +
+          '<span style="font-size:11px;color:#b0b0b0;white-space:nowrap;">' + relDate + '</span>' +
+        '</div>' +
+        (t.parent ? '<div style="margin-bottom:3px;"><span style="background:#edf3fc;color:#1e5fa8;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:500;">' + t.parent.first + ' ' + t.parent.last + '</span> <span style="background:#f1f1ee;color:#6b6b6b;border-radius:20px;padding:1px 7px;font-size:10px;">' + (t.parent.group||'') + '</span></div>' : '') +
+        '<div style="font-weight:' + (t.unread?'600':'400') + ';font-size:12px;color:' + (t.unread?'#1a1a1a':'#6b6b6b') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (t.subject||'(no subject)') + '</div>' +
+        '<div style="font-size:12px;color:#b0b0b0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;">' + (t.snippet||'') + '</div>' +
+      '</div></div>';
+  }).join('');
+}
+
+async function openThread(threadId) {
+  selectedThreadId = threadId;
+  renderInboxList();
+  const detail = $('inbox-detail');
+  if (!detail) return;
+  detail.innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink-muted);"><div style="display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--ink);border-radius:50%;animation:spin .8s linear infinite;"></div></div>';
+  try {
+    const res = await fetch(
+      'https://gmail.googleapis.com/gmail/v1/users/me/threads/' + threadId + '?format=full',
+      { headers: { Authorization: 'Bearer ' + gmailToken } }
+    );
+    const thread = await res.json();
+    const t = inboxThreads.find(x => x.id === threadId);
+    const replyTo = t ? t.fromEmail : '';
+    const replySubject = t ? 'Re: ' + t.subject : '';
+    let html2 = '<div style="padding:18px 22px;border-bottom:1px solid var(--border);background:var(--paper);">' +
+      '<div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:8px;">' + (t?.subject || '(no subject)') + '</div>' +
+      (t?.parent ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">' +
+        '<span style="background:#edf3fc;color:#1e5fa8;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:500;">👤 ' + t.parent.first + ' ' + t.parent.last + '</span>' +
+        '<span style="background:#f1f1ee;color:#6b6b6b;border-radius:20px;padding:3px 10px;font-size:11px;">' + (t.parent.group||'') + ' · ' + (t.parent.belt||'') + '</span>' +
+        '<a href="https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(replyTo) + '&su=' + encodeURIComponent(replySubject) + '" target="_blank" style="background:#1a1a1a;color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;text-decoration:none;font-weight:500;">✉ Reply in Gmail ↗</a>' +
+      '</div>' : '') +
+    '</div>';
+    (thread.messages || []).forEach(msg => {
+      const headers = msg.payload?.headers || [];
+      const get = name => (headers.find(h=>h.name===name)||{}).value||'';
+      const from = get('From');
+      const date = get('Date');
+      const isMe = from.toLowerCase().includes('noblesmartialarts');
+      let body = '';
+      function extractBody(part) {
+        if (!part) return;
+        if (part.mimeType === 'text/plain' && part.body?.data) {
+          try { body = atob(part.body.data.replace(/-/g,'+').replace(/_/g,'/')); } catch(e) {}
+        }
+        if (part.parts) part.parts.forEach(extractBody);
+      }
+      extractBody(msg.payload);
+      const initials2 = from.replace(/<.*>/, '').trim().split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
+      html2 += '<div style="padding:16px 22px;">' +
+        '<div style="background:' + (isMe?'#f0f4ff':'#fafaf8') + ';border:1px solid ' + (isMe?'#c5d5f0':'#e8e6e0') + ';border-radius:12px;padding:14px 16px;">' +
+          '<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;">' +
+            '<div style="width:30px;height:30px;border-radius:50%;background:#2d7dd2;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;">' + (isMe?'MN':initials2) + '</div>' +
+            '<div><div style="font-weight:600;font-size:13px;">' + (isMe?'Master Noble (You)':from.replace(/<.*>/,'').trim()) + '</div>' +
+            '<div style="font-size:11px;color:#b0b0b0;">' + (date ? new Date(date).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '') + '</div></div>' +
+          '</div>' +
+          '<div style="font-size:13px;line-height:1.7;color:#333;white-space:pre-wrap;word-break:break-word;">' + (body || msg.snippet || '(no body)') + '</div>' +
+        '</div></div>';
+    });
+    detail.innerHTML = html2;
+    // Mark as read
+    inboxThreads = inboxThreads.map(x => x.id === threadId ? {...x, unread: false} : x);
+    const unreadCount = inboxThreads.filter(x => x.unread).length;
+    const badge = $('inbox-badge');
+    if (badge) { badge.textContent = unreadCount||''; badge.style.display = unreadCount?'inline':'none'; }
+  } catch(e) {
+    detail.innerHTML = '<div style="padding:20px;color:var(--red);font-size:13px;">Failed to load thread: ' + e.message + '</div>';
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// EMAIL PROMOTE LETTERS — send as HTML email
+// ══════════════════════════════════════════════════════
+async function emailLetters() {
+  const lsel = $('letter-event-sel');
+  const evId = parseInt(lsel?.value) || null;
+  const ev = evId ? DB.testEvents.find(e => e.id === evId) : null;
+  if (!ev) { alert('Select a test event first.'); return; }
+  if (!gmailToken) { alert('Connect Gmail first on the Emails tab.'); return; }
+  const eligible = DB.students.filter(s => s.status === 'Active' && stripeEligible(s) && s.email);
+  const noEmail = DB.students.filter(s => s.status === 'Active' && stripeEligible(s) && !s.email);
+  if (!eligible.length) { alert('No eligible students with email addresses on file.'); return; }
+  const msg = 'Send Intent to Promote letters to ' + eligible.length + ' parent' + (eligible.length!==1?'s':'') + '?' +
+    (noEmail.length ? '\n\n' + noEmail.length + ' eligible student(s) have no email and will be skipped: ' + noEmail.map(s=>s.first+' '+s.last).join(', ') : '');
+  if (!confirm(msg)) return;
+  let sent = 0, failed = [];
+  for (const s of eligible) {
+    const promo = getPromotion(s);
+    const nextBelt = promo ? promo.belt : 'Next Rank';
+    const subject = 'Noble\'s Martial Arts — Intent to Promote: ' + s.first + ' ' + s.last;
+    const htmlBody = '<!DOCTYPE html><html><body style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:20px;">' +
+      '<div style="text-align:center;margin-bottom:20px;border-bottom:2px solid #1a1a1a;padding-bottom:16px;">' +
+        '<div style="font-family:Arial,sans-serif;font-size:22px;font-weight:800;">NOBLE\'S MARTIAL ARTS</div>' +
+        '<div style="font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:#555;margin-top:4px;">Intent to Promote</div>' +
+      '</div>' +
+      '<h2 style="font-size:28px;text-align:center;">Congratulations!</h2>' +
+      '<p style="font-size:15px;line-height:1.9;">' + fmtFull(ev.date) + ' is your belt test/promotion with Noble\'s Martial Arts!!!</p>' +
+      '<p style="font-size:16px;"><strong>Student\'s Name:</strong> ' + s.first + ' ' + s.last + '</p>' +
+      '<p style="font-size:16px;"><strong>Rank Promoting To:</strong> ' + nextBelt + '</p>' +
+      '<p style="font-size:14px;line-height:1.8;">One objective of Noble\'s Martial Arts is to develop well-rounded students. Through martial arts, students learn to thrive at home and at school! I believe the winning success formula is parents, teachers and martial arts instructors all on the same page to provide an amazing support system for our children.</p>' +
+      '<p style="font-size:14px;line-height:1.8;">If your student does not meet the following qualifications, either at home or during school activities, we may withhold belt promotion until there has been satisfactory improvement.</p>' +
+      '<table border="1" cellpadding="8" cellspacing="0" width="100%" style="border-collapse:collapse;font-size:13px;margin:16px 0;">' +
+        '<tr style="background:#1e5fa8;color:#fff;"><td colspan="6" style="text-align:center;font-weight:700;padding:10px;font-size:15px;">Parent/Teacher Evaluation — Answer Yes or No</td></tr>' +
+        '<tr><td>Practices martial arts at home</td><td>Yes</td><td>No</td><td>Listens to parents "the first time"</td><td>Yes</td><td>No</td></tr>' +
+        '<tr><td>Does not "talk back" or interrupt parents</td><td>Yes</td><td>No</td><td>Goes to bed when they are supposed to</td><td>Yes</td><td>No</td></tr>' +
+        '<tr><td>Shares with friends, siblings and family members</td><td>Yes</td><td>No</td><td>Is honest with parents, family members and friends</td><td>Yes</td><td>No</td></tr>' +
+        '<tr><td>Completes chores and duties</td><td>Yes</td><td>No</td><td>Demonstrates respectful behavior</td><td>Yes</td><td>No</td></tr>' +
+        '<tr><td>Pays attention during school activities</td><td>Yes</td><td>No</td><td>Meets or exceeds academic expectations</td><td>Yes</td><td>No</td></tr>' +
+      '</table>' +
+      '<div style="border:2px dashed #aaa;padding:14px;min-height:80px;margin:16px 0;font-size:13px;">Anything noteworthy to include? (Exceptionally good behavior, challenges, improvements, etc):<br><br><br></div>' +
+      '<p style="font-size:13px;text-align:right;color:#555;">Belt Testing Fee: $10 — Cash or Venmo @BNobleFamily</p>' +
+    '</body></html>';
+    const CRLF = '\r\n';
+    const boundary = 'boundary_nma_' + Date.now();
+    const raw = 'To: ' + s.email + CRLF +
+      'Subject: ' + subject + CRLF +
+      'MIME-Version: 1.0' + CRLF +
+      'Content-Type: text/html; charset=utf-8' + CRLF + CRLF +
+      htmlBody;
+    const encoded = btoa(unescape(encodeURIComponent(raw))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    try {
+      const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + gmailToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raw: encoded })
+      });
+      if (res.ok) sent++;
+      else failed.push(s.first + ' ' + s.last);
+    } catch(e) { failed.push(s.first + ' ' + s.last); }
+  }
+  toast('Sent ' + sent + ' promote letter' + (sent!==1?'s':'') + (failed.length?' · Failed: '+failed.join(', '):'') + '!');
+}
+
+// ══════════════════════════════════════════════════════
+// ATTENDANCE SUMMARY — monthly attendance rate
+// ══════════════════════════════════════════════════════
+function getMonthlyAttendance(studentId) {
+  if (!DB.classDates || !DB.classDates.length) return null;
+  const total = DB.classDates.length;
+  const present = DB.classDates.filter(c =>
+    DB.attendance[c.date] && DB.attendance[c.date][studentId] === 'present'
+  ).length;
+  return { present, total };
+}
+
+function attSummaryBadge(studentId) {
+  const att = getMonthlyAttendance(studentId);
+  if (!att || att.total === 0) return '<span style="color:var(--ink-faint);font-size:12px;">—</span>';
+  const pct = att.total ? Math.round(att.present / att.total * 100) : 0;
+  const color = pct >= 75 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+  const bg = pct >= 75 ? 'var(--green-light)' : pct >= 50 ? 'var(--amber-light)' : 'var(--red-light)';
+  return '<span style="background:' + bg + ';color:' + color + ';border-radius:20px;padding:2px 8px;font-size:11px;font-weight:600;">' + att.present + '/' + att.total + '</span>';
+}
+
+</script>
+<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').catch(()=>{});
+}
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  var map={d:'dashboard',r:'roster',a:'attendance',c:'checkin',t:'testing',v:'revenue',e:'emails',u:'curriculum',b:'backup',i:'inbox'};
+  if(map[e.key.toLowerCase()]){e.preventDefault();nav(map[e.key.toLowerCase()]);}
+});
+let _dirty=false;
+const _origSave=save;
+save=function(){_dirty=false;_origSave.apply(this,arguments);};
+document.addEventListener('click',function(){_dirty=true;});
+window.addEventListener('beforeunload',function(e){if(_dirty){e.preventDefault();e.returnValue='';}});
+
+// ══════════════════════════════════════════════════════
+// MONTHLY AUTO-BACKUP — emails JSON to self once per month
+// ══════════════════════════════════════════════════════
+async function checkMonthlyBackup() {
+  // Only run if Gmail is connected and user is logged in
+  if (!gmailToken || !currentUser?.email) return;
+
+  const now = new Date();
+  const monthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2,'0');
+  
+  // Skip if already backed up this month
+  if (DB.lastAutoBackupMonth === monthKey) return;
+
+  console.log('Running monthly auto-backup for', monthKey);
+  await sendMonthlyBackupEmail();
+  DB.lastAutoBackupMonth = monthKey;
+  save();
+}
+
+async function sendMonthlyBackupEmail() {
+  try {
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0,10);
+    const monthLabel = now.toLocaleString('en-US', {month:'long', year:'numeric'});
+    const filename = 'nobles-crm-backup-' + dateStr + '.json';
+
+    // Build the JSON payload
+    const payload = JSON.stringify({
+      ...DB,
+      _exportedAt: now.toISOString(),
+      _version: 'v4',
+      _autoBackup: true
+    }, null, 2);
+
+    // Stats for the email body
+    const activeStudents = DB.students.filter(s => s.status === 'Active').length;
+    const registered = DB.students.filter(s => s.registered === 'Yes').length;
+    const fee = DB.scoreboard?.fee || 31.50;
+    const cashRev = DB.students.filter(s => s.registered === 'Yes' && !s.paidVenmo && !s.omitFromReg).length * fee;
+    const venmoRev = DB.students.filter(s => s.paidVenmo).length * fee;
+    const sizeKB = Math.round(payload.length / 1024);
+
+    const bodyText = [
+      'Hello Master Noble,',
+      '',
+      'Your Noble\'s Martial Arts CRM monthly backup for ' + monthLabel + ' is attached.',
+      '',
+      '--- Quick Stats ---',
+      'Active students:   ' + activeStudents,
+      'Registered:        ' + registered + ' / ' + activeStudents,
+      'Cash/Card revenue: $' + cashRev.toFixed(2),
+      'Venmo revenue:     $' + venmoRev.toFixed(2),
+      'Backup file size:  ' + sizeKB + ' KB',
+      '',
+      'This backup contains all students, attendance records, belt history, curriculum state, and month history.',
+      'To restore: open the CRM → Backup / Restore → Import .json file.',
+      '',
+      '— Noble\'s Martial Arts CRM (automated backup)'
+    ].join('\n');
+
+    // Build MIME multipart email with JSON attachment
+    const boundary = 'nma_backup_' + Date.now();
+    const CRLF = '\r\n';
+    const b64payload = btoa(unescape(encodeURIComponent(payload)));
+
+    const mime = [
+      'To: ' + currentUser.email,
+      'Subject: NMA CRM Monthly Backup — ' + monthLabel,
+      'MIME-Version: 1.0',
+      'Content-Type: multipart/mixed; boundary="' + boundary + '"',
+      '',
+      '--' + boundary,
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      bodyText,
+      '',
+      '--' + boundary,
+      'Content-Type: application/json; name="' + filename + '"',
+      'Content-Disposition: attachment; filename="' + filename + '"',
+      'Content-Transfer-Encoding: base64',
+      '',
+      // Split base64 into 76-char lines (RFC 2045)
+      b64payload.match(/.{1,76}/g).join('\r\n'),
+      '',
+      '--' + boundary + '--'
+    ].join(CRLF);
+
+    const encoded = btoa(unescape(encodeURIComponent(mime)))
+      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+
+    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + gmailToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ raw: encoded })
+    });
+
+    if (res.ok) {
+      console.log('Monthly backup email sent to', currentUser.email);
+      showSync('saved', 'Monthly backup emailed \u2713');
+      setTimeout(() => $('sync-badge')?.classList.remove('show'), 4000);
+    } else {
+      const err = await res.json();
+      console.warn('Monthly backup email failed:', err);
+    }
+  } catch(e) {
+    console.warn('Monthly backup failed:', e.message);
+  }
+}
+
+// Manual trigger — "Send backup now" button on Backup page
+async function sendBackupNow() {
+  if (!gmailToken) {
+    alert('Connect Gmail first on the Emails tab.');
+    return;
+  }
+  if (!currentUser?.email) {
+    alert('Sign in first.');
+    return;
+  }
+  const btn = document.getElementById('backup-now-btn');
+  if (btn) { btn.textContent = 'Sending\u2026'; btn.disabled = true; }
+  await sendMonthlyBackupEmail();
+  // Reset the monthly flag so it can run again
+  DB.lastAutoBackupMonth = null;
+  save();
+  if (btn) { btn.textContent = '\u2713 Backup Sent!'; setTimeout(() => { btn.textContent = 'Email Backup Now'; btn.disabled = false; }, 3000); }
+  toast('Backup emailed to ' + currentUser.email + '!');
+}
+
+
+// ══════════════════════════════════════════════════════
+// YOUTUBE PLAYLIST MAP
+// ══════════════════════════════════════════════════════
+const YT_PLAYLISTS = {"Little Dragons:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dS7eWFHxD-Apf0gcIntoai", "Little Dragons:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dq5WvHrTSC3EVbfwn409U1", "Little Dragons:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4eCTfxKUYatW0WRgvcVjP2O", "Karate Kids:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dS7eWFHxD-Apf0gcIntoai", "Karate Kids:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dq5WvHrTSC3EVbfwn409U1", "Karate Kids:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4eCTfxKUYatW0WRgvcVjP2O", "Black Belt Club Level I:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4d0_UXPKU0uoIPAyBisK-dn", "Black Belt Club Level I:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4cUEOH0rniRj9IKIyYAD2mi", "Black Belt Club Level I:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4ekZOCeB-NNcUGRpW9TJINC", "Black Belt Club Level II:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dItG1ZSPtEJxJGo9hfG9nk", "Black Belt Club Level II:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4ctS6bPouwD95HFHHUaYU4Y", "Black Belt Club Level II:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dqViWS9NSUKfEt2SUTyjzU", "Master"s Club:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dr_XJiC9iSm_cD68K3MCg0", "Master"s Club:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4cq7inexNmVUd6OFGKS3m8g", "Master"s Club:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4e0GrpffhGt_9RmR4J9lJrP"};
+const YT_TEST_REVIEW = {"Black Belt Club": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4eUahX2qfuzlGwXmUVbW5lM", "Master"s Club": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dV-xGvrSQVJPV-uDDPWKbw", "Black Belt": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4fOWc4TxxfkHRESNBc6Fo3I"};
+const REG_LINKS = {"Little Dragons": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=1", "Karate Kids": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=2", "Black Belt Club": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=3", "Master"s Club": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=4"};
+const LINKTREE = 'https://linktr.ee/noblesmartialarts';
+const NMA_WEBSITE = 'https://noblesmartialarts.com';
+
+function getPlaylist(groupKey, cycleNum) {
+  return YT_PLAYLISTS[groupKey + ':' + cycleNum] || null;
+}
+
+// ══════════════════════════════════════════════════════
+// BIRTHDAY HELPERS
+// ══════════════════════════════════════════════════════
+function getUpcomingBirthdays(days) {
+  const today = new Date();
+  const results = [];
+  DB.students.filter(s => s.status === 'Active' && s.dob).forEach(s => {
+    const dob = new Date(s.dob + 'T00:00:00');
+    const thisYear = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
+    const nextYear = new Date(today.getFullYear() + 1, dob.getMonth(), dob.getDate());
+    const target = thisYear >= today ? thisYear : nextYear;
+    const diffDays = Math.round((target - today) / 86400000);
+    if (diffDays >= 0 && diffDays <= days) {
+      const age = today.getFullYear() - dob.getFullYear() + (target === nextYear ? 0 : 0);
+      results.push({ student: s, date: target, daysUntil: diffDays, age });
+    }
+  });
+  return results.sort((a, b) => a.daysUntil - b.daysUntil);
+}
+
+function birthdayEmailBody(s) {
+  const dob = s.dob ? new Date(s.dob + 'T00:00:00') : null;
+  const age = dob ? (new Date().getFullYear() - dob.getFullYear()) : '';
+  return 'Hi ' + (s.parent || 'there') + ',\n\n' +
+    'Wishing ' + s.first + ' a very happy birthday!' +
+    (age ? ' Hope ' + s.first + ' has an amazing ' + age + 'th birthday!' : '') + '\n\n' +
+    'It\'s a privilege to have ' + s.first + ' in class. We look forward to celebrating with them!\n\n' +
+    'Warm regards,\nMaster Noble\nNoble\'s Martial Arts\n' + LINKTREE;
+}
+
+// Add birthday alert to dashboard
+function renderBirthdayAlert() {
+  const upcoming = getUpcomingBirthdays(14);
+  const el = document.getElementById('birthday-alert');
+  if (!el) return;
+  if (!upcoming.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="background:linear-gradient(135deg,#9b5de5,#6d3fa8);color:#fff;border-radius:14px;padding:18px 22px;margin-bottom:20px;">' +
+    '<div style="font-family:var(--font-display);font-size:15px;font-weight:700;margin-bottom:12px;">🎂 Upcoming Birthdays</div>' +
+    upcoming.map(b => '<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.15);">' +
+      '<div style="flex:1;"><div style="font-weight:500;">' + b.student.first + ' ' + b.student.last + '</div>' +
+      '<div style="font-size:11px;color:rgba(255,255,255,.6);">' + b.student.group + ' · ' + b.date.toLocaleDateString('en-US',{month:'long',day:'numeric'}) + '</div></div>' +
+      '<span style="background:rgba(255,255,255,.15);border-radius:20px;padding:3px 10px;font-size:12px;">' + (b.daysUntil === 0 ? 'Today! 🎉' : b.daysUntil === 1 ? 'Tomorrow' : 'In ' + b.daysUntil + ' days') + '</span>' +
+      (b.student.email ? '<a href="https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(b.student.email) + '&su=' + encodeURIComponent('Happy Birthday ' + b.student.first + '! 🎂') + '&body=' + encodeURIComponent(birthdayEmailBody(b.student)) + '" target="_blank" style="background:rgba(255,255,255,.2);color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;text-decoration:none;font-weight:500;">Send \u2709</a>' : '') +
+    '</div>').join('') +
+  '</div>';
+}
+
+// ══════════════════════════════════════════════════════
+// DASHBOARD — add birthday alert div
+// ══════════════════════════════════════════════════════
+const _origRenderDashboard = renderDashboard;
+renderDashboard = function() {
+  _origRenderDashboard();
+  // Inject birthday alert div if not present
+  const bbAlert = $('bb-test-alert');
+  if (bbAlert && !$('birthday-alert')) {
+    const div = document.createElement('div');
+    div.id = 'birthday-alert';
+    bbAlert.parentNode.insertBefore(div, bbAlert);
+  }
+  renderBirthdayAlert();
+  renderDashboardQuickLinks();
+};
+
+function renderDashboardQuickLinks() {
+  let el = $('dashboard-quick-links');
+  if (!el) {
+    const upcoming = $('upcoming-events');
+    if (!upcoming) return;
+    el = document.createElement('div');
+    el.id = 'dashboard-quick-links';
+    upcoming.parentNode.insertBefore(el, upcoming.previousSibling);
+  }
+  el.innerHTML = '<div class="section-divider"><span>Quick links</span></div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;">' +
+    '<a href="' + LINKTREE + '" target="_blank" class="btn"><span>🌐</span> Parent Hub</a>' +
+    '<a href="' + NMA_WEBSITE + '" target="_blank" class="btn"><span>🥋</span> NMA Website</a>' +
+    Object.entries(REG_LINKS).map(([g,url]) =>
+      '<a href="' + url + '" target="_blank" class="btn small" title="RecConnect — ' + g + '">' + g.split(' ')[0] + ' Registration</a>'
+    ).join('') +
+    '<a href="https://wakeforestnc.recdesk.com" target="_blank" class="btn small">RecConnect</a>' +
+    '</div>';
+}
+
+// ══════════════════════════════════════════════════════
+// CURRICULUM — add YouTube buttons
+// ══════════════════════════════════════════════════════
+const _origRenderCurriculum = renderCurriculum;
+renderCurriculum = function() {
+  _origRenderCurriculum();
+  // Add playlist buttons to each cycle card
+  Object.entries(CURRICULUM).forEach(([key, prog]) => {
+    prog.cycles.forEach(c => {
+      const pl = getPlaylist(key, c.num);
+      if (!pl) return;
+      // Find active cycle marker and add button
+      const cycleCards = document.querySelectorAll('.curr-cycle');
+      cycleCards.forEach(card => {
+        const lbl = card.querySelector('.cycle-lbl');
+        if (lbl && lbl.textContent.includes(c.label) && !card.querySelector('.yt-btn')) {
+          const btn = document.createElement('a');
+          btn.href = pl; btn.target = '_blank';
+          btn.className = 'btn small';
+          btn.style.cssText = 'background:#ff0000;color:#fff;border-color:#ff0000;font-size:11px;';
+          btn.innerHTML = '▶ Watch Playlist';
+          btn.classList.add('yt-btn');
+          lbl.parentNode.appendChild(btn);
+        }
+      });
+    });
+    // Add test review link to header if available
+    const reviewUrl = YT_TEST_REVIEW[key] || (key.includes('Black Belt Club') ? YT_TEST_REVIEW['Black Belt Club'] : null);
+    if (reviewUrl) {
+      const headers = document.querySelectorAll('.curr-hdr');
+      headers.forEach(hdr => {
+        const grpEl = hdr.querySelector('.curr-group');
+        if (grpEl && grpEl.textContent.includes(prog.program.substring(0,12)) && !hdr.querySelector('.review-btn')) {
+          const btn = document.createElement('a');
+          btn.href = reviewUrl; btn.target = '_blank';
+          btn.className = 'btn small review-btn';
+          btn.innerHTML = '📋 Test Review';
+          hdr.querySelector('div:last-child').prepend(btn);
+        }
+      });
+    }
+  });
+};
+
+// ══════════════════════════════════════════════════════
+// BROADCAST EMAIL
+// ══════════════════════════════════════════════════════
+let broadcastSelectedGroups = new Set(['all']);
+
+function initBroadcast() {
+  const groups = ['all', 'Little Dragons', 'Karate Kids', 'Black Belt Club', "Master's Club", 'Legends Club'];
+  const list = $('broadcast-group-list');
+  if (!list) return;
+  list.innerHTML = groups.map(g => {
+    const count = g === 'all'
+      ? DB.students.filter(s => s.status === 'Active' && s.email).length
+      : DB.students.filter(s => s.status === 'Active' && s.group === g && s.email).length;
+    const label = g === 'all' ? 'All groups' : g;
+    return '<label class="checkbox-row" style="padding:7px 0;border-bottom:1px solid var(--border);">' +
+      '<input type="checkbox" class="bc-group-check" data-group="' + g + '" ' + (g === 'all' ? 'checked' : '') + ' onchange="updateBroadcastGroups()">' +
+      ' ' + label + ' <span style="color:var(--ink-muted);font-size:11px;margin-left:4px;">(' + count + ' with email)</span></label>';
+  }).join('');
+  updateBroadcastRecipientCount();
+}
+
+function updateBroadcastGroups() {
+  broadcastSelectedGroups.clear();
+  document.querySelectorAll('.bc-group-check:checked').forEach(cb => {
+    broadcastSelectedGroups.add(cb.getAttribute('data-group'));
+  });
+  updateBroadcastRecipientCount();
+}
+
+function getBroadcastRecipients() {
+  if (broadcastSelectedGroups.has('all')) {
+    return DB.students.filter(s => s.status === 'Active' && s.email);
+  }
+  return DB.students.filter(s => s.status === 'Active' && s.email && broadcastSelectedGroups.has(s.group));
+}
+
+function updateBroadcastRecipientCount() {
+  const count = getBroadcastRecipients().length;
+  const el = $('broadcast-recipient-count');
+  if (el) el.textContent = count + ' recipient' + (count !== 1 ? 's' : '') + ' will receive this email';
+}
+
+function previewBroadcast() {
+  const additions = [];
+  if ($('bc-include-linktree')?.checked) additions.push('NMA Parent Hub: ' + LINKTREE);
+  if ($('bc-include-challenge')?.checked && DB.challengeOfMonth) additions.push('Challenge of the Month: ' + DB.challengeOfMonth);
+  if ($('bc-include-playlist')?.checked) additions.push('Current curriculum playlists will be included per group');
+  if ($('bc-include-reg')?.checked) additions.push('Registration links will be included per group');
+  const el = $('bc-preview-additions');
+  if (el) {
+    if (additions.length) {
+      el.style.display = 'block';
+      el.innerHTML = '<strong>Will be appended to email:</strong><br>' + additions.map(a => '• ' + a).join('<br>');
+    } else {
+      el.style.display = 'none';
+    }
+  }
+}
+
+async function sendBroadcast() {
+  if (!gmailToken) { alert('Connect Gmail first on the Emails tab.'); return; }
+  const subject = $('bc-subject')?.value.trim();
+  const body = $('bc-body')?.value.trim();
+  if (!subject) { alert('Please enter a subject.'); return; }
+  if (!body) { alert('Please enter a message.'); return; }
+  const recipients = getBroadcastRecipients();
+  if (!recipients.length) { alert('No recipients with email addresses selected.'); return; }
+  if (!confirm('Send broadcast to ' + recipients.length + ' parents?')) return;
+  const btn = $('bc-send-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending\u2026'; }
+  const prog = $('bc-send-progress');
+  let sent = 0, failed = [];
+  for (const s of recipients) {
+    let footer = '\n\n' + '\u2014'.repeat(30);
+    if ($('bc-include-challenge')?.checked && DB.challengeOfMonth) footer += '\n\nChallenge of the Month:\n' + DB.challengeOfMonth;
+    if ($('bc-include-reg')?.checked && REG_LINKS[s.group]) footer += '\n\nRegister for ' + s.group + ':\n' + REG_LINKS[s.group];
+    const yt = $('bc-include-playlist')?.checked ? getPlaylist(
+      Object.keys(YT_PLAYLISTS).find(k => k.startsWith(s.group + ':') && k.endsWith(':' + (CURRICULUM[s.group]?.currentCycle || 1))) ? s.group : null,
+      CURRICULUM[s.group]?.currentCycle
+    ) : null;
+    if (yt) footer += '\n\nCurrent Curriculum Playlist:\n' + yt;
+    if ($('bc-include-linktree')?.checked) footer += '\n\nNMA Parent Hub (announcements, registration, resources):\n' + LINKTREE;
+    const fullBody = body + footer;
+    const ok = await sendGmailMessage(s.email, subject, fullBody);
+    if (ok) sent++; else failed.push(s.first + ' ' + s.last);
+    if (prog) prog.innerHTML = '<div class="send-progress">Sending\u2026 ' + sent + ' / ' + recipients.length + '</div>';
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '\u2709 Send Broadcast'; }
+  if (prog) prog.innerHTML = '<div class="send-progress" style="background:var(--green-light);border-color:var(--green);color:var(--green);">\u2713 Sent ' + sent + (failed.length ? ' \u00b7 Failed: ' + failed.join(', ') : '') + '</div>';
+  toast('Broadcast sent to ' + sent + ' parents!');
+}
+
+// ══════════════════════════════════════════════════════
+// COMMUNICATION LOG
+// ══════════════════════════════════════════════════════
+let editingCommLogId = null;
+
+function initCommLog() {
+  const sel = $('commlog-student');
+  if (sel) sel.innerHTML = '<option value="">All students</option>' +
+    DB.students.filter(s => s.status === 'Active').map(s =>
+      '<option value="' + s.id + '">' + s.first + ' ' + s.last + '</option>'
+    ).join('');
+  renderCommLog();
+}
+
+function renderCommLog() {
+  const q = ($('commlog-search')?.value || '').toLowerCase();
+  const type = $('commlog-type')?.value || '';
+  const sid = parseInt($('commlog-student')?.value) || null;
+  let logs = (DB.commLog || []).filter(l => {
+    if (type && l.type !== type) return false;
+    if (sid && l.studentId !== sid) return false;
+    const s = DB.students.find(x => x.id === l.studentId);
+    const name = s ? (s.first + ' ' + s.last).toLowerCase() : '';
+    if (q && !name.includes(q) && !(l.notes || '').toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a, b) => b.date.localeCompare(a.date));
+  const tbody = $('commlog-tbody');
+  if (!tbody) return;
+  if (!logs.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--ink-muted);">No communication logs yet. Click "+ Log Conversation" to add one.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = logs.map(l => {
+    const s = DB.students.find(x => x.id === l.studentId);
+    return '<tr>' +
+      '<td style="font-size:12px;color:var(--ink-muted);white-space:nowrap;">' + fmtDate(l.date) + '</td>' +
+      '<td><strong>' + (s ? s.first + ' ' + s.last : 'Unknown') + '</strong><div style="font-size:11px;color:var(--ink-muted);">' + (s?.group || '') + '</div></td>' +
+      '<td><span class="badge badge-blue" style="font-size:11px;">' + (l.type || '') + '</span></td>' +
+      '<td style="font-size:13px;max-width:320px;">' + (l.notes || '') + '</td>' +
+      '<td>' + (l.followup ? '<span class="badge badge-amber">Follow-up needed</span>' : '') + '</td>' +
+      '<td style="white-space:nowrap;"><button class="btn small" onclick="editCommLog(' + l.id + ')">Edit</button> <button class="btn small danger" onclick="deleteCommLog(' + l.id + ')">✕</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function openAddCommLog() {
+  editingCommLogId = null;
+  $('commlog-modal-title').textContent = 'Log Conversation';
+  $('cl-student').innerHTML = DB.students.filter(s => s.status === 'Active').map(s =>
+    '<option value="' + s.id + '">' + s.first + ' ' + s.last + '</option>'
+  ).join('');
+  $('cl-date').value = new Date().toISOString().slice(0, 10);
+  $('cl-notes').value = '';
+  $('cl-followup').value = '';
+  $('modal-commlog').classList.add('open');
+}
+
+function editCommLog(id) {
+  const log = DB.commLog.find(l => l.id === id);
+  if (!log) return;
+  editingCommLogId = id;
+  $('commlog-modal-title').textContent = 'Edit Log';
+  $('cl-student').innerHTML = DB.students.filter(s => s.status === 'Active').map(s =>
+    '<option value="' + s.id + '" ' + (s.id === log.studentId ? 'selected' : '') + '>' + s.first + ' ' + s.last + '</option>'
+  ).join('');
+  $('cl-date').value = log.date;
+  $('cl-type').value = log.type;
+  $('cl-notes').value = log.notes;
+  $('cl-followup').value = log.followup ? 'Yes' : '';
+  $('modal-commlog').classList.add('open');
+}
+
+function saveCommLog() {
+  const studentId = parseInt($('cl-student').value);
+  if (!studentId) { alert('Select a student.'); return; }
+  const entry = {
+    id: editingCommLogId || DB.nextId++,
+    studentId,
+    date: $('cl-date').value,
+    type: $('cl-type').value,
+    notes: $('cl-notes').value.trim(),
+    followup: $('cl-followup').value === 'Yes'
+  };
+  if (editingCommLogId) {
+    const idx = DB.commLog.findIndex(l => l.id === editingCommLogId);
+    DB.commLog[idx] = entry;
+  } else {
+    if (!DB.commLog) DB.commLog = [];
+    DB.commLog.push(entry);
+    // Also add to student history
+    const s = DB.students.find(x => x.id === studentId);
+    if (s) addHistory(s, 'reg', entry.type + ': ' + entry.notes.substring(0, 60), entry.date);
+  }
+  save(); closeModal('modal-commlog'); renderCommLog();
+  toast('Conversation logged!');
+}
+
+function deleteCommLog(id) {
+  if (!confirm('Delete this log entry?')) return;
+  DB.commLog = DB.commLog.filter(l => l.id !== id);
+  save(); renderCommLog();
+}
+
+// Also add comm log entries to student profile
+function getStudentCommLogs(sid) {
+  return (DB.commLog || []).filter(l => l.studentId === sid).sort((a, b) => b.date.localeCompare(a.date));
+}
+
+// ══════════════════════════════════════════════════════
+// PROMOTION REPORT
+// ══════════════════════════════════════════════════════
+function initPromoReport() {
+  const sel = $('pr-event-sel');
+  if (sel) sel.innerHTML = '<option value="">— Select test event —</option>' +
+    DB.testEvents.map(e =>
+      '<option value="' + e.id + '">' + e.name + ' (' + fmtDate(e.date) + ')</option>'
+    ).join('');
+  renderPromoReport();
+}
+
+function renderPromoReport() {
+  const evId = parseInt($('pr-event-sel')?.value) || null;
+  const el = $('promo-report-content');
+  if (!el) return;
+  if (!evId) {
+    el.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:34px;text-align:center;color:var(--ink-muted);">Select a test event above to generate the promotion report.</div>';
+    return;
+  }
+  const ev = DB.testEvents.find(e => e.id === evId);
+  // Find promotions that happened on or near this test date (within 3 days)
+  const evDate = ev?.date || '';
+  const promos = DB.promotions.filter(p => {
+    const diff = Math.abs(new Date(p.date) - new Date(evDate)) / 86400000;
+    return diff <= 7;
+  });
+  if (!promos.length) {
+    el.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:34px;text-align:center;color:var(--ink-muted);">No promotions recorded around this test date. Run promotions from Belt Testing first.</div>';
+    return;
+  }
+  const byGroup = {};
+  promos.forEach(p => {
+    const s = DB.students.find(x => x.id === p.studentId);
+    const group = p.toGroup || s?.group || 'Unknown';
+    if (!byGroup[group]) byGroup[group] = [];
+    byGroup[group].push({ promo: p, student: s });
+  });
+  el.innerHTML = '<div id="promo-report-printable">' +
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px 26px;margin-bottom:16px;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid var(--ink);">' +
+        '<div><div style="font-family:var(--font-display);font-size:22px;font-weight:800;">Noble\'s Martial Arts</div><div style="font-size:13px;color:var(--ink-muted);">Promotion Report</div></div>' +
+        '<div style="text-align:right;"><div style="font-family:var(--font-display);font-size:16px;font-weight:700;">' + (ev?.name || '') + '</div><div style="font-size:13px;color:var(--ink-muted);">' + fmtFull(evDate) + '</div></div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;">' +
+        '<div style="background:var(--green-light);border-radius:10px;padding:12px 16px;text-align:center;"><div style="font-family:var(--font-display);font-size:26px;font-weight:700;color:var(--green);">' + promos.length + '</div><div style="font-size:11px;color:var(--green);text-transform:uppercase;letter-spacing:.08em;">Total Promotions</div></div>' +
+        '<div style="background:var(--blue-light);border-radius:10px;padding:12px 16px;text-align:center;"><div style="font-family:var(--font-display);font-size:26px;font-weight:700;color:var(--blue);">' + Object.keys(byGroup).length + '</div><div style="font-size:11px;color:var(--blue);text-transform:uppercase;letter-spacing:.08em;">Groups</div></div>' +
+        '<div style="background:var(--paper);border:1px solid var(--border);border-radius:10px;padding:12px 16px;text-align:center;"><div style="font-family:var(--font-display);font-size:26px;font-weight:700;">' + promos.filter(p => p.toGroup !== p.fromGroup).length + '</div><div style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;">Group Changes</div></div>' +
+      '</div>' +
+      Object.entries(byGroup).map(([group, entries]) =>
+        '<div style="margin-bottom:18px;">' +
+          '<div style="font-family:var(--font-display);font-size:14px;font-weight:700;margin-bottom:8px;">' + group + ' (' + entries.length + ')</div>' +
+          '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:var(--paper);">' +
+            '<th style="text-align:left;padding:8px 12px;font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);">Student</th>' +
+            '<th style="padding:8px 12px;font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);">From</th>' +
+            '<th style="padding:8px 12px;font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);">To</th>' +
+            '<th style="padding:8px 12px;font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);">Group Change</th>' +
+          '</tr></thead><tbody>' +
+          entries.map(({promo, student}) =>
+            '<tr style="border-bottom:1px solid var(--border);">' +
+              '<td style="padding:9px 12px;font-weight:500;">' + (student ? student.first + ' ' + student.last : 'Unknown') + '</td>' +
+              '<td style="padding:9px 12px;"><span class="belt-pill" style="' + beltStyle(promo.fromBelt) + '">' + promo.fromBelt + '</span></td>' +
+              '<td style="padding:9px 12px;"><span class="belt-pill" style="' + beltStyle(promo.toBelt) + '">' + promo.toBelt + '</span></td>' +
+              '<td style="padding:9px 12px;">' + (promo.toGroup !== promo.fromGroup ? '<span class="badge badge-blue" style="font-size:10px;">' + promo.fromGroup + ' \u2192 ' + promo.toGroup + '</span>' : '\u2014') + '</td>' +
+            '</tr>'
+          ).join('') +
+          '</tbody></table></div>'
+      ).join('') +
+    '</div></div>';
+}
+
+function printPromoReport() {
+  const content = $('promo-report-printable');
+  if (!content) { alert('Select an event first.'); return; }
+  const w = window.open('', '_blank');
+  w.document.write('<!DOCTYPE html><html><head><title>Promotion Report</title><link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"><style>body{font-family:\'DM Sans\',sans-serif;padding:30px;max-width:800px;margin:0 auto;}table{width:100%;border-collapse:collapse;}th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #e0e0e0;}.belt-pill{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;}</style></head><body>' + content.innerHTML + '</body></html>');
+  w.document.close(); w.print();
+}
+
+async function emailPromoReport() {
+  if (!gmailToken) { alert('Connect Gmail first on the Emails tab.'); return; }
+  const evId = parseInt($('pr-event-sel')?.value) || null;
+  const ev = evId ? DB.testEvents.find(e => e.id === evId) : null;
+  if (!ev) { alert('Select an event first.'); return; }
+  const evDate = ev?.date || '';
+  const promos = DB.promotions.filter(p => Math.abs(new Date(p.date) - new Date(evDate)) / 86400000 <= 7);
+  if (!promos.length) { alert('No promotions to report.'); return; }
+  const subject = 'NMA Promotion Report — ' + ev.name;
+  let body = 'Noble\'s Martial Arts\nPromotion Report — ' + ev.name + '\n' + fmtFull(evDate) + '\n\n';
+  body += 'Total promotions: ' + promos.length + '\n\n';
+  promos.forEach(p => {
+    const s = DB.students.find(x => x.id === p.studentId);
+    body += (s ? s.first + ' ' + s.last : 'Unknown') + ': ' + p.fromBelt + ' \u2192 ' + p.toBelt;
+    if (p.toGroup !== p.fromGroup) body += ' (moved to ' + p.toGroup + ')';
+    body += '\n';
+  });
+  await sendGmailMessage('noblesmartialarts@gmail.com', subject, body);
+  toast('Promotion report emailed!');
+}
+
+// ══════════════════════════════════════════════════════
+// GEMINI AI ASSISTANT
+// ══════════════════════════════════════════════════════
+const GEMINI_KEY = 'AIzaSyCJA4REKX6SNb11cqjE25WJWMuz6-UlCZ0';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + GEMINI_KEY;
+let aiHistory = [];
+
+function buildCRMContext() {
+  const active = DB.students.filter(s => s.status === 'Active');
+  const today = new Date().toISOString().slice(0, 10);
+  const monthKey = today.slice(0, 7);
+  // Attendance this month
+  const monthDates = DB.classDates.filter(c => c.date.startsWith(monthKey));
+  const attSummary = active.map(s => {
+    const present = monthDates.filter(c => DB.attendance[c.date]?.[s.id] === 'present').length;
+    return s.first + ' ' + s.last + ' (' + s.group + ', ' + s.belt + ', ' + present + '/' + monthDates.length + ' classes, stripes:' + s.stripes + '/' + maxStripes(s) + ', registered:' + s.registered + (s.dob ? ', dob:' + s.dob : '') + ')';
+  }).join('\n');
+  const upcoming = DB.testEvents.filter(e => e.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3).map(e => e.name + ' on ' + fmtFull(e.date)).join(', ');
+  const currCycles = Object.entries(CURRICULUM).map(([k, v]) => k + ': Cycle ' + v.currentCycle).join(', ');
+  return 'You are an AI assistant built into the Noble\'s Martial Arts (NMA) instructor CRM. You have full access to the current data. Always be helpful, concise, and friendly. Use the instructor\'s first-name basis tone.\n\n' +
+    'Today: ' + fmtFull(today) + '\n' +
+    'Month label: ' + (DB.scoreboard.label || 'Not set') + '\n' +
+    'Active students (' + active.length + '):\n' + attSummary + '\n\n' +
+    'Upcoming tests: ' + (upcoming || 'None scheduled') + '\n' +
+    'Current curriculum cycles: ' + currCycles + '\n' +
+    'Monthly class dates: ' + (monthDates.map(c => c.date).join(', ') || 'None set') + '\n' +
+    'Challenge of the Month: ' + (DB.challengeOfMonth || 'Not set') + '\n' +
+    'Registration fee: $' + DB.scoreboard.fee + '\n' +
+    'Registered this month: ' + active.filter(s => s.registered === 'Yes').length + '/' + active.filter(s => !s.omitFromReg).length;
+}
+
+function initAI() {
+  const win = $('ai-chat-window');
+  if (win && aiHistory.length === 0) {
+    win.innerHTML = '<div style="text-align:center;color:var(--ink-muted);font-size:13px;padding:20px 0;">Hi! I\'m your NMA AI Assistant powered by Google Gemini. I have access to all your student data. Ask me anything or use the quick prompts above.</div>';
+  }
+}
+
+function aiQuick(prompt) {
+  $('ai-input').value = prompt;
+  sendAIMessage();
+}
+
+async function sendAIMessage() {
+  const input = $('ai-input');
+  const msg = input?.value.trim();
+  if (!msg) return;
+  input.value = '';
+  const win = $('ai-chat-window');
+  const btn = $('ai-send-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '\u2026'; }
+
+  // Add user message to UI
+  appendAIMessage('user', msg);
+
+  // Build conversation
+  aiHistory.push({ role: 'user', parts: [{ text: msg }] });
+
+  try {
+    const res = await fetch(GEMINI_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: buildCRMContext() }] },
+        contents: aiHistory,
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
+      })
+    });
+    const data = await res.json();
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I couldn\'t generate a response. Please try again.';
+    aiHistory.push({ role: 'model', parts: [{ text: reply }] });
+    appendAIMessage('assistant', reply);
+  } catch(e) {
+    appendAIMessage('assistant', 'Error connecting to AI: ' + e.message);
+  }
+  if (btn) { btn.disabled = false; btn.textContent = 'Send'; }
+  if (win) win.scrollTop = win.scrollHeight;
+}
+
+function appendAIMessage(role, text) {
+  const win = $('ai-chat-window');
+  if (!win) return;
+  // Clear placeholder on first message
+  if (win.querySelector('div[style*="text-align:center"]') && aiHistory.length <= 1) win.innerHTML = '';
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:10px;align-items:flex-start;' + (role === 'user' ? 'flex-direction:row-reverse;' : '');
+  const avatar = document.createElement('div');
+  avatar.style.cssText = 'width:32px;height:32px;border-radius:50%;background:' + (role === 'user' ? 'var(--ink)' : '#4285F4') + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;';
+  avatar.textContent = role === 'user' ? 'MN' : 'AI';
+  const bubble = document.createElement('div');
+  bubble.style.cssText = 'max-width:75%;padding:12px 15px;border-radius:12px;font-size:13px;line-height:1.6;white-space:pre-wrap;' +
+    (role === 'user' ? 'background:var(--ink);color:#fff;border-radius:12px 12px 2px 12px;' : 'background:var(--surface);border:1px solid var(--border);border-radius:12px 12px 12px 2px;');
+  bubble.textContent = text;
+  div.appendChild(avatar); div.appendChild(bubble);
+  win.appendChild(div);
+  win.scrollTop = win.scrollHeight;
+}
+
+function clearAIChat() {
+  aiHistory = [];
+  const win = $('ai-chat-window');
+  if (win) win.innerHTML = '<div style="text-align:center;color:var(--ink-muted);font-size:13px;padding:20px 0;">Chat cleared. Ask me anything about your students or class management.</div>';
+}
+
+// ══════════════════════════════════════════════════════
+// CHALLENGE OF THE MONTH — set from AI or manually
+// ══════════════════════════════════════════════════════
+function setChallengeOfMonth(text) {
+  DB.challengeOfMonth = text;
+  save();
+  toast('Challenge of the Month saved!');
+}
 
 </script>
 </body>
