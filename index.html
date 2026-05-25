@@ -347,10 +347,11 @@ tbody td{font-size:11px!important;}
   <div id="roster-list-view">
     <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
       <div><div class="page-title">Student Roster</div><div class="page-subtitle">Click a name to view full profile</div></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn" onclick="importContactsClick()">📇 Import Contacts</button>
-        <button class="btn" onclick="importRealRoster(true)">↓ Load Roster</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input type="file" id="roster-file-input" accept=".xls,.xlsx,.csv" style="display:none;" onchange="importRosterFile(this)">
+        <button class="btn" onclick="document.getElementById('roster-file-input').click()">📥 Import Roster</button>
         <button class="btn primary" onclick="openAddStudent()">+ Add Student</button>
+        <span id="roster-import-status" style="font-size:11px;color:var(--green);"></span>
       </div>
     </div>
     <div class="table-wrap">
@@ -396,7 +397,7 @@ tbody td{font-size:11px!important;}
       <div class="spacer"></div>
       <div style="display:flex;gap:6px;align-items:center;">
         <input type="file" id="roster-upload-input" accept=".csv,.xlsx,.xls" style="display:none;" onchange="importRosterFile(this)">
-        <button class="btn small" onclick="document.getElementById('roster-upload-input').click()">📋 Import Roster</button>
+        <button class="btn small" onclick="document.getElementById('roster-upload-input').click()">📥 Import Roster (XLS/CSV)</button>
         <span id="roster-upload-status" style="font-size:11px;color:var(--green);"></span>
       </div>
     </div>
@@ -2963,7 +2964,7 @@ function toggleEligibilityOverride(sid){
 // ══════════════════════════════════════════════════════
 function importRosterFile(input){
   const file=input.files[0];if(!file)return;
-  const status=$('roster-upload-status');
+  const status=$('roster-upload-status')||$('roster-import-status');
   if(status)status.textContent='Reading…';
   // ── Roster import parser ─────────────────────────────────────────────────────
   // RecConnect full extract (15 cols): blank | Last | First | DOB | Home Ph | Mobile | Email | HOH1Name | HOH1Home | HOH1Cell | HOH1Email | HOH2Name | HOH2Home | HOH2Cell | HOH2Email
