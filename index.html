@@ -2965,83 +2965,75 @@ function importRosterFile(input){
   const file=input.files[0];if(!file)return;
   const status=$('roster-upload-status');
   if(status)status.textContent='Reading…';
-  // ── Roster import: extract all data from any RecConnect format ──────────────
-  function isEmail(v){ return v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()); }
-  function isPhone(v){ return v && /[\d\(\)\-\s]{7,}/.test(v.trim()) && v.trim().replace(/\D/g,'').length>=7; }
+  // ── Roster import parser ─────────────────────────────────────────────────────
+  // RecConnect full extract (15 cols): blank | Last | First | DOB | Home Ph | Mobile | Email | HOH1Name | HOH1Home | HOH1Cell | HOH1Email | HOH2Name | HOH2Home | HOH2Cell | HOH2Email
+  // RecConnect simple export  (3 cols): blank | Last | First
 
   function tryParseNames(rows){
     if(!rows.length)return[];
 
-    // Find the header row (has "Last" and "First" columns)
-    let headerRow=-1, cols={};
-    for(let r=0;r<Math.min(rows.length,5);r++){
-      const row=rows[r].map(c=>String(c||'').toLowerCase().trim());
-      const li=row.findIndex(c=>c.includes('last')&&c.length<15);
-      const fi=row.findIndex(c=>c.includes('first')&&c.length<15);
-      if(li>=0&&fi>=0){
-        headerRow=r;
-        cols.last=li; cols.first=fi;
-        cols.dob=row.findIndex(c=>c.includes('birth')||c==='dob');
-        // Find email columns (could be multiple)
-        cols.emails=row.reduce((a,c,i)=>{if(c.includes('email'))a.push(i);return a;},[]);
-        // Find phone columns
-        cols.phones=row.reduce((a,c,i)=>{if(c.includes('phone')||c.includes('cell')||c.includes('mobile'))a.push(i);return a;},[]);
-        // Find name columns beyond first/last (parent names)
-        cols.names=row.reduce((a,c,i)=>{if(i!==li&&i!==fi&&c.includes('name'))a.push(i);return a;},[]);
-        break;
-      }
-    }
-    if(headerRow<0){
-      // No header — try positional (col0=blank, col1=last, col2=first)
-      for(let r=0;r<Math.min(rows.length,5);r++){
-        const row=rows[r].map(c=>String(c||'').trim());
-        const c0NumOrBlank=!row[0]||/^\d+$/.test(row[0]);
-        const c1Name=row[1]&&/^[A-Za-z]/.test(row[1])&&row[1].length>1;
-        const c2Name=row[2]&&/^[A-Za-z]/.test(row[2])&&row[2].length>1;
-        if(c0NumOrBlank&&c1Name&&c2Name){
-          headerRow=-1;
-          cols={last:1,first:2,emails:[6],phones:[4,5],names:[7,11],dob:3};
+    // Skip any blank/title rows at top to find where data begins
+    let dataStart=0;
+    for(let r=0;r<Math.min(rows.length,6);r++){
+      const row=rows[r].map(c=>String(c||'').trim());
+      const nonEmpty=row.filter(c=>c).length;
+      if(nonEmpty>=2){
+        // Check if this is a header row
+        const joined=row.join('|').toLowerCase();
+        if(joined.includes('last')&&joined.includes('first')){
+          dataStart=r+1; // skip header
           break;
         }
+        // Or a data row (col0 blank/num, col1 looks like last name)
+        const c0ok=!row[0]||/^\d+$/.test(row[0]);
+        const c1name=row[1]&&/^[A-Za-z]/.test(row[1]);
+        if(c0ok&&c1name){dataStart=r;break;}
       }
     }
 
+    // Determine format by looking at first real data row
+    const sampleRow=rows[dataStart]||[];
+    const colCount=sampleRow.filter(c=>String(c||'').trim()).length + sampleRow.findLastIndex(c=>String(c||'').trim()!=='') + 1;
+    const totalCols=rows.slice(dataStart,dataStart+5).reduce((m,r)=>Math.max(m,r.length),0);
+    const isRich=totalCols>=7; // 7+ cols means it has contact data
+
     const parsed=[];
-    const dataStart=headerRow>=0?headerRow+1:0;
-    const isRich=cols.emails&&cols.emails.length>0;
 
     for(let r=dataStart;r<rows.length;r++){
       const row=rows[r].map(c=>String(c||'').trim());
       if(row.every(c=>!c))continue;
-      const last=cols.last>=0?row[cols.last]||'':'';
-      const first=cols.first>=0?row[cols.first]||'':'';
+
+      // Col 0 = blank or row number, Col 1 = Last, Col 2 = First
+      const last=row[1]||'';
+      const first=row[2]||'';
       if(!first||!last||first.length<2||last.length<2)continue;
-      if(['first','first name','last','last name'].includes(first.toLowerCase()))continue;
+      if(first.toLowerCase()==='first'||first.toLowerCase()==='first name')continue;
+      if(last.toLowerCase()==='last'||last.toLowerCase()==='last name')continue;
+      if(/\d/.test(first)&&/\d/.test(last))continue;
 
       if(!isRich){
         parsed.push({first,last,isRich:false});
         continue;
       }
 
-      // Extract best email from all email columns
-      let email='';
-      for(const ec of (cols.emails||[])){
-        const v=row[ec]||'';
-        if(isEmail(v)){email=v;break;}
-      }
-      // Extract best phone
-      let phone='';
-      for(const pc of (cols.phones||[])){
-        const v=row[pc]||'';
-        if(isPhone(v)&&v.replace(/\D/g,'').length>=10){phone=v;break;}
-      }
-      // Extract parent name (first non-empty name column)
-      let parent='';
-      for(const nc of (cols.names||[])){
-        const v=row[nc]||'';
-        if(v&&/^[A-Za-z]/.test(v)&&v.length>2){parent=v;break;}
-      }
-      const dob=cols.dob>=0?row[cols.dob]||'':'';
+      // Rich format — handle both 14-col and 15-col RecConnect formats
+      // 15-col: blank|Last|First|DOB|HomePhone|Mobile|StudentEmail|HOH1Name|HOH1Home|HOH1Cell|HOH1Email|HOH2Name|HOH2Home|HOH2Cell|HOH2Email
+      // 14-col: blank|Last|First|DOB|HomePhone|Mobile|HOH1Name|HOH1Home|HOH1Cell|HOH1Email|HOH2Name|HOH2Home|HOH2Cell|HOH2Email
+      const has15=totalCols>=15;
+      const dob=row[3]||'';
+      const homePhone=row[4]||'';
+      const mobilePhone=row[5]||'';
+      const studentEmail=has15?(row[6]||''):'';
+      const hoh1Name=has15?(row[7]||''):(row[6]||'');
+      const hoh1Cell=has15?(row[9]||''):(row[8]||'');
+      const hoh1Email=has15?(row[10]||''):(row[9]||'');
+      const hoh2Name=has15?(row[11]||''):(row[10]||'');
+      const hoh2Email=has15?(row[14]||''):(row[13]||'');
+
+      // Pick best values — HOH1 email is most reliable
+      const email=hoh1Email||studentEmail||hoh2Email||'';
+      const phone=hoh1Cell||mobilePhone||homePhone||'';
+      const parent=hoh1Name||hoh2Name||'';
 
       parsed.push({first,last,email,phone,parent,dob,isRich:true});
     }
