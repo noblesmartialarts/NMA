@@ -2965,285 +2965,90 @@ function importRosterFile(input){
   const file=input.files[0];if(!file)return;
   const status=$('roster-upload-status');
   if(status)status.textContent='Reading…';
-  // ── Detect and parse the RecConnect full roster extract format ──────────────
-  // Columns: blank | Last | First | DOB | Home Phone | Mobile | Email | HOH1 Name | HOH1 Home | HOH1 Cell | HOH1 Email | HOH2 Name | HOH2 Home | HOH2 Cell | HOH2 Email
-  function detectRichFormat(rows){
-    // Strategy 1: look for HOH / email headers explicitly
-    for(let r=0;r<Math.min(rows.length,4);r++){
-      const row=rows[r].map(c=>String(c||'').toLowerCase().trim());
-      const hasHOH=row.some(c=>c.includes('hoh')||c.includes('head of household'));
-      const hasEmail=row.some(c=>c.includes('email'));
-      const hasLast=row.some(c=>c.includes('last'));
-      console.log('[RosterImport] Row',r,'cols:',row.length,'hasHOH:',hasHOH,'hasEmail:',hasEmail,'hasLast:',hasLast,'sample:',row.slice(0,5));
-      if(hasHOH||(hasEmail&&hasLast&&row.length>=7)){
-        // Find columns by content
-        const fi=n=>row.findIndex(c=>c===n||c.includes(n));
-        const result={
-          headerRow:r,
-          lastCol:   row.findIndex(c=>c.includes('last')),
-          firstCol:  row.findIndex(c=>c.includes('first')),
-          dobCol:    row.findIndex(c=>c.includes('birth')||c==='dob'),
-          phoneCol:  row.findIndex(c=>c.includes('home phone')||c==='phone'),
-          mobileCol: row.findIndex(c=>c.includes('mobile')||c.includes('cell phone')),
-          emailCol:  row.findIndex(c=>c.includes('email')&&!c.includes('hoh')),
-          hoh1Name:  row.findIndex(c=>c.includes('hoh')&&c.includes('name')),
-          hoh1Phone: row.findIndex(c=>c.includes('hoh')&&c.includes('home')),
-          hoh1Cell:  row.findIndex(c=>c.includes('hoh')&&(c.includes('cell')||c.includes('mobile'))),
-          hoh1Email: row.findIndex(c=>c.includes('hoh')&&c.includes('email')),
-          hoh2Name:  -1,
-          hoh2Email: -1,
-        };
-        // HOH2
-        const hoh2Cols=row.reduce((a,c,i)=>{if(c.includes('hoh 2')||c.includes('hoh2'))a.push(i);return a;},[]);
-        result.hoh2Name=hoh2Cols.find(i=>row[i].includes('name'))??-1;
-        result.hoh2Email=hoh2Cols.find(i=>row[i].includes('email'))??-1;
-        console.log('[RosterImport] Rich format detected at row',r,'cols:',result);
-        return result;
-      }
-    }
-    // Strategy 2: positional — if 8+ columns and col1=last-like, col2=first-like, col6=email-like
-    for(let r=0;r<Math.min(rows.length,4);r++){
-      const row=rows[r].map(c=>String(c||'').toLowerCase().trim());
-      if(row.length>=8){
-        const looksLike=(col,keyword)=>row[col]&&row[col].includes(keyword);
-        if(looksLike(1,'last')&&looksLike(2,'first')&&row.length>=8){
-          // Assume RecConnect full extract positional layout
-          const result={headerRow:r,lastCol:1,firstCol:2,dobCol:3,phoneCol:4,mobileCol:5,
-            emailCol:6,hoh1Name:7,hoh1Phone:8,hoh1Cell:9,hoh1Email:10,hoh2Name:11,hoh2Email:14};
-          console.log('[RosterImport] Rich format detected positionally at row',r);
-          return result;
-        }
-      }
-    }
-    console.log('[RosterImport] No rich format detected — using simple name-only mode');
-    return null;
-  }
+  // ── Roster import: extract all data from any RecConnect format ──────────────
+  function isEmail(v){ return v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()); }
+  function isPhone(v){ return v && /[\d\(\)\-\s]{7,}/.test(v.trim()) && v.trim().replace(/\D/g,'').length>=7; }
 
   function tryParseNames(rows){
     if(!rows.length)return[];
 
-    // ── Try rich format first (RecConnect full extract) ─────────────────────
-    const rich=detectRichFormat(rows);
-    if(rich){
-      const parsed=[];
-      for(let r=rich.headerRow+1;r<rows.length;r++){
-        const row=rows[r];
-        if(!row||row.every(c=>String(c||'').trim()===''))continue;
-        const get=(col)=>col>=0?String(row[col]||'').trim():'';
-        const first=get(rich.firstCol),last=get(rich.lastCol);
-        if(!first||!last)continue;
-        // Build contact info — prefer HOH1 if available
-        const hoh1Name=get(rich.hoh1Name);
-        const hoh1Email=get(rich.hoh1Email)||get(rich.hoh1Phone);
-        const hoh1Phone=get(rich.hoh1Cell)||get(rich.hoh1Phone);
-        const hoh2Name=get(rich.hoh2Name);
-        const hoh2Email=get(rich.hoh2Email);
-        const parent=hoh1Name||hoh2Name||'';
-        const email=get(rich.emailCol)||get(rich.hoh1Email)||get(rich.hoh2Email);
-        const phone=get(rich.mobileCol)||get(rich.phoneCol)||get(rich.hoh1Cell)||get(rich.hoh1Phone);
-        const dob=get(rich.dobCol);
-        parsed.push({first,last,parent,email,phone,dob,hoh2Name,hoh2Email,isRich:true});
-      }
-      return parsed;
-    }
-
-    // ── Standard format (names only) ────────────────────────────────────────
-    let headerRow=-1,firstCol=-1,lastCol=-1,singleCol=-1;
-    for(let r=0;r<Math.min(rows.length,8);r++){
+    // Find the header row (has "Last" and "First" columns)
+    let headerRow=-1, cols={};
+    for(let r=0;r<Math.min(rows.length,5);r++){
       const row=rows[r].map(c=>String(c||'').toLowerCase().trim());
-      const li=row.findIndex(c=>c==='last name'||c==='last'||c==='lname'||c==='surname');
-      const fi=row.findIndex(c=>c==='first name'||c==='first'||c==='fname'||c==='given name'||c==='given');
-      if(li>=0&&fi>=0){lastCol=li;firstCol=fi;headerRow=r;break;}
-      const ni=row.findIndex(c=>c==='name'||c==='full name'||c==='student name'||c==='participant'||c==='student');
-      if(ni>=0){singleCol=ni;headerRow=r;break;}
+      const li=row.findIndex(c=>c.includes('last')&&c.length<15);
+      const fi=row.findIndex(c=>c.includes('first')&&c.length<15);
+      if(li>=0&&fi>=0){
+        headerRow=r;
+        cols.last=li; cols.first=fi;
+        cols.dob=row.findIndex(c=>c.includes('birth')||c==='dob');
+        // Find email columns (could be multiple)
+        cols.emails=row.reduce((a,c,i)=>{if(c.includes('email'))a.push(i);return a;},[]);
+        // Find phone columns
+        cols.phones=row.reduce((a,c,i)=>{if(c.includes('phone')||c.includes('cell')||c.includes('mobile'))a.push(i);return a;},[]);
+        // Find name columns beyond first/last (parent names)
+        cols.names=row.reduce((a,c,i)=>{if(i!==li&&i!==fi&&c.includes('name'))a.push(i);return a;},[]);
+        break;
+      }
     }
     if(headerRow<0){
-      for(let r=0;r<Math.min(rows.length,6);r++){
+      // No header — try positional (col0=blank, col1=last, col2=first)
+      for(let r=0;r<Math.min(rows.length,5);r++){
         const row=rows[r].map(c=>String(c||'').trim());
-        const c0=row[0]||'',c1=row[1]||'',c2=row[2]||'';
-        const c0NumOrBlank=c0===''||/^\d+$/.test(c0);
-        const c1Name=/^[A-Za-z][A-Za-z\s'\-]{1,}$/.test(c1);
-        const c2Name=/^[A-Za-z][A-Za-z\s'\-]{1,}$/.test(c2);
-        if(c0NumOrBlank&&c1Name&&c2Name){lastCol=1;firstCol=2;break;}
-      }
-    }
-    const parsed=[];
-    const dataStart=headerRow>=0?headerRow+1:0;
-    for(let r=dataStart;r<rows.length;r++){
-      const row=rows[r];
-      if(!row||!row.length)continue;
-      if(row.every(c=>String(c||'').trim()===''))continue;
-      let first='',last='';
-      if(firstCol>=0&&lastCol>=0){first=String(row[firstCol]||'').trim();last=String(row[lastCol]||'').trim();}
-      else if(singleCol>=0){
-        const v=String(row[singleCol]||'').trim();
-        if(v.includes(',')){const p=v.split(',');last=p[0].trim();first=p[1]?.trim()||'';}
-        else{const p=v.trim().split(/\s+/);first=p[0]||'';last=p.slice(1).join(' ');}
-      } else {
-        const nameCells=row.map((c,i)=>[i,String(c||'').trim()]).filter(([i,v])=>v.length>1&&/[A-Za-z]/.test(v)&&!/^\d+$/.test(v));
-        if(nameCells.length>=2){last=nameCells[0][1];first=nameCells[1][1];}
-        else if(nameCells.length===1){
-          const v=nameCells[0][1];
-          if(v.includes(',')){const p=v.split(',');last=p[0].trim();first=p[1]?.trim()||'';}
-          else{const p=v.split(/\s+/);first=p[0];last=p.slice(1).join(' ');}
+        const c0NumOrBlank=!row[0]||/^\d+$/.test(row[0]);
+        const c1Name=row[1]&&/^[A-Za-z]/.test(row[1])&&row[1].length>1;
+        const c2Name=row[2]&&/^[A-Za-z]/.test(row[2])&&row[2].length>1;
+        if(c0NumOrBlank&&c1Name&&c2Name){
+          headerRow=-1;
+          cols={last:1,first:2,emails:[6],phones:[4,5],names:[7,11],dob:3};
+          break;
         }
       }
-      if(!first||!last)continue;
-      if(['first','first name','fname','given'].includes(first.toLowerCase()))continue;
-      if(['last','last name','lname','surname'].includes(last.toLowerCase()))continue;
-      if(first.length<2||last.length<2)continue;
-      parsed.push({first,last,isRich:false});
+    }
+
+    const parsed=[];
+    const dataStart=headerRow>=0?headerRow+1:0;
+    const isRich=cols.emails&&cols.emails.length>0;
+
+    for(let r=dataStart;r<rows.length;r++){
+      const row=rows[r].map(c=>String(c||'').trim());
+      if(row.every(c=>!c))continue;
+      const last=cols.last>=0?row[cols.last]||'':'';
+      const first=cols.first>=0?row[cols.first]||'':'';
+      if(!first||!last||first.length<2||last.length<2)continue;
+      if(['first','first name','last','last name'].includes(first.toLowerCase()))continue;
+
+      if(!isRich){
+        parsed.push({first,last,isRich:false});
+        continue;
+      }
+
+      // Extract best email from all email columns
+      let email='';
+      for(const ec of (cols.emails||[])){
+        const v=row[ec]||'';
+        if(isEmail(v)){email=v;break;}
+      }
+      // Extract best phone
+      let phone='';
+      for(const pc of (cols.phones||[])){
+        const v=row[pc]||'';
+        if(isPhone(v)&&v.replace(/\D/g,'').length>=10){phone=v;break;}
+      }
+      // Extract parent name (first non-empty name column)
+      let parent='';
+      for(const nc of (cols.names||[])){
+        const v=row[nc]||'';
+        if(v&&/^[A-Za-z]/.test(v)&&v.length>2){parent=v;break;}
+      }
+      const dob=cols.dob>=0?row[cols.dob]||'':'';
+
+      parsed.push({first,last,email,phone,parent,dob,isRich:true});
     }
     return parsed;
   }
 
-  function showRosterPreview(parsed){
-    const isRich=parsed.length>0&&parsed[0].isRich===true;
-    // Match against DB
-    const matches=[];const newStudents=[];
-    parsed.forEach(p=>{
-      const {first,last}=p;
-      const s=DB.students.find(s=>
-        s.last.toLowerCase()===last.toLowerCase()&&
-        s.first.toLowerCase()===first.toLowerCase()
-      );
-      if(s)matches.push({student:s,data:p});
-      else newStudents.push(p);
-    });
-
-    // Build or reuse modal
-    let modal=$('modal-roster-preview');
-    if(!modal){
-      modal=document.createElement('div');
-      modal.id='modal-roster-preview';
-      modal.className='modal-backdrop';
-      modal.innerHTML=`<div class="modal modal-lg">
-        <div class="modal-header"><div class="modal-title">📋 Roster Import Preview</div><button class="btn ghost" onclick="closeModal('modal-roster-preview')">✕</button></div>
-        <div class="modal-body" id="roster-preview-body"></div>
-        <div class="modal-footer">
-          <button class="btn" onclick="closeModal('modal-roster-preview')">Cancel</button>
-          <button class="btn primary" id="roster-apply-btn">Apply</button>
-        </div>
-      </div>`;
-      document.body.appendChild(modal);
-    }
-
-    const body=$('roster-preview-body');
-
-    // Build contact update badges for matched students (rich format)
-    function contactBadges(s,d){
-      if(!d||!d.isRich)return'';
-      const adds=[],updates=[];
-      if(d.email){if(!s.email)adds.push('email');else if(d.email!==s.email)updates.push('email');}
-      if(d.phone){if(!s.phone)adds.push('phone');else if(d.phone!==s.phone)updates.push('phone');}
-      if(d.parent){if(!s.parent)adds.push('parent');else if(d.parent!==s.parent)updates.push('parent');}
-      if(d.dob){if(!s.dob)adds.push('DOB');else if(d.dob!==s.dob)updates.push('DOB');}
-      const parts=[];
-      if(adds.length)parts.push('<span style="font-size:10px;color:var(--green);margin-left:5px;">+'+adds.join(',')+' </span>');
-      if(updates.length)parts.push('<span style="font-size:10px;color:var(--amber);margin-left:5px;">↻'+updates.join(',')+'</span>');
-      return parts.join('');
-    }
-
-    // Build new-student rows with group/belt selectors
-    const newStudentRows=newStudents.map((ns,i)=>`
-      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;" id="ns-row-${i}">
-        <label class="checkbox-row" style="flex-shrink:0;"><input type="checkbox" id="ns-check-${i}" checked style="accent-color:var(--ink);"> <strong>${ns.first} ${ns.last}</strong></label>
-        <select id="ns-group-${i}" class="form-select" style="width:160px;font-size:12px;">
-          <option>Little Dragons</option>
-          <option>Karate Kids</option>
-          <option selected>Black Belt Club</option>
-          <option>Master's Club</option>
-          <option>Legends Club</option>
-        </select>
-        <select id="ns-belt-${i}" class="form-select" style="width:130px;font-size:12px;">
-          <option>White</option><option>Yellow</option><option>Yellow II</option>
-          <option>Orange</option><option>Orange II</option>
-          <option selected>Purple</option><option>Purple II</option>
-          <option>Blue</option><option>Blue II</option>
-          <option>Green</option><option>Green II</option>
-          <option>Brown</option><option>Brown II</option><option>Brown III</option>
-          <option>Red</option><option>Red II</option><option>Red III</option>
-        </select>
-        <span class="badge badge-blue" style="font-size:10px;">New student</span>
-      </div>`).join('');
-
-    body.innerHTML=`
-      <div style="margin-bottom:14px;padding:11px 14px;background:var(--green-light);border-radius:8px;font-size:13px;">
-        <strong>${matches.length}</strong> existing student${matches.length!==1?'s':''} matched · <strong>${newStudents.length}</strong> new student${newStudents.length!==1?'s':''} found
-      </div>
-
-      ${matches.length?`<div style="margin-bottom:14px;">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);font-weight:500;margin-bottom:7px;">✓ Existing students — will be marked Registered</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;">${matches.map(s=>`<span class="badge badge-green">${s.first} ${s.last}</span>`).join('')}</div>
-      </div>`:''}
-
-      ${newStudents.length?`<div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);font-weight:500;margin-bottom:4px;">+ New students — will be added to roster &amp; registered</div>
-        <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">Set each student's group and starting belt. Uncheck any you don't want to add yet.</div>
-        ${newStudentRows}
-      </div>`:''}
-    `;
-
-    $('roster-apply-btn').textContent=`Apply — Register ${matches.length+newStudents.length} students`;
-
-    $('roster-apply-btn').onclick=()=>{
-      let regCount=0, addCount=0, contactCount=0;
-
-      // Register existing matches + ALWAYS update contact info from rich format
-      matches.forEach(m=>{
-        const s=m.student,d=m.data;
-        if(s.registered!=='Yes'){s.registered='Yes';addHistory(s,'reg','Auto-registered via roster import');}
-        if(d&&d.isRich){
-          let updated=false;
-          // Always apply from RecConnect — it's the source of truth
-          if(d.email&&d.email!==s.email){s.email=d.email;updated=true;}
-          if(d.phone&&d.phone!==s.phone){s.phone=d.phone;updated=true;}
-          if(d.parent&&d.parent!==s.parent){s.parent=d.parent;updated=true;}
-          if(d.dob&&d.dob!==s.dob){s.dob=d.dob;updated=true;}
-          if(updated)contactCount++;
-        }
-        regCount++;
-      });
-
-      // Add and register new students
-      newStudents.forEach((ns,i)=>{
-        const cb=document.getElementById('ns-check-'+i);
-        if(!cb||!cb.checked)return;
-        const group=document.getElementById('ns-group-'+i)?.value||'Black Belt Club';
-        const belt=document.getElementById('ns-belt-'+i)?.value||'White';
-        const newS={
-          id:DB.nextId++,
-          first:ns.first, last:ns.last,
-          group, belt,
-          stripes:0, beltSize:'0', uniformSize:'',
-          status:'Active', registered:'Yes',
-          parent:ns.parent||'', email:ns.email||'', phone:ns.phone||'',
-          dob:ns.dob||'',
-          leader:false, ai:false,
-          firstDate:new Date().toISOString().slice(0,10),
-          notes:'Added via roster import',
-          history:[]
-        };
-        addHistory(newS,'reg','Added to roster &amp; registered via import');
-        DB.students.push(newS);
-        addCount++;regCount++;
-      });
-
-      save();
-      closeModal('modal-roster-preview');
-      const summary=`✓ ${regCount} registered`+(addCount?` · ${addCount} added`:'')+
-        (contactCount?` · ${contactCount} contact${contactCount!==1?'s':''} updated`:'');
-      if(status)status.textContent=summary;
-      renderRoster();renderAttendance();renderRevenue();
-      toast(`Done! ${summary}`);
-    };
-
-    modal.classList.add('open');
-    if(status)status.textContent='';
-    input.value='';
-  }
-
-  function processRows(rows){
+    function processRows(rows){
     const parsed=tryParseNames(rows);
     if(!parsed.length){
       if(status)status.textContent='⚠ No names found';
