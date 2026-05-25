@@ -2963,129 +2963,165 @@ function toggleEligibilityOverride(sid){
 // IMPORT MONTHLY ROSTER (CSV or Excel)
 // ══════════════════════════════════════════════════════
 function importRosterFile(input){
-  const file=input.files[0];if(!file)return;
-  const status=$('roster-upload-status')||$('roster-import-status');
-  if(status)status.textContent='Reading…';
-  // ── Roster import parser ─────────────────────────────────────────────────────
-  // RecConnect full extract (15 cols): blank | Last | First | DOB | Home Ph | Mobile | Email | HOH1Name | HOH1Home | HOH1Cell | HOH1Email | HOH2Name | HOH2Home | HOH2Cell | HOH2Email
-  // RecConnect simple export  (3 cols): blank | Last | First
-
-  function tryParseNames(rows){
-    if(!rows.length)return[];
-
-    // Skip any blank/title rows at top to find where data begins
-    let dataStart=0;
-    for(let r=0;r<Math.min(rows.length,6);r++){
-      const row=rows[r].map(c=>String(c||'').trim());
-      const nonEmpty=row.filter(c=>c).length;
-      if(nonEmpty>=2){
-        // Check if this is a header row
-        const joined=row.join('|').toLowerCase();
-        if(joined.includes('last')&&joined.includes('first')){
-          dataStart=r+1; // skip header
-          break;
-        }
-        // Or a data row (col0 blank/num, col1 looks like last name)
-        const c0ok=!row[0]||/^\d+$/.test(row[0]);
-        const c1name=row[1]&&/^[A-Za-z]/.test(row[1]);
-        if(c0ok&&c1name){dataStart=r;break;}
-      }
-    }
-
-    // Determine format by looking at first real data row
-    const sampleRow=rows[dataStart]||[];
-    const colCount=sampleRow.filter(c=>String(c||'').trim()).length + sampleRow.findLastIndex(c=>String(c||'').trim()!=='') + 1;
-    const totalCols=rows.slice(dataStart,dataStart+5).reduce((m,r)=>Math.max(m,r.length),0);
-    const isRich=totalCols>=7; // 7+ cols means it has contact data
-
-    const parsed=[];
-
-    for(let r=dataStart;r<rows.length;r++){
-      const row=rows[r].map(c=>String(c||'').trim());
-      if(row.every(c=>!c))continue;
-
-      // Col 0 = blank or row number, Col 1 = Last, Col 2 = First
-      const last=row[1]||'';
-      const first=row[2]||'';
-      if(!first||!last||first.length<2||last.length<2)continue;
-      if(first.toLowerCase()==='first'||first.toLowerCase()==='first name')continue;
-      if(last.toLowerCase()==='last'||last.toLowerCase()==='last name')continue;
-      if(/\d/.test(first)&&/\d/.test(last))continue;
-
-      if(!isRich){
-        parsed.push({first,last,isRich:false});
-        continue;
-      }
-
-      // Rich format — handle both 14-col and 15-col RecConnect formats
-      // 15-col: blank|Last|First|DOB|HomePhone|Mobile|StudentEmail|HOH1Name|HOH1Home|HOH1Cell|HOH1Email|HOH2Name|HOH2Home|HOH2Cell|HOH2Email
-      // 14-col: blank|Last|First|DOB|HomePhone|Mobile|HOH1Name|HOH1Home|HOH1Cell|HOH1Email|HOH2Name|HOH2Home|HOH2Cell|HOH2Email
-      const has15=totalCols>=15;
-      const dob=row[3]||'';
-      const homePhone=row[4]||'';
-      const mobilePhone=row[5]||'';
-      const studentEmail=has15?(row[6]||''):'';
-      const hoh1Name=has15?(row[7]||''):(row[6]||'');
-      const hoh1Cell=has15?(row[9]||''):(row[8]||'');
-      const hoh1Email=has15?(row[10]||''):(row[9]||'');
-      const hoh2Name=has15?(row[11]||''):(row[10]||'');
-      const hoh2Email=has15?(row[14]||''):(row[13]||'');
-
-      // Pick best values — HOH1 email is most reliable
-      const email=hoh1Email||studentEmail||hoh2Email||'';
-      const phone=hoh1Cell||mobilePhone||homePhone||'';
-      const parent=hoh1Name||hoh2Name||'';
-
-      parsed.push({first,last,email,phone,parent,dob,isRich:true});
-    }
-    return parsed;
-  }
-
-    function processRows(rows){
-    const parsed=tryParseNames(rows);
-    if(!parsed.length){
-      if(status)status.textContent='⚠ No names found';
-      alert('Could not find student names in the file.\n\nMake sure the file has columns for First Name / Last Name, or a single Name column.');
-      input.value='';return;
-    }
-    showRosterPreview(parsed);
-  }
-
-  function runSheetJS(binaryData){
-    const wb=XLSX.read(binaryData,{type:'binary'});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-    processRows(rows);
-  }
-
-  function loadSheetJSAndRun(binaryData){
-    if(typeof XLSX!=='undefined'){runSheetJS(binaryData);return;}
-    const script=document.createElement('script');
-    script.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    script.onload=()=>runSheetJS(binaryData);
-    script.onerror=()=>{
-      if(status)status.textContent='⚠ Load error';
-      alert('Could not load Excel parser. Save the roster as CSV and re-upload.');
-    };
-    document.head.appendChild(script);
-  }
+  const file=input.files[0]; if(!file)return;
+  const statusEl=$('roster-import-status')||$('roster-upload-status');
+  if(statusEl)statusEl.textContent='Reading\u2026';
 
   const ext=file.name.split('.').pop().toLowerCase();
+
+  // ── Parse rows then hand off to preview ───────────────────────────────────
+  function onRows(rows){
+    try{
+      const parsed=tryParseNames(rows);
+      if(!parsed.length){
+        if(statusEl)statusEl.textContent='\u26a0 No names found';
+        alert('No student names found in file.\nExpected columns: Last Name, First Name');
+        input.value=''; return;
+      }
+      showRosterPreview(parsed);
+      if(statusEl)statusEl.textContent='';
+    }catch(e){
+      alert('Import error: '+e.message);
+      if(statusEl)statusEl.textContent='\u26a0 Error';
+    }
+    input.value='';
+  }
+
+  // ── Built-in BIFF8/OLE2 XLS parser (no CDN needed) ───────────────────────
+  function parseBIFF8(buffer){
+    const data=new Uint8Array(buffer);
+    function u16(off){return data[off]|(data[off+1]<<8);}
+    function u32(off){return data[off]|(data[off+1]<<8)|(data[off+2]<<16)|(data[off+3]<<24);}
+    const secSize=1<<u16(30);
+    const dirStart=u32(48);
+    const dirOff=(dirStart+1)*secSize;
+    // Find Workbook stream
+    let wbStart=-1,wbSize=0;
+    for(let i=0;i<50;i++){
+      const off=dirOff+i*128;
+      if(off+128>data.length)break;
+      const nameLen=u16(off+64);
+      if(nameLen<2||nameLen>64)continue;
+      let name='';
+      for(let j=0;j<nameLen-2;j+=2)name+=String.fromCharCode(data[off+j]|(data[off+j+1]<<8));
+      if(name==='Workbook'||name==='Book'){
+        wbStart=u32(off+116); wbSize=u32(off+120); break;
+      }
+    }
+    if(wbStart<0)return null;
+    // Read FAT
+    const fat=new Uint8Array(109*secSize);
+    let fatLen=0;
+    for(let k=0;k<109;k++){
+      const s=u32(76+k*4);
+      if(s>=0xFFFFFFF8)break;
+      const src=(s+1)*secSize;
+      if(src+secSize<=data.length){fat.set(data.subarray(src,src+secSize),fatLen);fatLen+=secSize;}
+    }
+    // Follow chain
+    let sect=wbStart, visited=new Set(), wb=[];
+    while(sect<0xFFFFFFF8&&!visited.has(sect)){
+      visited.add(sect);
+      const cs=(sect+1)*secSize;
+      if(cs+secSize<=data.length)wb.push(...data.subarray(cs,cs+secSize));
+      const next=sect*4; sect=(next+3<fatLen)?(fat[next]|(fat[next+1]<<8)|(fat[next+2]<<16)|(fat[next+3]<<24)):0xFFFFFFFE;
+    }
+    wb=new Uint8Array(wb.slice(0,wbSize));
+    // Parse BIFF8 records
+    const sst=[], cells={};
+    let pos=0;
+    while(pos<wb.length-4){
+      const rt=(wb[pos]|(wb[pos+1]<<8)), rl=(wb[pos+2]|(wb[pos+3]<<8));
+      if(pos+4+rl>wb.length)break;
+      const rd=wb.subarray(pos+4,pos+4+rl);
+      if(rt===0x00FC&&rd.length>=8){
+        const unique=(rd[4]|(rd[5]<<8)|(rd[6]<<16)|(rd[7]<<24)); let p=8;
+        for(let n=0;n<unique;n++){
+          if(p>=rd.length)break;
+          const nc=(rd[p]|(rd[p+1]<<8)), fl=rd[p+2]||0; p+=3;
+          let rich=0,phon=0;
+          if(fl&8&&p<rd.length){rich=rd[p];p++;}
+          if(fl&4&&p+3<rd.length){phon=(rd[p]|(rd[p+1]<<8)|(rd[p+2]<<16)|(rd[p+3]<<24));p+=4;}
+          p+=rich*4+phon;
+          let s='';
+          if(fl&1){for(let j=0;j<nc;j++){s+=String.fromCharCode(rd[p]|(rd[p+1]<<8));p+=2;}}
+          else{for(let j=0;j<nc;j++){s+=String.fromCharCode(rd[p]);p++;}}
+          sst.push(s);
+        }
+      } else if(rt===0x00FD&&rd.length>=10){
+        const r=(rd[0]|(rd[1]<<8)),c=(rd[2]|(rd[3]<<8)),idx=(rd[6]|(rd[7]<<8)|(rd[8]<<16)|(rd[9]<<24));
+        if(idx<sst.length)cells[r+'_'+c]=sst[idx];
+      } else if(rt===0x0204&&rd.length>=6){
+        const r=(rd[0]|(rd[1]<<8)),c=(rd[2]|(rd[3]<<8)),sl=(rd[4]|(rd[5]<<8));
+        let s=''; for(let j=0;j<sl;j++)s+=String.fromCharCode(rd[6+j]);
+        cells[r+'_'+c]=s;
+      } else if(rt===0x0201&&rd.length>=8){
+        const r=(rd[0]|(rd[1]<<8)),c=(rd[2]|(rd[3]<<8));
+        const view=new DataView(wb.buffer,wb.byteOffset+pos+10,8);
+        cells[r+'_'+c]=String(Math.round(view.getFloat64(0,true)*100)/100);
+      }
+      pos+=4+rl;
+    }
+    // Build rows array
+    if(!Object.keys(cells).length)return null;
+    const maxRow=Math.max(...Object.keys(cells).map(k=>+k.split('_')[0]));
+    const maxCol=Math.max(...Object.keys(cells).map(k=>+k.split('_')[1]));
+    const rows=[];
+    for(let r=0;r<=maxRow;r++){
+      const row=[];
+      for(let c=0;c<=maxCol;c++)row.push(cells[r+'_'+c]||'');
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  // ── CSV parser ─────────────────────────────────────────────────────────────
+  function parseCSV(text){
+    return text.split(/\r?\n/).map(line=>{
+      const cells=[]; let cur='',inQ=false;
+      for(const ch of line){if(ch==='"')inQ=!inQ;else if(ch===','&&!inQ){cells.push(cur);cur='';}else cur+=ch;}
+      cells.push(cur);
+      return cells.map(c=>c.replace(/^"|"$/g,'').trim());
+    });
+  }
+
+  // ── Route by file type ─────────────────────────────────────────────────────
   if(ext==='csv'||ext==='txt'){
     const reader=new FileReader();
-    reader.onload=e=>{
-      const lines=e.target.result.split(/\r?\n/);const rows=lines.map(line=>{
-        const cells=[];let cur='',inQ=false;
-        for(const ch of line){if(ch==='"')inQ=!inQ;else if(ch===','&&!inQ){cells.push(cur);cur='';}else cur+=ch;}
-        cells.push(cur);return cells.map(c=>c.replace(/^"|"$/g,'').trim());
-      });
-      processRows(rows);
-    };
+    reader.onload=e=>onRows(parseCSV(e.target.result));
+    reader.onerror=()=>{alert('Could not read file.');};
     reader.readAsText(file);
-  } else {
+  } else if(ext==='xls'){
+    // Use built-in BIFF8 parser for .xls
     const reader=new FileReader();
-    reader.onload=e=>loadSheetJSAndRun(e.target.result);
-    reader.readAsBinaryString(file);
+    reader.onload=e=>{
+      const rows=parseBIFF8(e.target.result);
+      if(!rows){alert('Could not parse XLS file. Try saving as .xlsx or .csv and re-importing.');return;}
+      onRows(rows);
+    };
+    reader.onerror=()=>{alert('Could not read file.');};
+    reader.readAsArrayBuffer(file);
+  } else {
+    // .xlsx — use SheetJS (load from CDN if needed)
+    const doRead=()=>{
+      const reader=new FileReader();
+      reader.onload=e=>{
+        try{
+          const wb=XLSX.read(e.target.result,{type:'binary'});
+          const ws=wb.Sheets[wb.SheetNames[0]];
+          onRows(XLSX.utils.sheet_to_json(ws,{header:1,defval:''}));
+        }catch(err){alert('Could not parse XLSX: '+err.message);}
+      };
+      reader.readAsBinaryString(file);
+    };
+    if(typeof XLSX!=='undefined'){doRead();}
+    else{
+      const s=document.createElement('script');
+      s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      s.onload=doRead;
+      s.onerror=()=>alert('Could not load XLSX parser. Save as .xls or .csv instead.');
+      document.head.appendChild(s);
+    }
   }
 }
 
