@@ -2968,31 +2968,54 @@ function importRosterFile(input){
   // ── Detect and parse the RecConnect full roster extract format ──────────────
   // Columns: blank | Last | First | DOB | Home Phone | Mobile | Email | HOH1 Name | HOH1 Home | HOH1 Cell | HOH1 Email | HOH2 Name | HOH2 Home | HOH2 Cell | HOH2 Email
   function detectRichFormat(rows){
+    // Strategy 1: look for HOH / email headers explicitly
     for(let r=0;r<Math.min(rows.length,4);r++){
       const row=rows[r].map(c=>String(c||'').toLowerCase().trim());
       const hasHOH=row.some(c=>c.includes('hoh')||c.includes('head of household'));
-      const hasEmail=row.some(c=>c==='email address'||c==='email');
-      const hasLast=row.some(c=>c==='last name'||c==='last');
-      if(hasHOH||( hasEmail&&hasLast)){
-        // Map column indices
-        const get=label=>row.findIndex(c=>c.includes(label));
-        return {
+      const hasEmail=row.some(c=>c.includes('email'));
+      const hasLast=row.some(c=>c.includes('last'));
+      console.log('[RosterImport] Row',r,'cols:',row.length,'hasHOH:',hasHOH,'hasEmail:',hasEmail,'hasLast:',hasLast,'sample:',row.slice(0,5));
+      if(hasHOH||(hasEmail&&hasLast&&row.length>=7)){
+        // Find columns by content
+        const fi=n=>row.findIndex(c=>c===n||c.includes(n));
+        const result={
           headerRow:r,
-          lastCol:   row.findIndex(c=>c==='last name'||c==='last'),
-          firstCol:  row.findIndex(c=>c==='first name'||c==='first'),
+          lastCol:   row.findIndex(c=>c.includes('last')),
+          firstCol:  row.findIndex(c=>c.includes('first')),
           dobCol:    row.findIndex(c=>c.includes('birth')||c==='dob'),
-          phoneCol:  row.findIndex(c=>c==='home phone'||c==='phone'),
-          mobileCol: row.findIndex(c=>c==='mobile phone'||c==='mobile'||c==='cell'),
-          emailCol:  row.findIndex(c=>c==='email address'||c==='email'),
-          hoh1Name:  row.findIndex(c=>c==='hoh 1 name'||c==='hoh1 name'||c.includes('hoh 1')),
-          hoh1Phone: row.findIndex(c=>c==='hoh 1 home phone'),
-          hoh1Cell:  row.findIndex(c=>c==='hoh 1 cell phone'),
-          hoh1Email: row.findIndex(c=>c==='hoh 1 email'),
-          hoh2Name:  row.findIndex(c=>c==='hoh 2 name'||c==='hoh2 name'||c.includes('hoh 2')),
-          hoh2Email: row.findIndex(c=>c==='hoh 2 email'),
+          phoneCol:  row.findIndex(c=>c.includes('home phone')||c==='phone'),
+          mobileCol: row.findIndex(c=>c.includes('mobile')||c.includes('cell phone')),
+          emailCol:  row.findIndex(c=>c.includes('email')&&!c.includes('hoh')),
+          hoh1Name:  row.findIndex(c=>c.includes('hoh')&&c.includes('name')),
+          hoh1Phone: row.findIndex(c=>c.includes('hoh')&&c.includes('home')),
+          hoh1Cell:  row.findIndex(c=>c.includes('hoh')&&(c.includes('cell')||c.includes('mobile'))),
+          hoh1Email: row.findIndex(c=>c.includes('hoh')&&c.includes('email')),
+          hoh2Name:  -1,
+          hoh2Email: -1,
         };
+        // HOH2
+        const hoh2Cols=row.reduce((a,c,i)=>{if(c.includes('hoh 2')||c.includes('hoh2'))a.push(i);return a;},[]);
+        result.hoh2Name=hoh2Cols.find(i=>row[i].includes('name'))??-1;
+        result.hoh2Email=hoh2Cols.find(i=>row[i].includes('email'))??-1;
+        console.log('[RosterImport] Rich format detected at row',r,'cols:',result);
+        return result;
       }
     }
+    // Strategy 2: positional — if 8+ columns and col1=last-like, col2=first-like, col6=email-like
+    for(let r=0;r<Math.min(rows.length,4);r++){
+      const row=rows[r].map(c=>String(c||'').toLowerCase().trim());
+      if(row.length>=8){
+        const looksLike=(col,keyword)=>row[col]&&row[col].includes(keyword);
+        if(looksLike(1,'last')&&looksLike(2,'first')&&row.length>=8){
+          // Assume RecConnect full extract positional layout
+          const result={headerRow:r,lastCol:1,firstCol:2,dobCol:3,phoneCol:4,mobileCol:5,
+            emailCol:6,hoh1Name:7,hoh1Phone:8,hoh1Cell:9,hoh1Email:10,hoh2Name:11,hoh2Email:14};
+          console.log('[RosterImport] Rich format detected positionally at row',r);
+          return result;
+        }
+      }
+    }
+    console.log('[RosterImport] No rich format detected — using simple name-only mode');
     return null;
   }
 
