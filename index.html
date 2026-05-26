@@ -980,6 +980,33 @@ tbody td{font-size:11px!important;}
     <div class="modal-footer"><button class="btn" onclick="closeModal('modal-commlog')">Cancel</button><button class="btn primary" onclick="saveCommLog()">Save</button></div>
   </div>
 </div>
+<div class="modal-backdrop" id="modal-merge-student">
+  <div class="modal" style="max-width:680px;">
+    <div class="modal-header">
+      <div class="modal-title">⇔ Merge Students</div>
+      <button class="btn ghost" onclick="closeModal('modal-merge-student')">✕</button>
+    </div>
+    <div class="modal-body" id="merge-modal-body">
+      <p style="font-size:13px;color:var(--ink-muted);margin-bottom:14px;">
+        Select the student to merge into. The <strong>primary student</strong> is kept — their record gets updated with any missing info from the secondary. The secondary student is then removed.
+      </p>
+      <div style="margin-bottom:14px;">
+        <label class="form-label">Merge <span id="merge-source-name" style="color:var(--ink);font-weight:600;"></span> into:</label>
+        <select id="merge-target-select" class="form-select" style="width:100%;margin-top:6px;" onchange="renderMergePreview()">
+          <option value="">— Select student to merge into —</option>
+        </select>
+      </div>
+      <div id="merge-preview" style="display:none;">
+        <div style="font-family:var(--font-display);font-size:13px;font-weight:700;margin-bottom:10px;">Preview</div>
+        <div id="merge-preview-content"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-merge-student')">Cancel</button>
+      <button class="btn danger" id="merge-confirm-btn" onclick="confirmMerge()" style="display:none;">⇔ Merge & Remove Duplicate</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1425,7 +1452,7 @@ function renderRoster(){
       <td><div style="display:flex;align-items:center;gap:4px;">${stripeDots(s.stripes,maxStripes(s),TWO_CYCLE_BELTS.has(s.belt))}<button class="btn ghost" style="font-size:11px;padding:2px 4px;" onclick="adjustStripe(${s.id},-1)">−</button><button class="btn ghost" style="font-size:11px;padding:2px 4px;" onclick="adjustStripe(${s.id},1)">+</button></div></td>
       <td><div class="flags">${flags.join('')}</div></td>
       <td>${regBadge}</td>
-      <td style="white-space:nowrap;">${promo?`<button class="btn small success" onclick="promoteBelt(${s.id})" title="→ ${promo.belt}">→ ${promo.belt}</button> `:''}  <button class="btn small" onclick="openEditStudent(${s.id})">Edit</button> <button class="btn small" onclick="deleteStudent(${s.id})">✕</button></td>
+      <td style="white-space:nowrap;">${promo?`<button class="btn small success" onclick="promoteBelt(${s.id})" title="→ ${promo.belt}">→ ${promo.belt}</button> `:''}  <button class="btn small" onclick="openEditStudent(${s.id})">Edit</button> <button class="btn small" onclick="openMergeStudent(${s.id})" title="Merge">⇔</button> <button class="btn small" onclick="deleteStudent(${s.id})">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -1452,7 +1479,7 @@ function openProfile(id){
         <div class="prof-avatar">${initials(s)}</div>
         <div><div class="prof-name">${s.first} ${s.last}</div><div class="prof-sub">${s.group} · ${s.status}</div><div class="flags" style="margin-top:5px;">${flags.join('')}</div></div>
         <div class="spacer"></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">${promo?`<button class="btn success" onclick="promoteBelt(${s.id})">🎖 Promote → ${promo.belt}</button>`:''}<button class="btn primary" onclick="openEditStudent(${s.id})">Edit</button></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${promo?`<button class="btn success" onclick="promoteBelt(${s.id})">🎖 Promote → ${promo.belt}</button>`:''}<button class="btn primary" onclick="openEditStudent(${s.id})">Edit</button><button class="btn" onclick="openMergeStudent(${s.id})" title="Merge with another student">⇔ Merge</button></div>
       </div>
       <div class="prof-grid">
         <div class="pf"><label>Current belt</label><p><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></p></div>
@@ -3118,22 +3145,60 @@ function showRosterPreview(parsed){
     return parts.join('');
   }
 
+  // Build sorted student list for merge dropdown
+  const studentOpts=DB.students
+    .filter(s=>s.status==='Active'&&!usedStudentIds.has(s.id))
+    .sort((a,b)=>(a.last+a.first).localeCompare(b.last+b.first))
+    .map(s=>`<option value="${s.id}">${s.last}, ${s.first} (${s.belt})</option>`)
+    .join('');
+
+  // Toggle between "add new" and "merge with existing" modes
+  function toggleMergeMode(i){
+    const sel=document.getElementById('ns-mode-'+i);
+    const newFields=document.getElementById('ns-new-fields-'+i);
+    const mergeFields=document.getElementById('ns-merge-fields-'+i);
+    if(!sel||!newFields||!mergeFields)return;
+    const isMerge=sel.value==='merge';
+    newFields.style.display=isMerge?'none':'flex';
+    mergeFields.style.display=isMerge?'block':'none';
+  }
+  // Make it global so onclick can find it
+  window.toggleMergeMode=toggleMergeMode;
+
   const newStudentRows=newStudents.map((ns,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;" id="ns-row-${i}">
-      <label class="checkbox-row" style="flex-shrink:0;"><input type="checkbox" id="ns-check-${i}" checked> <strong>${ns.first} ${ns.last}</strong>${ns.parent?` <span style="font-size:11px;color:var(--ink-muted);">· ${ns.parent}</span>`:''}</label>
-      <select id="ns-group-${i}" class="form-select" style="width:155px;font-size:12px;">
-        <option>Little Dragons</option><option>Karate Kids</option>
-        <option selected>Black Belt Club</option><option>Master's Club</option><option>Legends Club</option>
-      </select>
-      <select id="ns-belt-${i}" class="form-select" style="width:120px;font-size:12px;">
-        <option>White</option><option>Yellow</option><option>Yellow II</option>
-        <option>Orange</option><option>Orange II</option>
-        <option selected>Purple</option><option>Purple II</option>
-        <option>Blue</option><option>Blue II</option>
-        <option>Green</option><option>Green II</option>
-        <option>Brown</option><option>Red</option><option>Red II</option><option>Red III</option>
-      </select>
-      <span class="badge badge-blue" style="font-size:10px;">New</span>
+    <div style="padding:10px 0;border-bottom:1px solid var(--border);" id="ns-row-${i}">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px;">
+        <strong style="font-size:13px;">${ns.first} ${ns.last}</strong>
+        ${ns.parent?`<span style="font-size:11px;color:var(--ink-muted);">· ${ns.parent}</span>`:''}
+        ${ns.email?`<span style="font-size:11px;color:var(--ink-muted);">${ns.email}</span>`:''}
+        <select id="ns-mode-${i}" class="form-select" style="width:180px;font-size:12px;margin-left:auto;" onchange="toggleMergeMode(${i})">
+          <option value="new">➕ Add as new student</option>
+          <option value="merge">🔗 Match to existing student</option>
+          <option value="skip">⊘ Skip</option>
+        </select>
+      </div>
+      <div id="ns-new-fields-${i}" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <select id="ns-group-${i}" class="form-select" style="width:155px;font-size:12px;">
+          <option>Little Dragons</option><option>Karate Kids</option>
+          <option selected>Black Belt Club</option><option>Master's Club</option><option>Legends Club</option>
+        </select>
+        <select id="ns-belt-${i}" class="form-select" style="width:120px;font-size:12px;">
+          <option>White</option><option>Yellow</option><option>Yellow II</option>
+          <option>Orange</option><option>Orange II</option>
+          <option selected>Purple</option><option>Purple II</option>
+          <option>Blue</option><option>Blue II</option>
+          <option>Green</option><option>Green II</option>
+          <option>Brown</option><option>Red</option><option>Red II</option><option>Red III</option>
+        </select>
+        <span class="badge badge-blue" style="font-size:10px;">New student</span>
+      </div>
+      <div id="ns-merge-fields-${i}" style="display:none;">
+        <select id="ns-merge-target-${i}" class="form-select" style="width:100%;font-size:12px;">
+          <option value="">— Select existing student to match —</option>
+          ${studentOpts}
+        </select>
+        <div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">Contact info from the file will be applied to the selected student.</div>
+      </div>
     </div>`).join('');
 
   $('roster-preview-body').innerHTML=`
@@ -3206,8 +3271,22 @@ function showRosterPreview(parsed){
       }
     });
     newStudents.forEach((ns,i)=>{
-      const cb=document.getElementById('ns-check-'+i);
-      if(!cb||!cb.checked)return;
+      const mode=document.getElementById('ns-mode-'+i)?.value||'new';
+      if(mode==='skip')return;
+
+      if(mode==='merge'){
+        // Manual merge — apply contact data to selected existing student
+        const targetId=parseInt(document.getElementById('ns-merge-target-'+i)?.value||'0');
+        if(!targetId)return;
+        const s=DB.students.find(x=>x.id===targetId);
+        if(!s)return;
+        if(s.registered!=='Yes'){s.registered='Yes';addHistory(s,'reg','Registered via manual roster merge ('+ns.first+' '+ns.last+')');}
+        if(applyRichData(s,ns))contactCount++;
+        regCount++;
+        return;
+      }
+
+      // mode === 'new' — add as new student
       const group=document.getElementById('ns-group-'+i)?.value||'Black Belt Club';
       const belt=document.getElementById('ns-belt-'+i)?.value||'White';
       DB.students.push({
@@ -4364,7 +4443,7 @@ async function emailPromoReport() {
 // GEMINI AI ASSISTANT
 // ══════════════════════════════════════════════════════
 const GEMINI_KEY = 'AIzaSyCJA4REKX6SNb11cqjE25WJWMuz6-UlCZ0';
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + GEMINI_KEY;
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' + GEMINI_KEY;
 let aiHistory = [];
 
 function buildCRMContext() {
@@ -4412,28 +4491,43 @@ async function sendAIMessage() {
   const btn = $('ai-send-btn');
   if (btn) { btn.disabled = true; btn.textContent = '\u2026'; }
 
-  // Add user message to UI
   appendAIMessage('user', msg);
-
-  // Build conversation
   aiHistory.push({ role: 'user', parts: [{ text: msg }] });
 
   try {
+    // Inject CRM context as the very first user turn if this is the start of a conversation
+    const contents = aiHistory.length === 1
+      ? [{ role: 'user', parts: [{ text: buildCRMContext() + '\n\n---\nUser question: ' + msg }] }]
+      : [
+          { role: 'user', parts: [{ text: buildCRMContext() }] },
+          { role: 'model', parts: [{ text: 'Got it — I have your full CRM data. How can I help?' }] },
+          ...aiHistory
+        ];
+
     const res = await fetch(GEMINI_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: buildCRMContext() }] },
-        contents: aiHistory,
+        contents,
         generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
       })
     });
+
     const data = await res.json();
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I couldn\'t generate a response. Please try again.';
-    aiHistory.push({ role: 'model', parts: [{ text: reply }] });
-    appendAIMessage('assistant', reply);
+
+    // Show real error if API returned one
+    if (!res.ok || data.error) {
+      const errMsg = data.error?.message || ('API error ' + res.status);
+      appendAIMessage('assistant', '\u26a0 Gemini API error: ' + errMsg + '\n\nCheck that the Gemini API is enabled at console.cloud.google.com and the API key is valid.');
+      aiHistory.pop();
+    } else {
+      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated. Try rephrasing your question.';
+      aiHistory.push({ role: 'model', parts: [{ text: reply }] });
+      appendAIMessage('assistant', reply);
+    }
   } catch(e) {
-    appendAIMessage('assistant', 'Error connecting to AI: ' + e.message);
+    appendAIMessage('assistant', '\u26a0 Connection error: ' + e.message);
+    aiHistory.pop();
   }
   if (btn) { btn.disabled = false; btn.textContent = 'Send'; }
   if (win) win.scrollTop = win.scrollHeight;
@@ -4475,6 +4569,133 @@ function setChallengeOfMonth(text) {
 
 // Run monthly backup check after everything loads
 if(typeof checkMonthlyBackup==='function')setTimeout(checkMonthlyBackup,5000);
+
+// ══════════════════════════════════════════════════════
+// STUDENT MERGE
+// ══════════════════════════════════════════════════════
+let _mergeSourceId = null;
+
+function openMergeStudent(sourceId) {
+  _mergeSourceId = sourceId;
+  const source = DB.students.find(s => s.id === sourceId);
+  if (!source) return;
+
+  $('merge-source-name').textContent = source.first + ' ' + source.last;
+  $('merge-preview').style.display = 'none';
+  $('merge-confirm-btn').style.display = 'none';
+
+  // Populate target dropdown — all active students except the source
+  $('merge-target-select').innerHTML = '<option value="">— Select student to merge into —</option>' +
+    DB.students
+      .filter(s => s.status === 'Active' && s.id !== sourceId)
+      .sort((a, b) => (a.last + a.first).localeCompare(b.last + b.first))
+      .map(s => `<option value="${s.id}">${s.last}, ${s.first} · ${s.group} · ${s.belt}</option>`)
+      .join('');
+
+  $('modal-merge-student').classList.add('open');
+}
+
+function renderMergePreview() {
+  const targetId = parseInt($('merge-target-select').value) || null;
+  if (!targetId) { $('merge-preview').style.display = 'none'; $('merge-confirm-btn').style.display = 'none'; return; }
+
+  const src = DB.students.find(s => s.id === _mergeSourceId);
+  const tgt = DB.students.find(s => s.id === targetId);
+  if (!src || !tgt) return;
+
+  // Figure out what will be merged
+  const fields = [
+    { label: 'Parent',    srcVal: src.parent,      tgtVal: tgt.parent },
+    { label: 'Email',     srcVal: src.email,        tgtVal: tgt.email },
+    { label: 'Phone',     srcVal: src.phone,        tgtVal: tgt.phone },
+    { label: 'Belt size', srcVal: src.beltSize,     tgtVal: tgt.beltSize },
+    { label: 'DOB',       srcVal: src.dob,          tgtVal: tgt.dob },
+    { label: 'Notes',     srcVal: src.notes,        tgtVal: tgt.notes },
+    { label: 'First date',srcVal: src.firstDate,    tgtVal: tgt.firstDate },
+  ];
+
+  const srcAttDates = Object.keys(DB.attendance).filter(d => DB.attendance[d]?.[src.id]);
+  const tgtAttDates = Object.keys(DB.attendance).filter(d => DB.attendance[d]?.[tgt.id]);
+  const onlyInSrc = srcAttDates.filter(d => !DB.attendance[d]?.[tgt.id]);
+
+  $('merge-preview-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+      <div style="background:var(--amber-light);border:1px solid var(--amber);border-radius:8px;padding:11px 14px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--amber);font-weight:600;margin-bottom:4px;">Will be removed</div>
+        <div style="font-weight:600;">${src.first} ${src.last}</div>
+        <div style="font-size:12px;color:var(--ink-muted);">${src.group} · ${src.belt}</div>
+        <div style="font-size:12px;color:var(--ink-muted);">${srcAttDates.length} attendance records · ${src.history?.length||0} history entries</div>
+      </div>
+      <div style="background:var(--green-light);border:1px solid var(--green);border-radius:8px;padding:11px 14px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--green);font-weight:600;margin-bottom:4px;">Will be kept (primary)</div>
+        <div style="font-weight:600;">${tgt.first} ${tgt.last}</div>
+        <div style="font-size:12px;color:var(--ink-muted);">${tgt.group} · ${tgt.belt}</div>
+        <div style="font-size:12px;color:var(--ink-muted);">${tgtAttDates.length} attendance records · ${tgt.history?.length||0} history entries</div>
+      </div>
+    </div>
+    <div style="font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;">
+      <div style="font-weight:600;margin-bottom:6px;">What will be merged into ${tgt.first} ${tgt.last}:</div>
+      ${fields.filter(f => f.srcVal && !f.tgtVal).map(f =>
+        `<div style="padding:3px 0;">✓ ${f.label}: <strong>${f.srcVal}</strong> (${tgt.first} has none)</div>`
+      ).join('') || '<div style="color:var(--ink-muted);">No missing fields to fill in</div>'}
+      ${onlyInSrc.length ? `<div style="margin-top:4px;">✓ <strong>${onlyInSrc.length}</strong> attendance record${onlyInSrc.length!==1?'s':''} will be transferred</div>` : ''}
+      <div style="margin-top:4px;">✓ Full history from ${src.first} will be appended</div>
+      ${fields.filter(f => f.srcVal && f.tgtVal && f.srcVal !== f.tgtVal).map(f =>
+        `<div style="padding:3px 0;color:var(--amber);">⚠ ${f.label}: keeping "${f.tgtVal}" (ignoring "${f.srcVal}")</div>`
+      ).join('')}
+    </div>`;
+
+  $('merge-preview').style.display = 'block';
+  $('merge-confirm-btn').style.display = 'inline-flex';
+}
+
+function confirmMerge() {
+  const targetId = parseInt($('merge-target-select').value) || null;
+  if (!targetId || !_mergeSourceId) return;
+  const src = DB.students.find(s => s.id === _mergeSourceId);
+  const tgt = DB.students.find(s => s.id === targetId);
+  if (!src || !tgt) return;
+  if (!confirm(`Merge ${src.first} ${src.last} INTO ${tgt.first} ${tgt.last}?\n\n${src.first} will be permanently removed. This cannot be undone.`)) return;
+
+  // 1. Fill missing fields on target from source
+  const fillFields = ['parent','email','phone','beltSize','dob','notes','firstDate','uniformSize','bbTestDate'];
+  fillFields.forEach(f => { if(src[f] && !tgt[f]) tgt[f] = src[f]; });
+
+  // 2. Transfer attendance records
+  Object.keys(DB.attendance).forEach(date => {
+    if (DB.attendance[date]?.[src.id] && !DB.attendance[date]?.[tgt.id]) {
+      DB.attendance[date][tgt.id] = DB.attendance[date][src.id];
+    }
+    delete DB.attendance[date]?.[src.id];
+  });
+
+  // 3. Append source history to target
+  if (src.history?.length) {
+    tgt.history = [...(tgt.history||[]), ...src.history.map(h => ({...h, note: '[from merge] ' + h.note}))];
+  }
+
+  // 4. Transfer comm log entries
+  if (DB.commLog) {
+    DB.commLog.forEach(l => { if(l.studentId === src.id) l.studentId = tgt.id; });
+  }
+
+  // 5. Transfer test fees
+  if (DB.testFees) {
+    DB.testFees.forEach(f => { if(f.studentId === src.id) f.studentId = tgt.id; });
+  }
+
+  // 6. Log the merge
+  addHistory(tgt, 'reg', `Merged with ${src.first} ${src.last} (duplicate removed)`);
+
+  // 7. Remove source student
+  DB.students = DB.students.filter(s => s.id !== src.id);
+
+  save();
+  closeModal('modal-merge-student');
+  renderRoster();
+  openProfile(tgt.id);
+  toast(`✓ Merged! ${src.first} ${src.last} → ${tgt.first} ${tgt.last}`);
+}
 </script>
 </body>
 </html>
