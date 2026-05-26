@@ -11,7 +11,7 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body);
-    const model = body.model || 'gemini-2.0-flash';
+    const model = body.model || 'gemini-1.5-flash';
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
