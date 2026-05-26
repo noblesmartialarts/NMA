@@ -2962,6 +2962,167 @@ function toggleEligibilityOverride(sid){
 // ══════════════════════════════════════════════════════
 // IMPORT MONTHLY ROSTER (CSV or Excel)
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// ROSTER IMPORT — PARSE + PREVIEW
+// ══════════════════════════════════════════════════════
+function tryParseNames(rows){
+  if(!rows.length)return[];
+  // Find header row
+  let dataStart=0;
+  for(let r=0;r<Math.min(rows.length,5);r++){
+    const row=rows[r].map(c=>String(c||'').trim());
+    const joined=row.join('|').toLowerCase();
+    if(joined.includes('last')&&joined.includes('first')){dataStart=r+1;break;}
+    const c0ok=!row[0]||/^\d+$/.test(row[0]);
+    if(c0ok&&row[1]&&/^[A-Za-z]/.test(row[1])){dataStart=r;break;}
+  }
+  const totalCols=rows.slice(dataStart,dataStart+5).reduce((m,r)=>Math.max(m,r.length),0);
+  const isRich=totalCols>=7;
+  const parsed=[];
+  for(let r=dataStart;r<rows.length;r++){
+    const row=rows[r].map(c=>String(c||'').trim());
+    if(row.every(c=>!c))continue;
+    const last=row[1]||'', first=row[2]||'';
+    if(!first||!last||first.length<2||last.length<2)continue;
+    if(['first','first name','last','last name'].includes(first.toLowerCase()))continue;
+    if(/\d/.test(first)&&/\d/.test(last))continue;
+    if(!isRich){parsed.push({first,last,isRich:false});continue;}
+    const has15=totalCols>=15;
+    const dob=row[3]||'';
+    const hoh1Name=has15?(row[7]||''):(row[6]||'');
+    const hoh1Cell=has15?(row[9]||''):(row[8]||'');
+    const hoh1Email=has15?(row[10]||''):(row[9]||'');
+    const hoh2Name=has15?(row[11]||''):(row[10]||'');
+    const hoh2Email=has15?(row[14]||''):(row[13]||'');
+    const mobilePhone=row[5]||'';
+    const homePhone=row[4]||'';
+    const studentEmail=has15?(row[6]||''):'';
+    const email=hoh1Email||studentEmail||hoh2Email||'';
+    const phone=hoh1Cell||mobilePhone||homePhone||'';
+    const parent=hoh1Name||hoh2Name||'';
+    parsed.push({first,last,email,phone,parent,dob,isRich:true});
+  }
+  return parsed;
+}
+
+function showRosterPreview(parsed){
+  const isRich=parsed.length>0&&parsed[0].isRich===true;
+  const matches=[],newStudents=[];
+  parsed.forEach(p=>{
+    const s=DB.students.find(s=>
+      s.last.toLowerCase()===p.last.toLowerCase()&&
+      s.first.toLowerCase()===p.first.toLowerCase()
+    );
+    if(s)matches.push({student:s,data:p});
+    else newStudents.push(p);
+  });
+
+  let modal=$('modal-roster-preview');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='modal-roster-preview';
+    modal.className='modal-backdrop';
+    modal.innerHTML=`<div class="modal modal-lg">
+      <div class="modal-header"><div class="modal-title">📋 Roster Import Preview</div><button class="btn ghost" onclick="closeModal('modal-roster-preview')">✕</button></div>
+      <div class="modal-body" id="roster-preview-body"></div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('modal-roster-preview')">Cancel</button>
+        <button class="btn primary" id="roster-apply-btn">Apply</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+
+  function contactBadges(s,d){
+    if(!d||!d.isRich)return'';
+    const adds=[],updates=[];
+    if(d.email){if(!s.email)adds.push('email');else if(d.email!==s.email)updates.push('email');}
+    if(d.phone){if(!s.phone)adds.push('phone');else if(d.phone!==s.phone)updates.push('phone');}
+    if(d.parent){if(!s.parent)adds.push('parent');else if(d.parent!==s.parent)updates.push('parent');}
+    if(d.dob){if(!s.dob)adds.push('DOB');else if(d.dob!==s.dob)updates.push('DOB');}
+    const parts=[];
+    if(adds.length)parts.push('<span style="font-size:10px;color:var(--green);margin-left:5px;">+'+adds.join(',')+'</span>');
+    if(updates.length)parts.push('<span style="font-size:10px;color:var(--amber);margin-left:5px;">\u21bb'+updates.join(',')+'</span>');
+    return parts.join('');
+  }
+
+  const newStudentRows=newStudents.map((ns,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;" id="ns-row-${i}">
+      <label class="checkbox-row" style="flex-shrink:0;"><input type="checkbox" id="ns-check-${i}" checked> <strong>${ns.first} ${ns.last}</strong>${ns.parent?` <span style="font-size:11px;color:var(--ink-muted);">· ${ns.parent}</span>`:''}</label>
+      <select id="ns-group-${i}" class="form-select" style="width:155px;font-size:12px;">
+        <option>Little Dragons</option><option>Karate Kids</option>
+        <option selected>Black Belt Club</option><option>Master's Club</option><option>Legends Club</option>
+      </select>
+      <select id="ns-belt-${i}" class="form-select" style="width:120px;font-size:12px;">
+        <option>White</option><option>Yellow</option><option>Yellow II</option>
+        <option>Orange</option><option>Orange II</option>
+        <option selected>Purple</option><option>Purple II</option>
+        <option>Blue</option><option>Blue II</option>
+        <option>Green</option><option>Green II</option>
+        <option>Brown</option><option>Red</option><option>Red II</option><option>Red III</option>
+      </select>
+      <span class="badge badge-blue" style="font-size:10px;">New</span>
+    </div>`).join('');
+
+  $('roster-preview-body').innerHTML=`
+    <div style="margin-bottom:14px;padding:11px 14px;background:var(--green-light);border-radius:8px;font-size:13px;">
+      <strong>${matches.length}</strong> existing student${matches.length!==1?'s':''} matched
+      ${isRich?` · <strong>${matches.filter(m=>m.data.email||m.data.phone||m.data.parent).length}</strong> will have contact info updated`:''}
+      · <strong>${newStudents.length}</strong> new student${newStudents.length!==1?'s':''} found
+    </div>
+    ${matches.length?`<div style="margin-bottom:14px;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);font-weight:500;margin-bottom:7px;">
+        ✓ Matched — will be registered${isRich?' &amp; contact info updated':''}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">${matches.map(m=>`<span class="badge badge-green">${m.student.first} ${m.student.last}${contactBadges(m.student,m.data)}</span>`).join('')}</div>
+    </div>`:''}
+    ${newStudents.length?`<div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);font-weight:500;margin-bottom:4px;">+ New students — set group &amp; belt</div>
+      ${newStudentRows}
+    </div>`:''}`;
+
+  $('roster-apply-btn').textContent=`Apply — ${matches.length+newStudents.length} students`;
+  $('roster-apply-btn').onclick=()=>{
+    let regCount=0,addCount=0,contactCount=0;
+    matches.forEach(m=>{
+      const s=m.student,d=m.data;
+      if(s.registered!=='Yes'){s.registered='Yes';addHistory(s,'reg','Auto-registered via roster import');}
+      if(d&&d.isRich){
+        let updated=false;
+        if(d.email&&d.email!==s.email){s.email=d.email;updated=true;}
+        if(d.phone&&d.phone!==s.phone){s.phone=d.phone;updated=true;}
+        if(d.parent&&d.parent!==s.parent){s.parent=d.parent;updated=true;}
+        if(d.dob&&d.dob!==s.dob){s.dob=d.dob;updated=true;}
+        if(updated)contactCount++;
+      }
+      regCount++;
+    });
+    newStudents.forEach((ns,i)=>{
+      const cb=document.getElementById('ns-check-'+i);
+      if(!cb||!cb.checked)return;
+      const group=document.getElementById('ns-group-'+i)?.value||'Black Belt Club';
+      const belt=document.getElementById('ns-belt-'+i)?.value||'White';
+      DB.students.push({
+        id:DB.nextId++,first:ns.first,last:ns.last,
+        group,belt,stripes:0,beltSize:'0',uniformSize:'',
+        status:'Active',registered:'Yes',
+        parent:ns.parent||'',email:ns.email||'',phone:ns.phone||'',dob:ns.dob||'',
+        leader:false,ai:false,
+        firstDate:new Date().toISOString().slice(0,10),
+        notes:'Added via roster import',history:[]
+      });
+      addCount++;regCount++;
+    });
+    save();closeModal('modal-roster-preview');
+    renderRoster();renderRevenue();
+    const summary=`\u2713 ${regCount} registered`+(addCount?` \u00b7 ${addCount} added`:'')+(contactCount?` \u00b7 ${contactCount} contacts updated`:'');
+    const statusEl=$('roster-import-status')||$('roster-upload-status');
+    if(statusEl)statusEl.textContent=summary;
+    toast('Done! '+summary);
+  };
+  modal.classList.add('open');
+}
+
 function importRosterFile(input){
   const file=input.files[0]; if(!file)return;
   const statusEl=$('roster-import-status')||$('roster-upload-status');
