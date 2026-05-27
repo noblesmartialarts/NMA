@@ -3314,12 +3314,11 @@ function tryParseNames(rows){
     if(dobRaw){
       const n=parseFloat(String(dobRaw).replace(/,/g,''));
       if(!isNaN(n)&&n>10000&&n<60000){
-        // Excel serial date (days since Dec 30 1899, accounting for Lotus bug)
-        const msPerDay=86400000;
-        const excelEpoch=new Date(1899,11,30).getTime();
-        const d=new Date(excelEpoch+n*msPerDay);
+        // Excel serial date — use UTC epoch + UTC read to avoid timezone/DST shift
+        const excelEpoch=Date.UTC(1899,11,30);
+        const d=new Date(excelEpoch+n*86400000);
         if(!isNaN(d.getTime())){
-          dob=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+          dob=d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
         }
       } else {
         // Try parsing date strings: M/D/YYYY, MM-DD-YYYY, YYYY-MM-DD, etc.
@@ -3331,10 +3330,10 @@ function tryParseNames(rows){
         } else if(/^\d{4}-\d{2}-\d{2}$/.test(raw)){
           dob=raw; // already ISO format
         } else if(raw){
-          // Try native Date parsing as last resort
+          // Last resort: native Date parsing — read back in UTC to avoid off-by-one
           const d=new Date(raw);
-          if(!isNaN(d.getTime())&&d.getFullYear()>1950){
-            dob=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+          if(!isNaN(d.getTime())&&d.getUTCFullYear()>1950){
+            dob=d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
           }
         }
       }
