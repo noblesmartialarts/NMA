@@ -351,7 +351,7 @@ tbody td{font-size:11px!important;}
   </div>
 </nav>
 
-<div class="main">
+<div class="main"><div id="undo-bar" style="display:flex;justify-content:flex-end;padding:6px 18px 0;position:sticky;top:0;z-index:100;pointer-events:none;"><button id="undo-btn" onclick="undo()" disabled style="pointer-events:all;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit;color:var(--ink-muted);opacity:0.4;" title="Nothing to undo">↩ Undo</button></div>
 
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page active">
@@ -1357,6 +1357,7 @@ function showSync(state,msg){
 // ══════════════════════════════════════════════════════
 let _saveTimer=null;
 function save(){
+  if(!_initComplete)return;
   try{localStorage.setItem('nma_v4',JSON.stringify(DB));}catch(e){}
   clearTimeout(_saveTimer);
   showSync('saving','Saving…');
@@ -1376,6 +1377,7 @@ function save(){
 // LOAD — local cache first, then cloud (cloud wins)
 // ══════════════════════════════════════════════════════
 let _cloudLoadedSuccessfully=false;
+let _initComplete=false;
 async function load(){
   // Step 1: local cache for instant render
   try{
@@ -3022,6 +3024,12 @@ if(!DB.regLinks)DB.regLinks={};
 
   // Render
   renderDashboard();updateBeltOptions();renderTestSelect();
+
+  // Init complete — safe to save now
+  _initComplete=true;
+  setTimeout(checkMonthlyBackup,4000);
+  setTimeout(checkWelcomeSequence,6000);
+  setTimeout(checkWeeklyDigest,8000);
 
   // Hide loading overlay
   if(overlay){
@@ -5711,7 +5719,12 @@ function timerNext(){
 }
 function timerReset(){clearInterval(_timerInterval);_timerRunning=false;_timerIdx=0;_timerRemaining=_timerPlan[0]?.mins*60||0;renderTimerSegmentsList();updateTimerDisplay();}
 function openTimerSettings(){
-  renderTimerSegmentEditor();$('modal-timer-settings').classList.add('open');
+  try{
+    renderTimerSegmentEditor();
+    const m=$('modal-timer-settings');
+    if(!m){alert('Timer settings modal not found. Please refresh the page.');return;}
+    m.classList.add('open');
+  }catch(e){alert('Timer error: '+e.message);}
 }
 function renderTimerSegmentEditor(){
   const el=$('timer-segment-editor');if(!el)return;
@@ -5743,11 +5756,13 @@ function generatePKCE(){
   });
 }
 async function connectSpotify(){
+  try{
   if(_spToken&&Date.now()<_spTokenExpiry){disconnectSpotify();return;}
   const{verifier,challenge}=await generatePKCE();
   sessionStorage.setItem('sp_verifier',verifier);
   const url=`https://accounts.spotify.com/authorize?client_id=${SP_CLIENT_ID}&response_type=code&redirect_uri=${SP_REDIRECT}&code_challenge_method=S256&code_challenge=${challenge}&scope=${encodeURIComponent(SP_SCOPES)}&state=spotify_auth`;
   window.location.href=url;
+  }catch(e){alert('Spotify error: '+e.message);}  
 }
 async function handleSpotifyCallback(){
   const params=new URLSearchParams(window.location.search);
@@ -5819,6 +5834,86 @@ renderDashboard=function(){
   renderInactiveAlert();
   renderRevenueChart();
 };
+
+// ══════════════════════════════════════════════════════
+// UNDO STACK
+// ══════════════════════════════════════════════════════
+const _undoStack = [];
+const MAX_UNDO = 20;
+
+function pushUndo(label) {
+  _undoStack.push({
+    label: label || 'Action',
+    students: JSON.stringify(DB.students),
+    attendance: JSON.stringify(DB.attendance),
+    testFees: JSON.stringify(DB.testFees),
+    promotions: JSON.stringify(DB.promotions),
+    commLog: JSON.stringify(DB.commLog||[]),
+    nextId: DB.nextId
+  });
+  if (_undoStack.length > MAX_UNDO) _undoStack.shift();
+  updateUndoBtn();
+}
+
+function undo() {
+  if (!_undoStack.length) { toast('Nothing to undo'); return; }
+  const state = _undoStack.pop();
+  DB.students = JSON.parse(state.students);
+  DB.attendance = JSON.parse(state.attendance);
+  DB.testFees = JSON.parse(state.testFees);
+  DB.promotions = JSON.parse(state.promotions);
+  DB.commLog = JSON.parse(state.commLog);
+  DB.nextId = state.nextId;
+  save();
+  renderRoster(); renderDashboard(); renderAttendance();
+  toast('\u21a9 Undid: ' + state.label);
+  updateUndoBtn();
+}
+
+function updateUndoBtn() {
+  const btn = document.getElementById('undo-btn');
+  if (!btn) return;
+  btn.disabled = _undoStack.length === 0;
+  btn.title = _undoStack.length ? 'Undo: ' + _undoStack[_undoStack.length-1].label : 'Nothing to undo';
+  btn.style.opacity = _undoStack.length ? '1' : '0.4';
+}
+
+// Keyboard shortcut: Cmd/Ctrl+Z
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    undo();
+  }
+});
+
+// Patch key mutating functions to save undo state first
+const _origDeleteStudent = deleteStudent;
+deleteStudent = function(id) {
+  pushUndo('Delete student');
+  _origDeleteStudent(id);
+};
+const _origSaveStudent = saveStudent;
+saveStudent = function() {
+  pushUndo('Edit student');
+  _origSaveStudent();
+};
+const _origPromoteBelt = promoteBelt;
+promoteBelt = function(id) {
+  pushUndo('Promote ' + (DB.students.find(s=>s.id===id)?.first||'student'));
+  _origPromoteBelt(id);
+};
+const _origAdjustStripe = adjustStripe;
+adjustStripe = function(id, delta) {
+  pushUndo('Adjust stripe');
+  _origAdjustStripe(id, delta);
+};
+const _origApplyMassPromotion = applyMassPromotion;
+if (typeof _origApplyMassPromotion === 'function') {
+  applyMassPromotion = function() {
+    pushUndo('Mass promotion');
+    _origApplyMassPromotion.apply(this, arguments);
+  };
+}
 </script>
 </body>
 </html>
