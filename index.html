@@ -247,7 +247,7 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
 #user-menu button:hover{background:rgba(255,255,255,.08);}
 
 /* ── Dark mode ── */
-body.dark-mode{
+html.dark-mode,body.dark-mode{
   --ink:#e8e6e0;--ink-muted:#9e9c97;--ink-faint:#6b6966;
   --paper:#1a1a1a;--surface:#242424;--border:#333;--border-strong:#444;
   --green-light:rgba(46,192,96,.12);--amber-light:rgba(201,122,16,.12);
@@ -343,6 +343,11 @@ tbody td{font-size:11px!important;}
     <div class="nav-item" data-page="letters" onclick="nav('letters')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Promote Letters</span></div>
     <div class="nav-item" data-page="ai" onclick="nav('ai')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg><span>AI Assistant</span></div>
     <div class="nav-item" data-page="backup" onclick="nav('backup')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Backup / Restore</span></div>
+  </div>
+  <div style="padding:10px 12px;border-top:1px solid rgba(255,255,255,.08);">
+    <button id="dark-toggle-btn" onclick="toggleDarkMode()" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.7);border-radius:8px;padding:9px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.12)'" onmouseout="this.style.background='rgba(255,255,255,.06)'">
+      <span id="dark-mode-icon">🌙</span><span id="dark-mode-label" class="sidebar-label">Dark Mode</span>
+    </button>
   </div>
 </nav>
 
@@ -887,25 +892,6 @@ tbody td{font-size:11px!important;}
   <div id="timer-segments-list" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;"></div>
 </div>
 
-<!-- Timer settings modal -->
-<div class="modal-backdrop" id="modal-timer-settings">
-  <div class="modal" style="max-width:520px;">
-    <div class="modal-header"><div class="modal-title">⚙ Class Plan</div><button class="btn ghost" onclick="closeModal('modal-timer-settings')">✕</button></div>
-    <div class="modal-body">
-      <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn small" onclick="loadTimerTemplate('standard')">Standard (45 min)</button>
-        <button class="btn small" onclick="loadTimerTemplate('test')">Test Day (60 min)</button>
-        <button class="btn small" onclick="loadTimerTemplate('short')">Short (30 min)</button>
-      </div>
-      <div id="timer-segment-editor" style="display:flex;flex-direction:column;gap:8px;"></div>
-      <button class="btn" style="margin-top:10px;width:100%;" onclick="addTimerSegment()">+ Add Segment</button>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('modal-timer-settings')">Cancel</button>
-      <button class="btn primary" onclick="saveTimerPlan()">Save Plan</button>
-    </div>
-  </div>
-</div>
 </div><!-- /main -->
 </div><!-- /app -->
 
@@ -1220,6 +1206,24 @@ tbody td{font-size:11px!important;}
     <div class="modal-footer"><button class="btn" onclick="closeModal('modal-bulk')">Cancel</button></div>
   </div>
 </div>
+<div class="modal-backdrop" id="modal-timer-settings">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header"><div class="modal-title">⚙ Class Plan</div><button class="btn ghost" onclick="closeModal('modal-timer-settings')">✕</button></div>
+    <div class="modal-body">
+      <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn small" onclick="loadTimerTemplate('standard')">Standard (45 min)</button>
+        <button class="btn small" onclick="loadTimerTemplate('test')">Test Day (60 min)</button>
+        <button class="btn small" onclick="loadTimerTemplate('short')">Short (30 min)</button>
+      </div>
+      <div id="timer-segment-editor" style="display:flex;flex-direction:column;gap:8px;"></div>
+      <button class="btn" style="margin-top:10px;width:100%;" onclick="addTimerSegment()">+ Add Segment</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-timer-settings')">Cancel</button>
+      <button class="btn primary" onclick="saveTimerPlan()">Save Plan</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1371,6 +1375,7 @@ function save(){
 // ══════════════════════════════════════════════════════
 // LOAD — local cache first, then cloud (cloud wins)
 // ══════════════════════════════════════════════════════
+let _cloudLoadedSuccessfully=false;
 async function load(){
   // Step 1: local cache for instant render
   try{
@@ -1381,7 +1386,8 @@ async function load(){
   try{
     const{data,error}=await supa.from('crm_data').select('data').eq('id','main').single();
     if(error)throw error;
-    if(data?.data&&typeof data.data==='object'&&(data.data.students?.length>0||Object.keys(data.data).length>3)){
+    if(data?.data&&typeof data.data==='object'){
+      _cloudLoadedSuccessfully=true;
       Object.assign(DB,data.data);
       try{localStorage.setItem('nma_v4',JSON.stringify(DB));}catch(e){}
     }
@@ -3006,8 +3012,10 @@ if(!DB.regLinks)DB.regLinks={};
   }
   DB.students.forEach(s=>{if(!s.history)s.history=[];});
 
-  // Seed roster ONLY if completely empty after cloud load
-  if(!DB.students||DB.students.length===0)importRealRoster(false);
+  // Seed only if cloud load failed AND no local data
+  if(!_cloudLoadedSuccessfully && (!DB.students||DB.students.length===0)){
+    importRealRoster(false);
+  }
 
   // Set default date
   if($('new-class-date'))$('new-class-date').value=new Date().toISOString().slice(0,10);
@@ -3689,10 +3697,26 @@ function importRosterFile(input){
         const r=(rd[0]|(rd[1]<<8)),c=(rd[2]|(rd[3]<<8)),sl=(rd[4]|(rd[5]<<8));
         let s='';for(let j=0;j<sl;j++)s+=String.fromCharCode(rd[6+j]);
         cells[r+'_'+c]=s;
-      } else if(rt===0x0201&&rd.length>=8){
+      } else if(rt===0x0203&&rd.length>=14){
+        // Number record (double float)
         const r=(rd[0]|(rd[1]<<8)),c=(rd[2]|(rd[3]<<8));
-        const view=new DataView(wb.buffer,wb.byteOffset+pos+10,8);
-        cells[r+'_'+c]=String(Math.round(view.getFloat64(0,true)*100)/100);
+        const view=new DataView(rd.buffer,rd.byteOffset+6,8);
+        const v=view.getFloat64(0,true);
+        cells[r+'_'+c]=String(Math.round(v*1000)/1000);
+      } else if(rt===0x027E&&rd.length>=10){
+        // RK record (compressed number)
+        const r=(rd[0]|(rd[1]<<8)),c=(rd[2]|(rd[3]<<8));
+        const rk=(rd[6]|(rd[7]<<8)|(rd[8]<<16)|(rd[9]<<24));
+        let v;
+        if(rk&0x02){v=(rk>>2);}  // integer
+        else{const b=new Uint8Array(8);b[4]=rk&0xFC;b[5]=(rk>>8)&0xFF;b[6]=(rk>>16)&0xFF;b[7]=(rk>>24)&0xFF;v=new DataView(b.buffer).getFloat64(0,false);}
+        if(rk&0x01)v=v/100;
+        cells[r+'_'+c]=String(Math.round(v*1000)/1000);
+      } else if(rt===0x0201&&rd.length>=8){
+        // Old Integer record (deprecated)
+        const r=(rd[0]|(rd[1]<<8)),c=(rd[2]|(rd[3]<<8));
+        const v=(rd[6]|(rd[7]<<8));
+        cells[r+'_'+c]=String(v);
       }
       pos+=4+rl;
     }
@@ -4795,7 +4819,7 @@ async function sendAIMessage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-1.5-flash-latest',
         contents,
         generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
       })
@@ -5243,21 +5267,20 @@ function toggleCalDate(date) {
 // DARK MODE
 // ══════════════════════════════════════════════════════
 function toggleDarkMode(){
-  document.body.classList.toggle('dark-mode');
-  const isDark=document.body.classList.contains('dark-mode');
+  const isDark=!document.body.classList.contains('dark-mode');
+  document.body.classList.toggle('dark-mode',isDark);
   localStorage.setItem('nma_dark',isDark?'1':'');
   const icon=$('dark-mode-icon');const label=$('dark-mode-label');
   if(icon)icon.textContent=isDark?'☀️':'🌙';
   if(label)label.textContent=isDark?'Light Mode':'Dark Mode';
 }
-// Apply on load
-if(localStorage.getItem('nma_dark')==='1'){
-  document.body.classList.add('dark-mode');
-  document.addEventListener('DOMContentLoaded',()=>{
-    const icon=$('dark-mode-icon');const label=$('dark-mode-label');
-    if(icon)icon.textContent='☀️';if(label)label.textContent='Light Mode';
-  });
-}
+// Apply dark mode on page load
+(function applyDarkOnLoad(){
+  if(localStorage.getItem('nma_dark')==='1'){
+    document.documentElement.classList.add('dark-mode');
+    document.body.classList.add('dark-mode');
+  }
+})();
 
 // ══════════════════════════════════════════════════════
 // CLASS NOTES
