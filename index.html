@@ -306,12 +306,12 @@ tbody td{font-size:11px!important;}
 <div class="app">
 
 <!-- SIDEBAR -->
-<nav class="sidebar">
+<nav class="sidebar" style="display:flex;flex-direction:column;">
   <div class="sidebar-logo" style="position:relative;">
     <div class="wordmark">Noble's<br>Martial Arts</div>
     <div class="sub">Instructor CRM v4</div><img id="user-avatar" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='12' fill='%23555'/><circle cx='12' cy='9' r='4' fill='%23fff'/><path d='M4 20c0-4 3.6-7 8-7s8 3 8 7' fill='%23fff'/></svg>" onclick="toggleUserMenu()" style="margin-top:10px;display:none;">
   </div>
-  <div class="sidebar-nav">
+  <div class="sidebar-nav" style="flex:1;overflow-y:auto;">
     <div class="nav-section-label">Overview</div>
     <div class="nav-item active" data-page="dashboard" onclick="nav('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></div>
     <div class="nav-section-label">Students</div>
@@ -1381,7 +1381,7 @@ async function load(){
   try{
     const{data,error}=await supa.from('crm_data').select('data').eq('id','main').single();
     if(error)throw error;
-    if(data?.data&&Object.keys(data.data).length>2){
+    if(data?.data&&typeof data.data==='object'&&(data.data.students?.length>0||Object.keys(data.data).length>3)){
       Object.assign(DB,data.data);
       try{localStorage.setItem('nma_v4',JSON.stringify(DB));}catch(e){}
     }
@@ -1690,8 +1690,9 @@ function renderRoster(){
     if(s.ai)flags.push('<span class="flag flag-ai">AI</span>');
     if(stripeEligible(s))flags.push('<span class="flag flag-stripe">Test ready</span>');
     const promo=getPromotion(s);
-    let regBadge=s.registered==='Yes'&&s.paidVenmo?'<span class="badge badge-venmo">Venmo</span>':s.registered==='Yes'?'<span class="badge badge-green">Yes</span>':s.omitFromReg?'<span class="badge badge-gray">Omitted</span>':'<span class="badge badge-gray">No</span>';
+    let regBadge=s.registered==='Yes'&&s.paidVenmo?'<span class="badge badge-venmo">Venmo</span>':s.registered==='Yes'?'<span class="badge badge-green">Yes</span>':s.omitFromReg?'<span class="badge badge-blue">Comp</span>':'<span class="badge badge-gray">No</span>';
     return `<tr>
+      <td style="width:28px;"><input type="checkbox" class="student-row-check" data-id="${s.id}" onchange="toggleStudentRowSelect(${s.id})" style="accent-color:var(--ink);cursor:pointer;" ${_selectedStudentIds.has(s.id)?'checked':''}></td>
       <td><span style="font-weight:500;color:var(--blue);text-decoration:underline;cursor:pointer;" onclick="openProfile(${s.id})">${s.first} ${s.last}</span><div style="font-size:11px;color:var(--ink-muted);">${s.parent||''}</div></td>
       <td style="font-size:12px;color:var(--ink-muted);">${s.group}</td>
       <td><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></td>
@@ -1868,6 +1869,17 @@ function onAttDateChange(){
 // ══════════════════════════════════════════════════════
 let attState={};
 function initAttendance(){
+  // Add print list button if not present
+  setTimeout(()=>{
+    const bar=document.querySelector('#page-attendance .att-bar');
+    if(bar&&!bar.querySelector('.print-list-btn')){
+      const btn=document.createElement('button');
+      btn.className='btn small print-list-btn no-print';
+      btn.textContent='🖨 Print List';
+      btn.onclick=()=>printClassList($('att-group')?.value||'');
+      bar.appendChild(btn);
+    }
+  },100);
   // Set today as default new class date
   $('new-class-date').value=new Date().toISOString().slice(0,10);
   renderClassDateChips();
@@ -2113,7 +2125,7 @@ function renderRevenue(){
     <div class="stat-card good"><div class="stat-label">Order revenue</div><div class="stat-value" style="font-size:20px;">${fmt$(oCharged)}</div><div class="stat-sub">Charged to parents</div></div>
     <div class="stat-card ${oCharged-oCost>=0?'good':'danger'}"><div class="stat-label">Order margin</div><div class="stat-value" style="font-size:20px;">${fmt$(oCharged-oCost)}</div><div class="stat-sub">Revenue − wholesale</div></div>`;
   $('reg-tbody').innerHTML=active.map(s=>{
-    let statusBadge=s.omitFromReg?'<span class="badge badge-gray">Omitted</span>':s.registered==='Yes'&&s.paidVenmo?'<span class="badge badge-venmo">Venmo</span>':s.registered==='Yes'?'<span class="badge badge-green">Registered</span>':'<span class="badge badge-gray">No</span>';
+    let statusBadge=s.omitFromReg?'<span class="badge badge-blue">Comp</span>':s.registered==='Yes'&&s.paidVenmo?'<span class="badge badge-venmo">Venmo</span>':s.registered==='Yes'?'<span class="badge badge-green">Registered</span>':'<span class="badge badge-gray">No</span>';
     return `<tr><td><strong>${s.first} ${s.last}</strong></td><td style="font-size:12px;color:var(--ink-muted);">${s.group}</td><td>${statusBadge}</td><td>${s.paidVenmo?'<span class="badge badge-venmo">Venmo</span>':s.omitFromReg?'—':'Cash / Card'}</td>
     <td style="white-space:nowrap;">
       <button class="btn small" onclick="toggleReg(${s.id})">${s.registered==='Yes'?'Unregister':'Register'}</button>
@@ -3281,7 +3293,7 @@ function tryParseNames(rows){
     if(!isRich){parsed.push({first,last,isRich:false});continue;}
     const has15=totalCols>=15;
     // Parse DOB — handles Excel serial numbers AND date strings
-    const dobRaw=row[3]||'';
+    const dobRaw=String(row[3]||'').trim();
     let dob='';
     if(dobRaw){
       const n=parseFloat(String(dobRaw).replace(/,/g,''));
@@ -4718,7 +4730,7 @@ async function emailPromoReport() {
 // ══════════════════════════════════════════════════════
 // GEMINI AI ASSISTANT
 // ══════════════════════════════════════════════════════
-const GEMINI_URL = '/.netlify/functions/gemini';
+const GEMINI_URL = '/.netlify/functions/gemini'; // proxy to Gemini API
 let aiHistory = [];
 
 function buildCRMContext() {
@@ -5234,12 +5246,17 @@ function toggleDarkMode(){
   document.body.classList.toggle('dark-mode');
   const isDark=document.body.classList.contains('dark-mode');
   localStorage.setItem('nma_dark',isDark?'1':'');
-  $('dark-toggle-btn').textContent=isDark?'☀️':'🌙';
+  const icon=$('dark-mode-icon');const label=$('dark-mode-label');
+  if(icon)icon.textContent=isDark?'☀️':'🌙';
+  if(label)label.textContent=isDark?'Light Mode':'Dark Mode';
 }
 // Apply on load
 if(localStorage.getItem('nma_dark')==='1'){
   document.body.classList.add('dark-mode');
-  document.addEventListener('DOMContentLoaded',()=>{const b=$('dark-toggle-btn');if(b)b.textContent='☀️';});
+  document.addEventListener('DOMContentLoaded',()=>{
+    const icon=$('dark-mode-icon');const label=$('dark-mode-label');
+    if(icon)icon.textContent='☀️';if(label)label.textContent='Light Mode';
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -5332,6 +5349,7 @@ function openDataHealth(){
 // BULK ACTIONS
 // ══════════════════════════════════════════════════════
 let _selectedStudentIds=new Set();
+let _bulkActionSelected=false;
 function toggleSelectAllStudents(cb){
   const boxes=document.querySelectorAll('.student-row-check');
   boxes.forEach(b=>{b.checked=cb.checked;const id=parseInt(b.getAttribute('data-id'));if(cb.checked)_selectedStudentIds.add(id);else _selectedStudentIds.delete(id);});
