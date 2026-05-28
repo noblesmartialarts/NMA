@@ -5745,8 +5745,6 @@ function renderRevenueChart(){
 // ══════════════════════════════════════════════════════
 // APPAREL ORDERS (Jotform sync)
 // ══════════════════════════════════════════════════════
-var JOTFORM_FORM_ID = '261055009001137';
-
 function initApparelOrders() {
   if (!DB.apparelOrders) DB.apparelOrders = [];
   if (!DB.apparelOrderStatus) DB.apparelOrderStatus = {};
@@ -5790,7 +5788,7 @@ async function syncApparelOrders() {
   if (btn) { btn.textContent = '↻ Syncing…'; btn.disabled = true; }
   showApparelAlert('', '');
   try {
-    const url = 'https://api.jotform.com/form/' + JOTFORM_FORM_ID +
+    const url = 'https://api.jotform.com/form/261055009001137' +
       '/submissions?apiKey=' + encodeURIComponent(DB.jotformApiKey) +
       '&limit=100&orderby=created_at&direction=DESC';
     const res = await fetch(url);
