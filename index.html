@@ -678,8 +678,10 @@ tbody td{font-size:11px!important;}
       <button class="btn primary" onclick="refreshInbox()">↻ Refresh</button>
     </div>
   </div>
-  <div id="inbox-connect-prompt" style="display:none;background:var(--amber-light);border:1px solid var(--amber);border-radius:12px;padding:16px 20px;margin-bottom:16px;font-size:13px;color:var(--amber);">
-    ⚠ Connect Gmail on the Emails tab to enable the inbox.
+  <div id="inbox-connect-prompt" style="display:none;background:var(--amber-light);border:1px solid var(--amber);border-radius:12px;padding:20px 24px;margin-bottom:16px;font-size:14px;color:var(--amber);display:none;">
+    <strong>⚠ Gmail not connected</strong><br>
+    <span style="font-size:12px;opacity:.85;">Go to the Emails tab and click "Connect Gmail" to enable the inbox.</span>
+    <button class="btn small" style="margin-left:12px;margin-top:8px;" onclick="nav('emails')">→ Go to Emails tab</button>
   </div>
   <div id="inbox-loading" style="display:none;text-align:center;padding:48px;color:var(--ink-muted);">
     <div style="display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--ink);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px;"></div>
@@ -2945,6 +2947,13 @@ if(!DB.regLinks)DB.regLinks={};
   // Render
   renderDashboard();updateBeltOptions();renderTestSelect();
 
+  // Restore Gmail token at startup so Inbox works without visiting Emails first
+  if(DB.gmailToken&&DB.gmailToken.expires>(Date.now()+300000)){
+    gmailToken=DB.gmailToken.token;
+  } else if(DB.gmailToken){
+    gmailToken=null;delete DB.gmailToken;
+  }
+
   // Init complete — safe to save now
   _initComplete=true;
   setTimeout(checkMonthlyBackup,4000);
@@ -3826,11 +3835,18 @@ let inboxFilter = 'all';
 let selectedThreadId = null;
 
 function initInbox() {
+  // Try restoring token if not loaded yet
+  if(!gmailToken&&DB.gmailToken&&DB.gmailToken.expires>(Date.now()+60000)){
+    gmailToken=DB.gmailToken.token;
+  }
   if (!gmailToken) {
     $('inbox-connect-prompt').style.display = 'block';
     return;
   }
+  $('inbox-connect-prompt').style.display = 'none';
+  // Always refresh on first visit; thereafter only if list is empty
   if (!inboxThreads.length) refreshInbox();
+  else renderInboxList();
 }
 
 function setInboxFilter(f) {
@@ -3841,6 +3857,10 @@ function setInboxFilter(f) {
 }
 
 async function refreshInbox() {
+  // Restore token if available but not yet loaded
+  if(!gmailToken&&DB.gmailToken&&DB.gmailToken.expires>(Date.now()+60000)){
+    gmailToken=DB.gmailToken.token;
+  }
   if (!gmailToken) {
     $('inbox-connect-prompt').style.display = 'block';
     return;
@@ -3849,23 +3869,39 @@ async function refreshInbox() {
   $('inbox-loading').style.display = 'block';
   $('inbox-list').innerHTML = '';
   try {
-    const parentEmails = DB.students
-      .filter(s => s.status === 'Active' && s.email)
-      .map(s => s.email);
+    const parentEmails = [...new Set(
+      DB.students.filter(s => s.status === 'Active' && s.email).map(s => s.email.toLowerCase().trim())
+    )];
     if (!parentEmails.length) {
       $('inbox-loading').style.display = 'none';
-      $('inbox-list').innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink-muted);font-size:13px;">No parent emails in your roster yet.</div>';
+      $('inbox-list').innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink-muted);font-size:13px;">No parent emails in your roster yet. Add emails to student profiles first.</div>';
       return;
     }
-    const query = parentEmails.map(e => 'from:' + e).join(' OR ');
+    // Search for emails from OR to parent addresses (catches replies)
+    // Chunk into groups of 15 to avoid query length limits
+    const chunks = [];
+    for(let i=0;i<parentEmails.length;i+=15) chunks.push(parentEmails.slice(i,i+15));
+    const query = chunks[0].map(e=>'from:'+e+' OR to:'+e).join(' OR ');
     const res = await fetch(
-      'https://gmail.googleapis.com/gmail/v1/users/me/threads?maxResults=30&q=' + encodeURIComponent(query),
+      'https://gmail.googleapis.com/gmail/v1/users/me/threads?maxResults=40&q=' + encodeURIComponent(query),
       { headers: { Authorization: 'Bearer ' + gmailToken } }
     );
+    if(res.status===401){
+      gmailToken=null;delete DB.gmailToken;save();
+      $('inbox-loading').style.display='none';
+      $('inbox-connect-prompt').style.display='block';
+      $('inbox-connect-prompt').textContent='⚠ Gmail session expired — go to the Emails tab and reconnect Gmail.';
+      return;
+    }
     const data = await res.json();
+    if(!res.ok||data.error){
+      $('inbox-loading').style.display = 'none';
+      $('inbox-list').innerHTML = '<div style="padding:20px;color:var(--red);font-size:13px;">Gmail API error: '+(data.error?.message||res.status)+'</div>';
+      return;
+    }
     if (!data.threads || !data.threads.length) {
       $('inbox-loading').style.display = 'none';
-      $('inbox-list').innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink-muted);font-size:13px;">No emails from parents found in your Gmail.</div>';
+      $('inbox-list').innerHTML = '<div style="padding:32px;text-align:center;color:var(--ink-muted);font-size:13px;">No emails found with parent addresses.<br><span style="font-size:11px;">Checked: '+parentEmails.slice(0,3).join(', ')+(parentEmails.length>3?' +'+( parentEmails.length-3)+' more':'')+'</span></div>';
       return;
     }
     // Fetch snippet for each thread
