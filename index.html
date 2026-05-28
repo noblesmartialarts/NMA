@@ -5806,7 +5806,7 @@ async function syncApparelOrders() {
     // Parse submissions
     const orders = (data.content || []).map(sub => {
       const ans = sub.answers || {};
-      // Robust value extractor — handles strings, {first,last} name objects, and arrays
+      // Robust value extractor
       const extractVal = (a) => {
         if (!a && a !== 0) return '';
         if (typeof a === 'string') return a.trim();
@@ -5825,12 +5825,17 @@ async function syncApparelOrders() {
           if (key) { const v = extractVal(ans[key].answer); if (v) return v; }
         } return '';
       };
-      // Products: Jotform stores as space-separated JSON objects — split by balanced braces
-      let products = [], paid = false;
+      // Student names: collect ALL fields with "student" in label (API reuses same label for all 3)
+      const studentKeys = Object.keys(ans).filter(k => (ans[k].text||'').toLowerCase().includes('student'));
+      const students = studentKeys.map(k => extractVal(ans[k].answer)).filter(Boolean).join(', ');
+      // Products: parse space-separated JSON — find the summary object {product:[...], total, order}
+      // and the detail objects with {name, price, options}
+      let products = [], paid = false, orderTotal = 0;
       const pk = Object.keys(ans).find(k => (ans[k].text||'').toLowerCase().includes('product'));
       if (pk && ans[pk].answer) {
         try {
-          const raw = String(ans[pk].answer);
+          const raw = typeof ans[pk].answer === 'string' ? ans[pk].answer : JSON.stringify(ans[pk].answer);
+          // Extract all balanced JSON objects from the space-separated string
           const chunks = []; let depth=0, start=-1;
           for (let i=0;i<raw.length;i++) {
             if(raw[i]==='{'){if(depth===0)start=i;depth++;}
@@ -5839,18 +5844,32 @@ async function syncApparelOrders() {
           for (const chunk of chunks) {
             try {
               const obj = JSON.parse(chunk);
-              if (obj.name && obj.price !== undefined) {
-                products.push({name:obj.name, price:parseFloat(obj.price)||0, qty:parseInt(obj.quantity)||1,
-                  options:(obj.options||[]).map(o=>(o.name||'')+': '+(o.selected||o.value||o.defaultValue||'')).filter(o=>o.length>2)});
+              // Summary object: has "product" array with display strings and "order" status
+              if (obj.product && Array.isArray(obj.product) && obj.order) {
+                if (obj.order.status === 'PAID') paid = true;
+                if (obj.total) orderTotal = parseFloat(obj.total) || 0;
+                // Parse display strings like "NMA Lion Head T-Shirt (Amount: 12.00 USD, Quantity: 1, Color: Blue, Size: Youth Medium)"
+                for (const line of obj.product) {
+                  const nameMatch = line.match(/^([^(]+)/);
+                  const amtMatch = line.match(/Amount:\s*([\d.]+)/);
+                  const qtyMatch = line.match(/Quantity:\s*(\d+)/);
+                  const optMatches = [...line.matchAll(/,\s*([^:,()]+):\s*([^,()]+)/g)];
+                  if (nameMatch) {
+                    products.push({
+                      name: nameMatch[1].trim(),
+                      price: amtMatch ? parseFloat(amtMatch[1]) : 0,
+                      qty: qtyMatch ? parseInt(qtyMatch[1]) : 1,
+                      options: optMatches.filter(m => !['Amount','Quantity'].includes(m[1].trim())).map(m => m[1].trim()+': '+m[2].trim())
+                    });
+                  }
+                }
               }
-              if (obj.order?.status==='PAID' || obj.status==='PAID') paid=true;
             } catch(e){}
           }
         } catch(e){}
       }
       if (!paid) paid = JSON.stringify(sub).includes('"PAID"');
-      const students=[get("student's name"),get("student's name.1"),get("student's name.2")].filter(Boolean).join(', ');
-      const total=products.reduce((s,p)=>s+(p.price*p.qty),0);
+      const total = orderTotal || products.reduce((s,p)=>s+(p.price*p.qty),0);
       return {id:sub.id,date:(sub.created_at||'').slice(0,10),parentName:get('full name'),email:get('e-mail','email'),phone:get('contact number','phone'),students,products,total,invoiceId:get('invoice'),notes:get('special instruction','note','comment'),paid};
     });
     DB.apparelOrders = orders;
