@@ -11,21 +11,19 @@ exports.handler = async (event) => {
   try {
     const body = JSON.parse(event.body);
 
-    // Try models in order — gemini-2.0-flash first (requires billing, which is enabled)
-    // then stable fallbacks
+    // Ordered by availability — skip deprecated gemini-2.0-flash
     const candidates = [
-      { model: 'gemini-2.0-flash', api: 'v1beta' },
-      { model: 'gemini-2.0-flash-lite', api: 'v1beta' },
-      { model: 'gemini-1.5-flash', api: 'v1beta' },
-      { model: 'gemini-1.5-flash-latest', api: 'v1beta' },
-      { model: 'gemini-1.5-flash-001', api: 'v1beta' },
-      { model: 'gemini-1.0-pro', api: 'v1beta' },
+      'gemini-2.0-flash-lite',
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash-8b',
+      'gemini-1.0-pro',
     ];
 
     let lastError = null;
 
-    for (const { model, api } of candidates) {
-      const url = `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${GEMINI_KEY}`;
+    for (const model of candidates) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -38,25 +36,20 @@ exports.handler = async (event) => {
 
       const data = await response.json();
 
-      // Skip to next model if not found or quota exceeded
       if (!response.ok) {
-        const errMsg = data.error?.message || '';
-        if (errMsg.includes('not found') || errMsg.includes('MODEL_NOT_FOUND') ||
-            errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED')) {
-          lastError = `${model}: ${errMsg}`;
-          continue;
-        }
+        // Skip to next model on ANY failure — don't stop on first error
+        lastError = `${model}: ${data.error?.message || response.status}`;
+        continue;
       }
 
-      // Return result (success or other error)
+      // Success
       return {
-        statusCode: response.status,
+        statusCode: 200,
         headers: { 'Content-Type': 'application/json', 'X-Model-Used': model },
         body: JSON.stringify(data)
       };
     }
 
-    // All models failed
     return {
       statusCode: 503,
       headers: { 'Content-Type': 'application/json' },
