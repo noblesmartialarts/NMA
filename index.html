@@ -4430,11 +4430,11 @@ async function sendBackupNow() {
 // ══════════════════════════════════════════════════════
 // YOUTUBE PLAYLIST MAP
 // ══════════════════════════════════════════════════════
-const YT_PLAYLISTS = {"Little Dragons:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dS7eWFHxD-Apf0gcIntoai", "Little Dragons:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dq5WvHrTSC3EVbfwn409U1", "Little Dragons:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4eCTfxKUYatW0WRgvcVjP2O", "Karate Kids:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dS7eWFHxD-Apf0gcIntoai", "Karate Kids:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dq5WvHrTSC3EVbfwn409U1", "Karate Kids:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4eCTfxKUYatW0WRgvcVjP2O", "Black Belt Club Level I:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4d0_UXPKU0uoIPAyBisK-dn", "Black Belt Club Level I:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4cUEOH0rniRj9IKIyYAD2mi", "Black Belt Club Level I:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4ekZOCeB-NNcUGRpW9TJINC", "Black Belt Club Level II:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dItG1ZSPtEJxJGo9hfG9nk", "Black Belt Club Level II:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4ctS6bPouwD95HFHHUaYU4Y", "Black Belt Club Level II:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dqViWS9NSUKfEt2SUTyjzU", "Master's Club:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dr_XJiC9iSm_cD68K3MCg0", "Master's Club:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4cq7inexNmVUd6OFGKS3m8g", "Master's Club:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4e0GrpffhGt_9RmR4J9lJrP"};
-const YT_TEST_REVIEW = {"Black Belt Club": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4eUahX2qfuzlGwXmUVbW5lM", "Master's Club": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dV-xGvrSQVJPV-uDDPWKbw", "Black Belt": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4fOWc4TxxfkHRESNBc6Fo3I"};
-const REG_LINKS = {"Little Dragons": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=1", "Karate Kids": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=2", "Black Belt Club": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=3", "Master's Club": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=4"};
-const LINKTREE = 'https://linktr.ee/noblesmartialarts';
-const NMA_WEBSITE = 'https://noblesmartialarts.com';
+var YT_PLAYLISTS = {"Little Dragons:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dS7eWFHxD-Apf0gcIntoai", "Little Dragons:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dq5WvHrTSC3EVbfwn409U1", "Little Dragons:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4eCTfxKUYatW0WRgvcVjP2O", "Karate Kids:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dS7eWFHxD-Apf0gcIntoai", "Karate Kids:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dq5WvHrTSC3EVbfwn409U1", "Karate Kids:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4eCTfxKUYatW0WRgvcVjP2O", "Black Belt Club Level I:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4d0_UXPKU0uoIPAyBisK-dn", "Black Belt Club Level I:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4cUEOH0rniRj9IKIyYAD2mi", "Black Belt Club Level I:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4ekZOCeB-NNcUGRpW9TJINC", "Black Belt Club Level II:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dItG1ZSPtEJxJGo9hfG9nk", "Black Belt Club Level II:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4ctS6bPouwD95HFHHUaYU4Y", "Black Belt Club Level II:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dqViWS9NSUKfEt2SUTyjzU", "Master's Club:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dr_XJiC9iSm_cD68K3MCg0", "Master's Club:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4cq7inexNmVUd6OFGKS3m8g", "Master's Club:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4e0GrpffhGt_9RmR4J9lJrP"};
+var YT_TEST_REVIEW = {"Black Belt Club": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4eUahX2qfuzlGwXmUVbW5lM", "Master's Club": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dV-xGvrSQVJPV-uDDPWKbw", "Black Belt": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4fOWc4TxxfkHRESNBc6Fo3I"};
+var REG_LINKS = {"Little Dragons": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=1", "Karate Kids": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=2", "Black Belt Club": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=3", "Master's Club": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=4"};
+var LINKTREE = 'https://linktr.ee/noblesmartialarts';
+var NMA_WEBSITE = 'https://noblesmartialarts.com';
 
 function getPlaylist(groupKey, cycleNum) {
   return YT_PLAYLISTS[groupKey + ':' + cycleNum] || null;
@@ -4871,7 +4871,7 @@ async function emailPromoReport() {
 // ══════════════════════════════════════════════════════
 // GEMINI AI ASSISTANT
 // ══════════════════════════════════════════════════════
-const GEMINI_URL = '/.netlify/functions/gemini'; // proxy to Gemini API
+var GEMINI_URL = '/.netlify/functions/gemini'; // proxy to Gemini API
 let aiHistory = [];
 
 function buildCRMContext() {
@@ -5745,7 +5745,7 @@ function renderRevenueChart(){
 // ══════════════════════════════════════════════════════
 // APPAREL ORDERS (Jotform sync)
 // ══════════════════════════════════════════════════════
-const JOTFORM_FORM_ID = '261055009001137';
+var JOTFORM_FORM_ID = '261055009001137';
 
 function initApparelOrders() {
   if (!DB.apparelOrders) DB.apparelOrders = [];
@@ -6168,7 +6168,7 @@ renderDashboard=function(){
 // UNDO STACK
 // ══════════════════════════════════════════════════════
 const _undoStack = [];
-const MAX_UNDO = 20;
+var MAX_UNDO = 20;
 
 function pushUndo(label) {
   _undoStack.push({
