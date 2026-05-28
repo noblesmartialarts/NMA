@@ -5828,46 +5828,55 @@ async function syncApparelOrders() {
       // Student names: collect ALL fields with "student" in label (API reuses same label for all 3)
       const studentKeys = Object.keys(ans).filter(k => (ans[k].text||'').toLowerCase().includes('student'));
       const students = studentKeys.map(k => extractVal(ans[k].answer)).filter(Boolean).join(', ');
-      // Products: use regex on raw string — targets the known summary format
-      // Summary format: {"product":["ItemName (Amount: X, Quantity: N, Color: C, Size: S)"],"total":"X.XX","order":{"status":"PAID"}}
+      // Products: find config objects with "name" + "price" fields in the space-separated JSON
       let products = [], paid = false, orderTotal = 0;
       const pk = Object.keys(ans).find(k => (ans[k].text||'').toLowerCase().includes('product'));
       if (pk && ans[pk].answer) {
         try {
           const raw = typeof ans[pk].answer === 'string' ? ans[pk].answer : JSON.stringify(ans[pk].answer);
-          // Extract total
-          const totalMatch = raw.match(/"total"\s*:\s*"([\d.]+)"/);
-          if (totalMatch) orderTotal = parseFloat(totalMatch[1]) || 0;
-          // Extract payment status
-          if (raw.includes('"PAID"') || raw.includes("'PAID'")) paid = true;
-          // Extract product display strings — they appear in "product":["..."] array
-          const prodMatch = raw.match(/"product"\s*:\s*\[([^\]]+)\]/);
-          if (prodMatch) {
-            // Split by quoted strings inside the array
-            const strings = [...prodMatch[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(m => m[1]);
-            for (const line of strings) {
-              // Format: "ItemName (Amount: 12.00 USD, Quantity: 1, Color: Blue, Size: Youth Medium)"
-              const nameMatch = line.match(/^([^(]+?)(?:\s*\(|$)/);
-              const amtMatch = line.match(/Amount:\s*([\d.]+)/i);
-              const qtyMatch = line.match(/Quantity:\s*(\d+)/i);
-              // Everything after Quantity is options: "Color: Blue, Size: Youth Medium"
-              const optsPart = line.match(/Quantity:\s*\d+,?\s*(.+)\)?\s*$/i);
-              const opts = optsPart ? optsPart[1].replace(/\)$/, '').split(/,\s*/).map(s=>s.trim()).filter(Boolean) : [];
-              if (nameMatch && nameMatch[1].trim()) {
-                products.push({
-                  name: nameMatch[1].trim(),
-                  price: amtMatch ? parseFloat(amtMatch[1]) : 0,
-                  qty: qtyMatch ? parseInt(qtyMatch[1]) : 1,
-                  options: opts
-                });
-              }
+          // Check for PAID status anywhere in string
+          paid = raw.includes('PAID');
+          // Extract total from "total":"XX.XX" pattern
+          const totM = raw.match(/"total"\s*:\s*"([\d.]+)"/); if(totM) orderTotal = parseFloat(totM[1]);
+          // Extract product names from config objects: find "name":"VALUE" near "price":NUMBER
+          // Use a regex to find name-price pairs
+          const nameRe = /"name"\s*:\s*"([^"]{5,50})"/g;
+          const priceRe = /"price"\s*:\s*(\d+(?:\.\d+)?)/;
+          const qtyRe = /"quantity"\s*:\s*(\d+)/;
+          // Also look for color and size options: "selected":"VALUE"
+          const colorRe = /"name"\s*:\s*"Color"[^}]*"selected"\s*:\s*"([^"]+)"/;
+          const sizeRe = /"name"\s*:\s*"Size"[^}]*"selected"\s*:\s*"([^"]+)"/;
+          // Find a block that has a meaningful name (not a field label) and a price
+          const bigBlock = raw.match(/\{"cid"[^]*?"paymentType"\s*:\s*"product"\}/);
+          if (bigBlock) {
+            const block = bigBlock[0];
+            const nm = block.match(/"name"\s*:\s*"([^"]{5,60})"/);
+            const pr = block.match(/"price"\s*:\s*(\d+(?:\.\d+)?)/);
+            const qt = block.match(/"quantity"\s*:\s*(\d+)/);
+            const col = block.match(/"name"\s*:\s*"Color"[^}]*?"selected"\s*:\s*"([^"]+)"/s);
+            const sz = block.match(/"name"\s*:\s*"Size"[^}]*?"selected"\s*:\s*"([^"]+)"/s);
+            if (nm && pr) {
+              const opts = [];
+              if (col) opts.push('Color: ' + col[1]);
+              if (sz) opts.push('Size: ' + sz[1]);
+              products.push({name: nm[1], price: parseFloat(pr[1])||0, qty: parseInt(qt?qt[1]:'1')||1, options: opts});
+              if (!orderTotal) orderTotal = (parseFloat(pr[1])||0) * (parseInt(qt?qt[1]:'1')||1);
             }
           }
-        } catch(e){}
+          // Fallback: scan for "summary" product array
+          if (!products.length) {
+            const prodArr = raw.match(/"product"\s*:\s*\["([^"]+)"/);
+            if (prodArr) {
+              const line = prodArr[1];
+              const nm2 = line.match(/^([^(]+)/);
+              if (nm2) products.push({name: nm2[1].trim(), price: orderTotal, qty: 1, options: []});
+            }
+          }
+        } catch(e) { console.warn('Product parse error:', e.message); }
       }
-      if (!paid) paid = JSON.stringify(sub).includes('"PAID"');
+      if (!paid) paid = JSON.stringify(sub).includes('PAID');
       const total = orderTotal || products.reduce((s,p)=>s+(p.price*p.qty),0);
-      return {id:sub.id,date:(sub.created_at||'').slice(0,10),parentName:get('full name'),email:get('e-mail','email'),phone:get('contact number','phone'),students,products,total,invoiceId:get('invoice'),notes:get('special instruction','note','comment'),paid};
+      return {id:sub.id,date:(sub.created_at||'').slice(0,10),parentName:get('full name'),email:get('e-mail','email'),phone:get('contact number','phone'),students,products,total: orderTotal || products.reduce((s,p)=>s+(p.price*p.qty),0),invoiceId:get('invoice'),notes:get('special instruction','note','comment'),paid,jotformUrl:'https://www.jotform.com/inbox/261055009001137?sid='+sub.id};
     });
     DB.apparelOrders = orders;
     DB.apparelLastSync = new Date().toISOString().slice(0, 10);
@@ -5955,7 +5964,7 @@ function renderApparelOrders() {
       <td style="text-align:right;font-weight:600;">${o.total ? '$' + o.total.toFixed(2) : '—'}</td>
       <td>${paidBadge}</td>
       <td>${statusBadge}</td>
-      <td style="white-space:nowrap;">${advBtn}<button class="btn small" onclick="resetApparelStatus('${o.id}')">↩</button></td>
+      <td style="white-space:nowrap;">${advBtn}<button class="btn small" onclick="resetApparelStatus('${o.id}')" title="Reset to pending">↩</button>${o.jotformUrl?` <a href="${o.jotformUrl}" target="_blank" class="btn small" title="View full order in Jotform">↗</a>`:''}</td>
     </tr>`;
   }).join('');
 }
