@@ -341,7 +341,7 @@ tbody td{font-size:11px!important;}
     <div class="nav-item" data-page="promoreport" onclick="nav('promoreport')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Promo Report</span></div>
     <div class="nav-section-label">Data</div>
     <div class="nav-item" data-page="letters" onclick="nav('letters')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Promote Letters</span></div>
-    <div class="nav-item" data-page="ai" onclick="nav('ai')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg><span>AI Assistant</span></div>
+
     <div class="nav-item" data-page="backup" onclick="nav('backup')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Backup / Restore</span></div>
   </div>
   <div style="padding:10px 12px;border-top:1px solid rgba(255,255,255,.08);">
@@ -696,32 +696,7 @@ tbody td{font-size:11px!important;}
 </div>
 
 <!-- AI ASSISTANT -->
-<div id="page-ai" class="page">
-  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-    <div><div class="page-title">AI Assistant</div><div class="page-subtitle">Ask anything about your students, get email drafts, class plans &amp; more — powered by Google Gemini</div></div>
-    <button class="btn small" onclick="clearAIChat()">Clear chat</button>
-  </div>
-  <!-- Quick prompts -->
-  <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px;" id="ai-quick-prompts">
-    <button class="btn small" onclick="aiQuick('Who is closest to testing this month?')">Who's closest to testing?</button>
-    <button class="btn small" onclick="aiQuick('Which students have missed the most classes this month?')">Attendance concerns?</button>
-    <button class="btn small" onclick="aiQuick('Who is unregistered for this month?')">Unregistered students?</button>
-    <button class="btn small" onclick="aiQuick('Generate a Challenge of the Month based on the current curriculum cycle')">Challenge of the Month</button>
-    <button class="btn small" onclick="aiQuick('Draft a class plan for today based on the current curriculum cycles')">Class plan</button>
-    <button class="btn small" onclick="aiQuick('Summarize this month so far — attendance, registrations, upcoming tests')">Month summary</button>
-    <button class="btn small" onclick="aiQuick('Which students are birthday this month?')">Birthdays this month?</button>
-    <button class="btn small" onclick="aiQuick('Who should I prioritize reaching out to this week?')">Who needs attention?</button>
-  </div>
-  <!-- Chat window -->
-  <div id="ai-chat-window" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;min-height:380px;max-height:520px;overflow-y:auto;padding:16px;margin-bottom:14px;display:flex;flex-direction:column;gap:14px;">
-    <div style="text-align:center;color:var(--ink-muted);font-size:13px;margin:auto;">Ask me anything about your students, curriculum, or class management. I have full access to your CRM data.</div>
-  </div>
-  <!-- Input -->
-  <div style="display:flex;gap:8px;">
-    <input type="text" id="ai-input" class="form-input" placeholder="Ask anything… or describe an email you want to draft" style="flex:1;" onkeydown="if(event.key==='Enter')sendAIMessage()">
-    <button class="btn primary" onclick="sendAIMessage()" id="ai-send-btn">Send</button>
-  </div>
-</div>
+
 
 <!-- BROADCAST EMAIL -->
 <div id="page-broadcast" class="page">
@@ -1465,7 +1440,7 @@ function nav(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+page).classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,ai:initAI,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes};
+  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes};
   fns[page]?.();
 }
 
