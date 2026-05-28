@@ -333,7 +333,7 @@ tbody td{font-size:11px!important;}
     <div class="nav-item" data-page="inbox" onclick="nav('inbox')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><span>Inbox <span id="inbox-badge" style="display:none;background:#c8392b;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:2px;"></span></span></div>
     <div class="nav-section-label">Tools</div>
     <div class="nav-item" data-page="broadcast" onclick="nav('broadcast')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg><span>Broadcast</span></div>
-    <div class="nav-item" data-page="timer" onclick="nav('timer')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Class Timer</span></div>
+
     <div class="nav-item" data-page="classnotes" onclick="nav('classnotes')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span>Class Notes</span></div>
     <div class="nav-item" data-page="groups" onclick="nav('groups')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Groups</span></div>
     <div class="nav-item" data-page="commlog" onclick="nav('commlog')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Comm Log</span></div>
@@ -403,7 +403,7 @@ tbody td{font-size:11px!important;}
           <th class="sortable" data-col="name" onclick="sortBy('name')">Student</th>
           <th class="sortable" data-col="group" onclick="sortBy('group')">Group</th>
           <th class="sortable" data-col="belt" onclick="sortBy('belt')">Belt</th>
-          <th>Stripes</th><th>Attend.</th><th>Flags</th>
+          <th>Attend.</th><th>Stripes</th><th>Flags</th>
           <th class="sortable" data-col="registered" onclick="sortBy('registered')">Registered</th>
           <th>Actions</th>
         </tr></thead>
@@ -844,54 +844,7 @@ tbody td{font-size:11px!important;}
 </div>
 
 <!-- CLASS TIMER -->
-<div id="page-timer" class="page">
-  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-    <div><div class="page-title">Class Timer</div><div class="page-subtitle">Structured timer + Spotify control</div></div>
-    <div style="display:flex;gap:8px;">
-      <button class="btn" onclick="openTimerSettings()">⚙ Class Plan</button>
-      <button id="spotify-connect-btn" class="btn" onclick="connectSpotify()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="#1DB954"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-        Connect Spotify
-      </button>
-    </div>
-  </div>
 
-  <!-- Spotify player -->
-  <div id="spotify-panel" style="display:none;background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:14px;padding:16px 20px;margin-bottom:16px;color:#fff;">
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
-      <img id="sp-art" src="" style="width:52px;height:52px;border-radius:8px;object-fit:cover;background:#333;" onerror="this.style.display='none'">
-      <div style="flex:1;min-width:0;">
-        <div id="sp-track" style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Not playing</div>
-        <div id="sp-artist" style="font-size:12px;opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button onclick="spPrev()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:50%;width:34px;height:34px;cursor:pointer;font-size:14px;">⏮</button>
-        <button id="sp-play-btn" onclick="spToggle()" style="background:#1DB954;border:none;color:#fff;border-radius:50%;width:42px;height:42px;cursor:pointer;font-size:18px;">▶</button>
-        <button onclick="spNext()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:50%;width:34px;height:34px;cursor:pointer;font-size:14px;">⏭</button>
-        <input type="range" id="sp-volume" min="0" max="100" value="70" oninput="spVolume(this.value)" style="width:80px;accent-color:#1DB954;">
-      </div>
-    </div>
-    <div style="font-size:11px;opacity:.5;text-align:right;" id="sp-device">No active device</div>
-  </div>
-
-  <!-- Timer display -->
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;text-align:center;margin-bottom:16px;">
-    <div id="timer-segment-name" style="font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-muted);margin-bottom:8px;">Ready</div>
-    <div id="timer-display" style="font-family:var(--font-display);font-size:72px;font-weight:800;letter-spacing:-.02em;line-height:1;">00:00</div>
-    <div id="timer-progress-bar" style="height:4px;background:var(--border);border-radius:2px;margin:16px auto;max-width:400px;overflow:hidden;">
-      <div id="timer-progress-fill" style="height:100%;background:var(--green);width:0%;transition:width .5s;"></div>
-    </div>
-    <div id="timer-segment-info" style="font-size:12px;color:var(--ink-muted);margin-bottom:20px;"></div>
-    <div style="display:flex;gap:10px;justify-content:center;">
-      <button class="btn" onclick="timerReset()">↺ Reset</button>
-      <button class="btn primary" id="timer-start-btn" onclick="timerToggle()" style="min-width:100px;">▶ Start</button>
-      <button class="btn" onclick="timerNext()">Skip ⏭</button>
-    </div>
-  </div>
-
-  <!-- Segments list -->
-  <div id="timer-segments-list" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;"></div>
-</div>
 
 </div><!-- /main -->
 </div><!-- /app -->
@@ -1207,24 +1160,7 @@ tbody td{font-size:11px!important;}
     <div class="modal-footer"><button class="btn" onclick="closeModal('modal-bulk')">Cancel</button></div>
   </div>
 </div>
-<div class="modal-backdrop" id="modal-timer-settings">
-  <div class="modal" style="max-width:520px;">
-    <div class="modal-header"><div class="modal-title">⚙ Class Plan</div><button class="btn ghost" onclick="closeModal('modal-timer-settings')">✕</button></div>
-    <div class="modal-body">
-      <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn small" onclick="loadTimerTemplate('standard')">Standard (45 min)</button>
-        <button class="btn small" onclick="loadTimerTemplate('test')">Test Day (60 min)</button>
-        <button class="btn small" onclick="loadTimerTemplate('short')">Short (30 min)</button>
-      </div>
-      <div id="timer-segment-editor" style="display:flex;flex-direction:column;gap:8px;"></div>
-      <button class="btn" style="margin-top:10px;width:100%;" onclick="addTimerSegment()">+ Add Segment</button>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal('modal-timer-settings')">Cancel</button>
-      <button class="btn primary" onclick="saveTimerPlan()">Save Plan</button>
-    </div>
-  </div>
-</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1254,6 +1190,7 @@ const BB_TEST_ELIGIBLE_BELTS=new Set(['BB Red']);
 const CROSS_GROUP={
   'Karate Kids:Orange':                  {group:'Black Belt Club', belt:'Purple'},
   'Karate Kids:Orange II':               {group:'Black Belt Club', belt:'Purple'},
+  'Black Belt Club:Green II':            {group:"Master's Club",   belt:'Brown'},
   "Master's Club:Black Belt Candidate":  {group:'Legends Club',    belt:'BB White'},
   'Little Dragons:LD Black':             {group:'Karate Kids',     belt:'Yellow II'}
 };
@@ -1465,10 +1402,17 @@ DB.students.forEach(s=>{if(!s.history)s.history=[];});
 // $ defined above
 function initials(s){return(s.first||'')[0]+(s.last||'')[0];}
 function maxStripes(s){return TWO_CYCLE_BELTS.has(s.belt)?5:2;}
+function totalClassesAttended(sid){
+  // Count all 'present' entries across all recorded attendance dates
+  return Object.values(DB.attendance||{}).reduce((sum,dayRec)=>{
+    return sum+(dayRec[sid]==='present'?1:0);
+  },0);
+}
 function stripeEligible(s){
   if(s.testEligibleOverride===true)return true;
   if(s.testEligibleOverride===false)return false;
-  return s.stripes>=maxStripes(s);
+  if(s.stripes<maxStripes(s))return false;
+  return totalClassesAttended(s.id)>=5;
 }
 function isBBC2(s){return s.group==='Black Belt Club'&&['Blue II','Green','Green II'].includes(s.belt);}
 function missedRecent(sid){
@@ -1521,7 +1465,7 @@ function nav(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+page).classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,ai:initAI,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,timer:initTimer};
+  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,ai:initAI,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes};
   fns[page]?.();
 }
 
@@ -1742,7 +1686,7 @@ function openProfile(id){
         <div class="pf"><label>Current belt</label><p><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></p></div>
         <div class="pf"><label>Stripes</label><p>${stripeDots(s.stripes,maxStripes(s),TWO_CYCLE_BELTS.has(s.belt))} ${s.stripes}/${maxStripes(s)}</p></div>
         <div class="pf"><label>Next belt</label><p>${promo?('<span class="belt-pill" style="'+beltStyle(promo.belt)+';font-size:11px;">'+promo.belt+'</span>'+(promo.group!==s.group?' <span style="font-size:11px;color:var(--ink-muted);">(→ '+promo.group+')</span>':'')):'Max rank'}</p></div>
-        <div class="pf"><label>Test eligible</label><p><span class="badge ${stripeEligible(s)?'badge-green':'badge-gray'}">${stripeEligible(s)?'Yes — ready':'No'}</span> <button class="btn small" style="margin-left:6px;font-size:11px;" onclick="toggleEligibilityOverride(${s.id})">${s.testEligibleOverride===true?'✓ Forced':''}${s.testEligibleOverride===false?'✗ Blocked':''}${s.testEligibleOverride===undefined||s.testEligibleOverride===null?'Override':'Clear override'}</button></p></div>
+        <div class="pf"><label>Test eligible</label><p><span class="badge ${stripeEligible(s)?'badge-green':'badge-gray'}">${stripeEligible(s)?'Yes — ready':s.testEligibleOverride===false?'Blocked':'No'}</span><span style="font-size:11px;color:var(--ink-muted);margin-left:8px;">${s.stripes}/${maxStripes(s)} stripes · ${totalClassesAttended(s.id)} classes</span> <button class="btn small" style="margin-left:6px;font-size:11px;" onclick="toggleEligibilityOverride(${s.id})">${s.testEligibleOverride===true?'✓ Forced':''}${s.testEligibleOverride===false?'✗ Blocked':''}${s.testEligibleOverride===undefined||s.testEligibleOverride===null?'Override':'Clear override'}</button></p></div>
         <div class="pf"><label>Belt size</label><p>${s.beltSize||'—'}</p></div>
         <div class="pf"><label>Uniform size</label><p>${s.uniformSize||'—'}</p></div>
         <div class="pf"><label>Registered</label><p><span class="badge ${s.registered==='Yes'?'badge-green':'badge-gray'}">${s.registered==='Yes'?(s.paidVenmo?'Yes (Venmo)':'Yes'):(s.omitFromReg?'Omitted':'No')}</span></p></div>
@@ -5640,235 +5584,6 @@ function renderRevenueChart(){
     </div>
   </div>`;
 }
-
-// ══════════════════════════════════════════════════════
-// CLASS TIMER
-// ══════════════════════════════════════════════════════
-var _timerPlan=[];
-var _timerIdx=0;
-var _timerInterval=null;
-var _timerRemaining=0;
-var _timerRunning=false;
-const TIMER_TEMPLATES={
-  standard:[
-    {name:'Warm-Up',mins:8,color:'#2d7dd2'},
-    {name:'Technique Drill',mins:12,color:'#9b5de5'},
-    {name:'Self-Defense',mins:10,color:'#c8392b'},
-    {name:'Forms',mins:8,color:'#2ec060'},
-    {name:'Kick Sets',mins:5,color:'#c97a10'},
-    {name:'Cool Down',mins:2,color:'#6b6b6b'},
-  ],
-  test:[
-    {name:'Warm-Up',mins:10,color:'#2d7dd2'},
-    {name:'Forms Review',mins:15,color:'#9b5de5'},
-    {name:'Self-Defense Review',mins:12,color:'#c8392b'},
-    {name:'Kick Sets',mins:8,color:'#c97a10'},
-    {name:'Sparring',mins:10,color:'#2ec060'},
-    {name:'Q&A / Closing',mins:5,color:'#6b6b6b'},
-  ],
-  short:[
-    {name:'Warm-Up',mins:5,color:'#2d7dd2'},
-    {name:'Main Technique',mins:15,color:'#9b5de5'},
-    {name:'Drills',mins:8,color:'#c8392b'},
-    {name:'Cool Down',mins:2,color:'#6b6b6b'},
-  ],
-};
-function initTimer(){
-  if(!_timerPlan.length){
-    const saved=DB.timerPlan;
-    _timerPlan=saved&&saved.length?saved:TIMER_TEMPLATES.standard.map(s=>({...s}));
-  }
-  _timerIdx=0;_timerRemaining=_timerPlan[0]?.mins*60||0;_timerRunning=false;
-  renderTimerSegmentsList();updateTimerDisplay();
-}
-function loadTimerTemplate(t){
-  _timerPlan=TIMER_TEMPLATES[t].map(s=>({...s}));
-  renderTimerSegmentEditor();
-}
-function renderTimerSegmentsList(){
-  const el=$('timer-segments-list');if(!el)return;
-  el.innerHTML=_timerPlan.map((s,i)=>`
-    <div style="background:${i===_timerIdx?s.color:'var(--surface)'};color:${i===_timerIdx?'#fff':'var(--ink)'};
-      border:2px solid ${i===_timerIdx?s.color:'var(--border)'};border-radius:20px;padding:6px 14px;font-size:12px;font-weight:${i===_timerIdx?'700':'400'};">
-      ${s.name} · ${s.mins}m
-    </div>`).join('');
-}
-function updateTimerDisplay(){
-  const seg=_timerPlan[_timerIdx];
-  const m=Math.floor(_timerRemaining/60).toString().padStart(2,'0');
-  const s=(_timerRemaining%60).toString().padStart(2,'0');
-  const disp=$('timer-display');if(disp)disp.textContent=m+':'+s;
-  const name=$('timer-segment-name');if(name)name.textContent=seg?seg.name:'Done';
-  const info=$('timer-segment-info');if(info)info.textContent=seg?`Segment ${_timerIdx+1} of ${_timerPlan.length}`:'\u2713 Class complete!';
-  const fill=$('timer-progress-fill');
-  if(fill&&seg){const pct=((seg.mins*60-_timerRemaining)/(seg.mins*60))*100;fill.style.width=pct+'%';fill.style.background=seg.color;}
-  const btn=$('timer-start-btn');
-  if(btn)btn.textContent=_timerRunning?'⏸ Pause':'▶ '+(  _timerRemaining<_timerPlan[_timerIdx]?.mins*60?'Resume':'Start');
-}
-function timerToggle(){
-  if(_timerRunning){clearInterval(_timerInterval);_timerRunning=false;}
-  else{
-    if(!_timerPlan.length)return;
-    _timerRunning=true;
-    _timerInterval=setInterval(()=>{
-      _timerRemaining--;
-      if(_timerRemaining<=0){timerNext();}
-      else updateTimerDisplay();
-    },1000);
-  }
-  updateTimerDisplay();
-}
-function timerNext(){
-  clearInterval(_timerInterval);_timerRunning=false;
-  _timerIdx++;
-  if(_timerIdx>=_timerPlan.length){_timerIdx=_timerPlan.length-1;_timerRemaining=0;updateTimerDisplay();renderTimerSegmentsList();toast('\u2713 Class complete!');return;}
-  _timerRemaining=_timerPlan[_timerIdx].mins*60;
-  renderTimerSegmentsList();updateTimerDisplay();
-  if(_timerRunning)timerToggle(); // restart running
-}
-function timerReset(){clearInterval(_timerInterval);_timerRunning=false;_timerIdx=0;_timerRemaining=_timerPlan[0]?.mins*60||0;renderTimerSegmentsList();updateTimerDisplay();}
-function openTimerSettings(){
-  try{
-    renderTimerSegmentEditor();
-    const m=$('modal-timer-settings');
-    if(!m){alert('Timer settings modal not found. Please refresh the page.');return;}
-    m.classList.add('open');
-  }catch(e){alert('Timer error: '+e.message);}
-}
-function renderTimerSegmentEditor(){
-  const el=$('timer-segment-editor');if(!el)return;
-  el.innerHTML=_timerPlan.map((s,i)=>`
-    <div style="display:flex;gap:8px;align-items:center;">
-      <input class="form-input" style="flex:1;" value="${s.name}" oninput="_timerPlan[${i}].name=this.value">
-      <input class="form-input" type="number" style="width:70px;" value="${s.mins}" min="1" max="60" oninput="_timerPlan[${i}].mins=parseInt(this.value)||1">
-      <input type="color" value="${s.color}" oninput="_timerPlan[${i}].color=this.value" style="width:36px;height:36px;border:none;cursor:pointer;border-radius:4px;">
-      <button class="btn small danger" onclick="_timerPlan.splice(${i},1);renderTimerSegmentEditor()">✕</button>
-    </div>`).join('');
-}
-function addTimerSegment(){_timerPlan.push({name:'Segment',mins:5,color:'#2d7dd2'});renderTimerSegmentEditor();}
-function saveTimerPlan(){DB.timerPlan=[..._timerPlan];save();closeModal('modal-timer-settings');timerReset();toast('Class plan saved!');}
-
-// ══════════════════════════════════════════════════════
-// SPOTIFY INTEGRATION (PKCE)
-// ══════════════════════════════════════════════════════
-var _spToken=null,_spTokenExpiry=0,_spPolling=null;
-const SP_CLIENT_ID='8e09629236fa46d5b44d006b40bab8a0';
-const SP_REDIRECT='https://sunny-starship-3a0406.netlify.app';
-const SP_SCOPES='user-read-playback-state user-modify-playback-state user-read-currently-playing';
-
-function generatePKCE(){
-  const arr=new Uint8Array(32);crypto.getRandomValues(arr);
-  const verifier=btoa(String.fromCharCode(...arr)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-  return crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)).then(buf=>{
-    const challenge=btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-    return{verifier,challenge};
-  });
-}
-async function connectSpotify(){
-  try{
-    if(_spToken&&Date.now()<_spTokenExpiry){disconnectSpotify();return;}
-    const btn=$('spotify-connect-btn');
-    if(btn){btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="#1DB954"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg> Connecting…';btn.disabled=true;}
-    const{verifier,challenge}=await generatePKCE();
-    sessionStorage.setItem('sp_verifier',verifier);
-    const url=`https://accounts.spotify.com/authorize?client_id=${SP_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(SP_REDIRECT)}&code_challenge_method=S256&code_challenge=${challenge}&scope=${encodeURIComponent(SP_SCOPES)}&state=spotify_auth`;
-    window.location.href=url;
-  }catch(e){
-    alert('Spotify connect error: '+e.message);
-    const btn=$('spotify-connect-btn');
-    if(btn){btn.disabled=false;}
-  }
-}
-async function handleSpotifyCallback(){
-  const params=new URLSearchParams(window.location.search);
-  if(params.get('state')!=='spotify_auth')return;
-  // Check for Spotify error response
-  const spError=params.get('error');
-  if(spError){
-    window.history.replaceState({},'',window.location.pathname);
-    if(spError==='access_denied'){toast('Spotify: Access denied. Please try connecting again.');
-    }else{toast('Spotify auth error: '+spError+'. Make sure '+SP_REDIRECT+' is added as a Redirect URI in your Spotify Developer app.');}
-    return;
-  }
-  const code=params.get('code');if(!code)return;
-  const verifier=sessionStorage.getItem('sp_verifier');if(!verifier){toast('Spotify: Session expired, please try again.');return;}
-  window.history.replaceState({},'',window.location.pathname);
-  try{
-    const res=await fetch('https://accounts.spotify.com/api/token',{
-      method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:`grant_type=authorization_code&code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(SP_REDIRECT)}&client_id=${SP_CLIENT_ID}&code_verifier=${encodeURIComponent(verifier)}`
-    });
-    const data=await res.json();
-    if(data.access_token){
-      _spToken=data.access_token;_spTokenExpiry=Date.now()+data.expires_in*1000;
-      sessionStorage.setItem('sp_token',_spToken);sessionStorage.setItem('sp_expiry',_spTokenExpiry);
-      updateSpotifyUI(true);nav('timer');startSpotifyPolling();toast('Spotify connected! 🎵');
-    }else{
-      const errMsg=data.error_description||data.error||'Unknown error';
-      toast('Spotify token error: '+errMsg);
-      console.error('Spotify token error:',data);
-    }
-  }catch(e){toast('Spotify connection failed: '+e.message);}
-}
-function restoreSpotifySession(){
-  const t=sessionStorage.getItem('sp_token'),exp=parseInt(sessionStorage.getItem('sp_expiry')||'0');
-  if(t&&Date.now()<exp){_spToken=t;_spTokenExpiry=exp;updateSpotifyUI(true);startSpotifyPolling();}
-}
-function disconnectSpotify(){_spToken=null;sessionStorage.removeItem('sp_token');sessionStorage.removeItem('sp_expiry');stopSpotifyPolling();updateSpotifyUI(false);}
-function updateSpotifyUI(connected){
-  const btn=$('spotify-connect-btn');const panel=$('spotify-panel');
-  if(btn){btn.innerHTML=connected?'<svg width="16" height="16" viewBox="0 0 24 24" fill="#1DB954"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg> Spotify Connected ✓':'<svg width="16" height="16" viewBox="0 0 24 24" fill="#1DB954"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg> Connect Spotify';}
-  if(panel)panel.style.display=connected?'block':'none';
-}
-async function spAPI(path,method,body){
-  if(!_spToken)return null;
-  const opts={method:method||'GET',headers:{Authorization:'Bearer '+_spToken}};
-  if(body){opts.body=JSON.stringify(body);opts.headers['Content-Type']='application/json';}
-  const r=await fetch('https://api.spotify.com/v1'+path,opts);
-  if(r.status===401){disconnectSpotify();toast('Spotify session expired — reconnect.');return null;}
-  if(r.status===204||r.status===202||r.status===200){try{return r.status===204?true:await r.json();}catch{return true;}}
-  return null;
-}
-async function spToggle(){const state=await spAPI('/me/player');if(state?.is_playing)await spAPI('/me/player/pause','PUT');else await spAPI('/me/player/play','PUT');setTimeout(updateSpotifyStatus,500);}
-async function spNext(){await spAPI('/me/player/next','POST');setTimeout(updateSpotifyStatus,700);}
-async function spPrev(){await spAPI('/me/player/previous','POST');setTimeout(updateSpotifyStatus,700);}
-async function spVolume(v){await spAPI('/me/player/volume?volume_percent='+v,'PUT');}
-async function updateSpotifyStatus(){
-  if(!_spToken)return;
-  const state=await spAPI('/me/player');if(!state)return;
-  const track=state.item;
-  if(track){
-    const art=$('sp-art');if(art&&track.album?.images?.[0]){art.src=track.album.images[0].url;art.style.display='block';}
-    const t=$('sp-track');if(t)t.textContent=track.name;
-    const a=$('sp-artist');if(a)a.textContent=track.artists?.map(x=>x.name).join(', ')||'';
-    const pb=$('sp-play-btn');if(pb)pb.textContent=state.is_playing?'⏸':'▶';
-    const dev=$('sp-device');if(dev)dev.textContent=state.device?.name||'';
-  }
-}
-function startSpotifyPolling(){if(_spPolling)return;_spPolling=setInterval(()=>{if(_spToken&&Date.now()<_spTokenExpiry)updateSpotifyStatus();else stopSpotifyPolling();},5000);}
-function stopSpotifyPolling(){clearInterval(_spPolling);_spPolling=null;}
-
-// Defer Spotify callback until after app init to avoid race with auth flow
-(function(){
-  const _hasSPCallback=new URLSearchParams(window.location.search).get('state')==='spotify_auth';
-  function _doSpotifyInit(){
-    if(_hasSPCallback) handleSpotifyCallback();
-    else restoreSpotifySession();
-  }
-  if(typeof _initComplete!=='undefined'&&_initComplete){
-    _doSpotifyInit();
-  } else {
-    // Poll until init is done
-    const _spInitWait=setInterval(()=>{
-      if(typeof _initComplete!=='undefined'&&_initComplete){
-        clearInterval(_spInitWait);
-        _doSpotifyInit();
-      }
-    },200);
-    // Fallback: run after 5s regardless
-    setTimeout(()=>{clearInterval(_spInitWait);_doSpotifyInit();},5000);
-  }
-})();
 
 // ══════════════════════════════════════════════════════
 // WIRE NEW PAGES + PATCH DASHBOARD
