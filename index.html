@@ -399,6 +399,7 @@ tbody td{font-size:11px!important;}
       </div>
       <div style="overflow-x:auto;"><table>
         <thead><tr>
+          <th style="width:28px;"></th>
           <th class="sortable" data-col="name" onclick="sortBy('name')">Student</th>
           <th class="sortable" data-col="group" onclick="sortBy('group')">Group</th>
           <th class="sortable" data-col="belt" onclick="sortBy('belt')">Belt</th>
@@ -3314,11 +3315,12 @@ function tryParseNames(rows){
     if(dobRaw){
       const n=parseFloat(String(dobRaw).replace(/,/g,''));
       if(!isNaN(n)&&n>10000&&n<60000){
-        // Excel serial date — use UTC epoch + UTC read to avoid timezone/DST shift
-        const excelEpoch=Date.UTC(1899,11,30);
-        const d=new Date(excelEpoch+n*86400000);
+        // Excel serial date (days since Dec 30 1899, accounting for Lotus bug)
+        const msPerDay=86400000;
+        const excelEpoch=new Date(1899,11,30).getTime();
+        const d=new Date(excelEpoch+n*msPerDay);
         if(!isNaN(d.getTime())){
-          dob=d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+          dob=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
         }
       } else {
         // Try parsing date strings: M/D/YYYY, MM-DD-YYYY, YYYY-MM-DD, etc.
@@ -3330,10 +3332,10 @@ function tryParseNames(rows){
         } else if(/^\d{4}-\d{2}-\d{2}$/.test(raw)){
           dob=raw; // already ISO format
         } else if(raw){
-          // Last resort: native Date parsing — read back in UTC to avoid off-by-one
+          // Try native Date parsing as last resort
           const d=new Date(raw);
-          if(!isNaN(d.getTime())&&d.getUTCFullYear()>1950){
-            dob=d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+          if(!isNaN(d.getTime())&&d.getFullYear()>1950){
+            dob=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
           }
         }
       }
@@ -3709,16 +3711,23 @@ function importRosterFile(input){
         const r=(rd[0]|(rd[1]<<8)),c=(rd[2]|(rd[3]<<8));
         const view=new DataView(rd.buffer,rd.byteOffset+6,8);
         const v=view.getFloat64(0,true);
-        cells[r+'_'+c]=String(Math.round(v*1000)/1000);
+        cells[r+'_'+c]=String(v);
       } else if(rt===0x027E&&rd.length>=10){
-        // RK record (compressed number)
+        // RK record — use unsigned ops throughout to avoid sign-extension bugs
         const r=(rd[0]|(rd[1]<<8)),c=(rd[2]|(rd[3]<<8));
-        const rk=(rd[6]|(rd[7]<<8)|(rd[8]<<16)|(rd[9]<<24));
+        const rk=((rd[6]|(rd[7]<<8)|(rd[8]<<16)|(rd[9]<<24))>>>0);
         let v;
-        if(rk&0x02){v=(rk>>2);}  // integer
-        else{const b=new Uint8Array(8);b[4]=rk&0xFC;b[5]=(rk>>8)&0xFF;b[6]=(rk>>16)&0xFF;b[7]=(rk>>24)&0xFF;v=new DataView(b.buffer).getFloat64(0,false);}
+        if(rk&0x02){
+          // Integer: upper 30 bits are the value (signed)
+          v=(rk&0x80000000)?(-(((~rk)>>>2)+1)):(rk>>>2);
+        } else {
+          // IEEE 754 double with lower 2 bits zeroed
+          const b=new Uint8Array(8);
+          b[4]=rk&0xFC;b[5]=(rk>>>8)&0xFF;b[6]=(rk>>>16)&0xFF;b[7]=(rk>>>24)&0xFF;
+          v=new DataView(b.buffer).getFloat64(0,false);
+        }
         if(rk&0x01)v=v/100;
-        cells[r+'_'+c]=String(Math.round(v*1000)/1000);
+        cells[r+'_'+c]=String(v);
       } else if(rt===0x0201&&rd.length>=8){
         // Old Integer record (deprecated)
         const r=(rd[0]|(rd[1]<<8)),c=(rd[2]|(rd[3]<<8));
@@ -5634,11 +5643,11 @@ function renderRevenueChart(){
 // ══════════════════════════════════════════════════════
 // CLASS TIMER
 // ══════════════════════════════════════════════════════
-let _timerPlan=[];
-let _timerIdx=0;
-let _timerInterval=null;
-let _timerRemaining=0;
-let _timerRunning=false;
+var _timerPlan=[];
+var _timerIdx=0;
+var _timerInterval=null;
+var _timerRemaining=0;
+var _timerRunning=false;
 const TIMER_TEMPLATES={
   standard:[
     {name:'Warm-Up',mins:8,color:'#2d7dd2'},
@@ -5741,7 +5750,7 @@ function saveTimerPlan(){DB.timerPlan=[..._timerPlan];save();closeModal('modal-t
 // ══════════════════════════════════════════════════════
 // SPOTIFY INTEGRATION (PKCE)
 // ══════════════════════════════════════════════════════
-let _spToken=null,_spTokenExpiry=0,_spPolling=null;
+var _spToken=null,_spTokenExpiry=0,_spPolling=null;
 const SP_CLIENT_ID='8e09629236fa46d5b44d006b40bab8a0';
 const SP_REDIRECT=encodeURIComponent('https://sunny-starship-3a0406.netlify.app');
 const SP_SCOPES='user-read-playback-state user-modify-playback-state user-read-currently-playing';
