@@ -5828,43 +5828,40 @@ async function syncApparelOrders() {
       // Student names: collect ALL fields with "student" in label (API reuses same label for all 3)
       const studentKeys = Object.keys(ans).filter(k => (ans[k].text||'').toLowerCase().includes('student'));
       const students = studentKeys.map(k => extractVal(ans[k].answer)).filter(Boolean).join(', ');
-      // Products: parse space-separated JSON — find the summary object {product:[...], total, order}
-      // and the detail objects with {name, price, options}
+      // Products: use regex on raw string — targets the known summary format
+      // Summary format: {"product":["ItemName (Amount: X, Quantity: N, Color: C, Size: S)"],"total":"X.XX","order":{"status":"PAID"}}
       let products = [], paid = false, orderTotal = 0;
       const pk = Object.keys(ans).find(k => (ans[k].text||'').toLowerCase().includes('product'));
       if (pk && ans[pk].answer) {
         try {
           const raw = typeof ans[pk].answer === 'string' ? ans[pk].answer : JSON.stringify(ans[pk].answer);
-          // Extract all balanced JSON objects from the space-separated string
-          const chunks = []; let depth=0, start=-1;
-          for (let i=0;i<raw.length;i++) {
-            if(raw[i]==='{'){if(depth===0)start=i;depth++;}
-            else if(raw[i]==='}'){depth--;if(depth===0&&start>=0){chunks.push(raw.slice(start,i+1));start=-1;}}
-          }
-          for (const chunk of chunks) {
-            try {
-              const obj = JSON.parse(chunk);
-              // Summary object: has "product" array with display strings and "order" status
-              if (obj.product && Array.isArray(obj.product) && obj.order) {
-                if (obj.order.status === 'PAID') paid = true;
-                if (obj.total) orderTotal = parseFloat(obj.total) || 0;
-                // Parse display strings like "NMA Lion Head T-Shirt (Amount: 12.00 USD, Quantity: 1, Color: Blue, Size: Youth Medium)"
-                for (const line of obj.product) {
-                  const nameMatch = line.match(/^([^(]+)/);
-                  const amtMatch = line.match(/Amount:\s*([\d.]+)/);
-                  const qtyMatch = line.match(/Quantity:\s*(\d+)/);
-                  const optMatches = [...line.matchAll(/,\s*([^:,()]+):\s*([^,()]+)/g)];
-                  if (nameMatch) {
-                    products.push({
-                      name: nameMatch[1].trim(),
-                      price: amtMatch ? parseFloat(amtMatch[1]) : 0,
-                      qty: qtyMatch ? parseInt(qtyMatch[1]) : 1,
-                      options: optMatches.filter(m => !['Amount','Quantity'].includes(m[1].trim())).map(m => m[1].trim()+': '+m[2].trim())
-                    });
-                  }
-                }
+          // Extract total
+          const totalMatch = raw.match(/"total"\s*:\s*"([\d.]+)"/);
+          if (totalMatch) orderTotal = parseFloat(totalMatch[1]) || 0;
+          // Extract payment status
+          if (raw.includes('"PAID"') || raw.includes("'PAID'")) paid = true;
+          // Extract product display strings — they appear in "product":["..."] array
+          const prodMatch = raw.match(/"product"\s*:\s*\[([^\]]+)\]/);
+          if (prodMatch) {
+            // Split by quoted strings inside the array
+            const strings = [...prodMatch[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(m => m[1]);
+            for (const line of strings) {
+              // Format: "ItemName (Amount: 12.00 USD, Quantity: 1, Color: Blue, Size: Youth Medium)"
+              const nameMatch = line.match(/^([^(]+?)(?:\s*\(|$)/);
+              const amtMatch = line.match(/Amount:\s*([\d.]+)/i);
+              const qtyMatch = line.match(/Quantity:\s*(\d+)/i);
+              // Everything after Quantity is options: "Color: Blue, Size: Youth Medium"
+              const optsPart = line.match(/Quantity:\s*\d+,?\s*(.+)\)?\s*$/i);
+              const opts = optsPart ? optsPart[1].replace(/\)$/, '').split(/,\s*/).map(s=>s.trim()).filter(Boolean) : [];
+              if (nameMatch && nameMatch[1].trim()) {
+                products.push({
+                  name: nameMatch[1].trim(),
+                  price: amtMatch ? parseFloat(amtMatch[1]) : 0,
+                  qty: qtyMatch ? parseInt(qtyMatch[1]) : 1,
+                  options: opts
+                });
               }
-            } catch(e){}
+            }
           }
         } catch(e){}
       }
