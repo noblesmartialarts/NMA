@@ -367,6 +367,15 @@ tbody td{font-size:11px!important;}
   </div>
   <div class="section-divider"><span>Upcoming events</span></div>
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;" id="upcoming-events"></div>
+
+  <div class="section-divider" style="margin-top:24px;"><span>📌 Reminders</span></div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
+    <div style="display:flex;gap:10px;margin-bottom:14px;">
+      <input class="form-input" id="reminder-input" placeholder="Jot a reminder… (e.g. Bring permission slips Monday)" style="flex:1;" onkeydown="if(event.key==='Enter')addReminder()">
+      <button class="btn primary" onclick="addReminder()">+ Add</button>
+    </div>
+    <div id="reminders-list"></div>
+  </div>
 </div>
 
 <!-- ROSTER -->
@@ -1347,7 +1356,7 @@ if(!DB.challengeOfMonth)DB.challengeOfMonth='';
 if(!DB.customGroups)DB.customGroups=[];
 if(!DB.classNotes)DB.classNotes=[];
 if(!DB.regLinks)DB.regLinks={};
-if(!DB.regLinks)DB.regLinks={};
+if(!DB.reminders)DB.reminders=[];
 
 // Apply saved curriculum overrides
 Object.entries(DB.curriculumOverrides).forEach(([k,v])=>{if(CURRICULUM[k])CURRICULUM[k].currentCycle=v;});
@@ -2917,7 +2926,7 @@ if(!DB.challengeOfMonth)DB.challengeOfMonth='';
 if(!DB.customGroups)DB.customGroups=[];
 if(!DB.classNotes)DB.classNotes=[];
 if(!DB.regLinks)DB.regLinks={};
-if(!DB.regLinks)DB.regLinks={};
+if(!DB.reminders)DB.reminders=[];
 
   // Migrate belt names (idempotent)
   if(!DB._migrated_v4){
@@ -5241,6 +5250,7 @@ function toggleCalDate(date) {
 function toggleDarkMode(){
   const isDark=!document.body.classList.contains('dark-mode');
   document.body.classList.toggle('dark-mode',isDark);
+  document.documentElement.classList.toggle('dark-mode',isDark);
   localStorage.setItem('nma_dark',isDark?'1':'');
   const icon=$('dark-mode-icon');const label=$('dark-mode-label');
   if(icon)icon.textContent=isDark?'☀️':'🌙';
@@ -5597,6 +5607,50 @@ function renderRevenueChart(){
 }
 
 // ══════════════════════════════════════════════════════
+// REMINDERS
+// ══════════════════════════════════════════════════════
+function addReminder(){
+  const inp=$('reminder-input');
+  const text=(inp?.value||'').trim();
+  if(!text)return;
+  if(!DB.reminders)DB.reminders=[];
+  DB.reminders.unshift({id:Date.now(),text,date:new Date().toISOString().slice(0,10),done:false});
+  inp.value='';
+  save();renderReminders();
+}
+function toggleReminder(id){
+  const r=DB.reminders.find(x=>x.id===id);
+  if(!r)return;
+  r.done=!r.done;
+  save();renderReminders();
+}
+function deleteReminder(id){
+  DB.reminders=DB.reminders.filter(x=>x.id!==id);
+  save();renderReminders();
+}
+function renderReminders(){
+  const el=$('reminders-list');if(!el)return;
+  if(!DB.reminders)DB.reminders=[];
+  const active=DB.reminders.filter(r=>!r.done);
+  const done=DB.reminders.filter(r=>r.done);
+  if(!DB.reminders.length){
+    el.innerHTML='<div style="color:var(--ink-faint);font-size:13px;text-align:center;padding:12px 0;">No reminders yet — add one above.</div>';
+    return;
+  }
+  const renderItem=r=>`
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);${r.done?'opacity:.45;':''}" >
+      <input type="checkbox" ${r.done?'checked':''} onchange="toggleReminder(${r.id})" style="margin-top:3px;width:16px;height:16px;cursor:pointer;accent-color:var(--ink);flex-shrink:0;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;${r.done?'text-decoration:line-through;color:var(--ink-muted);':''}">${r.text}</div>
+        <div style="font-size:11px;color:var(--ink-faint);margin-top:2px;">${fmtDate(r.date)}</div>
+      </div>
+      <button class="btn ghost" style="font-size:11px;padding:2px 5px;flex-shrink:0;" onclick="deleteReminder(${r.id})">✕</button>
+    </div>`;
+  el.innerHTML=active.map(renderItem).join('')+
+    (done.length?`<div style="margin-top:10px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint);padding:4px 0;">Done</div>`+done.map(renderItem).join(''):'');
+}
+
+// ══════════════════════════════════════════════════════
 // WIRE NEW PAGES + PATCH DASHBOARD
 // ══════════════════════════════════════════════════════
 const _origRenderDash2=renderDashboard;
@@ -5604,6 +5658,7 @@ renderDashboard=function(){
   _origRenderDash2.apply(this,arguments);
   renderInactiveAlert();
   renderRevenueChart();
+  renderReminders();
 };
 
 // ══════════════════════════════════════════════════════
