@@ -3314,13 +3314,14 @@ function tryParseNames(rows){
     let dob='';
     if(dobRaw){
       const n=parseFloat(String(dobRaw).replace(/,/g,''));
-      if(!isNaN(n)&&n>10000&&n<60000){
+      if(!isNaN(n)&&n>10000&&n<60000&&n!==36526){
         // Excel serial date (days since Dec 30 1899, accounting for Lotus bug)
+        // Skip 36526 = 2000-01-01 which RecConnect uses as placeholder when DOB not provided
         const msPerDay=86400000;
-        const excelEpoch=new Date(1899,11,30).getTime();
+        const excelEpoch=Date.UTC(1899,11,30);
         const d=new Date(excelEpoch+n*msPerDay);
         if(!isNaN(d.getTime())){
-          dob=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+          dob=d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
         }
       } else {
         // Try parsing date strings: M/D/YYYY, MM-DD-YYYY, YYYY-MM-DD, etc.
@@ -4835,7 +4836,7 @@ async function sendAIMessage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gemini-1.5-flash-latest',
+        model: 'gemini-2.0-flash', // proxy handles model selection with fallbacks
         contents,
         generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
       })
@@ -5752,7 +5753,7 @@ function saveTimerPlan(){DB.timerPlan=[..._timerPlan];save();closeModal('modal-t
 // ══════════════════════════════════════════════════════
 var _spToken=null,_spTokenExpiry=0,_spPolling=null;
 const SP_CLIENT_ID='8e09629236fa46d5b44d006b40bab8a0';
-const SP_REDIRECT=encodeURIComponent('https://sunny-starship-3a0406.netlify.app');
+const SP_REDIRECT='https://sunny-starship-3a0406.netlify.app';
 const SP_SCOPES='user-read-playback-state user-modify-playback-state user-read-currently-playing';
 
 function generatePKCE(){
@@ -5765,29 +5766,47 @@ function generatePKCE(){
 }
 async function connectSpotify(){
   try{
-  if(_spToken&&Date.now()<_spTokenExpiry){disconnectSpotify();return;}
-  const{verifier,challenge}=await generatePKCE();
-  sessionStorage.setItem('sp_verifier',verifier);
-  const url=`https://accounts.spotify.com/authorize?client_id=${SP_CLIENT_ID}&response_type=code&redirect_uri=${SP_REDIRECT}&code_challenge_method=S256&code_challenge=${challenge}&scope=${encodeURIComponent(SP_SCOPES)}&state=spotify_auth`;
-  window.location.href=url;
-  }catch(e){alert('Spotify error: '+e.message);}  
+    if(_spToken&&Date.now()<_spTokenExpiry){disconnectSpotify();return;}
+    const btn=$('spotify-connect-btn');
+    if(btn){btn.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="#1DB954"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg> Connecting…';btn.disabled=true;}
+    const{verifier,challenge}=await generatePKCE();
+    sessionStorage.setItem('sp_verifier',verifier);
+    const url=`https://accounts.spotify.com/authorize?client_id=${SP_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(SP_REDIRECT)}&code_challenge_method=S256&code_challenge=${challenge}&scope=${encodeURIComponent(SP_SCOPES)}&state=spotify_auth`;
+    window.location.href=url;
+  }catch(e){
+    alert('Spotify connect error: '+e.message);
+    const btn=$('spotify-connect-btn');
+    if(btn){btn.disabled=false;}
+  }
 }
 async function handleSpotifyCallback(){
   const params=new URLSearchParams(window.location.search);
   if(params.get('state')!=='spotify_auth')return;
+  // Check for Spotify error response
+  const spError=params.get('error');
+  if(spError){
+    window.history.replaceState({},'',window.location.pathname);
+    if(spError==='access_denied'){toast('Spotify: Access denied. Please try connecting again.');
+    }else{toast('Spotify auth error: '+spError+'. Make sure '+SP_REDIRECT+' is added as a Redirect URI in your Spotify Developer app.');}
+    return;
+  }
   const code=params.get('code');if(!code)return;
-  const verifier=sessionStorage.getItem('sp_verifier');if(!verifier)return;
+  const verifier=sessionStorage.getItem('sp_verifier');if(!verifier){toast('Spotify: Session expired, please try again.');return;}
   window.history.replaceState({},'',window.location.pathname);
   try{
     const res=await fetch('https://accounts.spotify.com/api/token',{
       method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:`grant_type=authorization_code&code=${code}&redirect_uri=${SP_REDIRECT}&client_id=${SP_CLIENT_ID}&code_verifier=${verifier}`
+      body:`grant_type=authorization_code&code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(SP_REDIRECT)}&client_id=${SP_CLIENT_ID}&code_verifier=${encodeURIComponent(verifier)}`
     });
     const data=await res.json();
     if(data.access_token){
       _spToken=data.access_token;_spTokenExpiry=Date.now()+data.expires_in*1000;
       sessionStorage.setItem('sp_token',_spToken);sessionStorage.setItem('sp_expiry',_spTokenExpiry);
       updateSpotifyUI(true);nav('timer');startSpotifyPolling();toast('Spotify connected! 🎵');
+    }else{
+      const errMsg=data.error_description||data.error||'Unknown error';
+      toast('Spotify token error: '+errMsg);
+      console.error('Spotify token error:',data);
     }
   }catch(e){toast('Spotify connection failed: '+e.message);}
 }
@@ -5829,9 +5848,27 @@ async function updateSpotifyStatus(){
 function startSpotifyPolling(){if(_spPolling)return;_spPolling=setInterval(()=>{if(_spToken&&Date.now()<_spTokenExpiry)updateSpotifyStatus();else stopSpotifyPolling();},5000);}
 function stopSpotifyPolling(){clearInterval(_spPolling);_spPolling=null;}
 
-// Check for Spotify callback on load
-handleSpotifyCallback();
-restoreSpotifySession();
+// Defer Spotify callback until after app init to avoid race with auth flow
+(function(){
+  const _hasSPCallback=new URLSearchParams(window.location.search).get('state')==='spotify_auth';
+  function _doSpotifyInit(){
+    if(_hasSPCallback) handleSpotifyCallback();
+    else restoreSpotifySession();
+  }
+  if(typeof _initComplete!=='undefined'&&_initComplete){
+    _doSpotifyInit();
+  } else {
+    // Poll until init is done
+    const _spInitWait=setInterval(()=>{
+      if(typeof _initComplete!=='undefined'&&_initComplete){
+        clearInterval(_spInitWait);
+        _doSpotifyInit();
+      }
+    },200);
+    // Fallback: run after 5s regardless
+    setTimeout(()=>{clearInterval(_spInitWait);_doSpotifyInit();},5000);
+  }
+})();
 
 // ══════════════════════════════════════════════════════
 // WIRE NEW PAGES + PATCH DASHBOARD
