@@ -321,6 +321,8 @@ tbody td{font-size:11px!important;}
     <div class="nav-item" data-page="testing" onclick="nav('testing')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Belt Testing</span></div>
     <div class="nav-section-label">Operations</div>
     <div class="nav-item" data-page="revenue" onclick="nav('revenue')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Revenue</span></div>
+    <div class="nav-item" data-page="apparel" onclick="nav('apparel')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.57a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.57a2 2 0 0 0-1.34-2.23z"/></svg><span>Apparel Orders</span></div>
+    <div class="nav-item" data-page="gearorders" onclick="nav('gearorders')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><circle cx="12" cy="13" r="3"/></svg><span>Gear Orders</span></div>
     <div class="nav-item" data-page="beltorder" onclick="nav('beltorder')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><span>Belt Orders</span></div>
     <div class="nav-item" data-page="inventory" onclick="nav('inventory')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg><span>Inventory</span></div>
     <div class="nav-item" data-page="invoices" onclick="nav('invoices')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span>Invoices</span></div>
@@ -516,6 +518,78 @@ tbody td{font-size:11px!important;}
   <div class="table-wrap"><table><thead><tr><th>Student</th><th>Test event</th><th>Fee</th><th>Date paid</th></tr></thead><tbody id="fee-tbody"></tbody></table></div>
   <div class="section-divider"><span>Month-by-month revenue history</span></div>
   <div id="rev-month-history"></div>
+</div>
+
+<!-- APPAREL ORDERS -->
+<div id="page-apparel" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div class="page-title">Apparel Orders</div><div class="page-subtitle">NMA T-Shirt orders from Jotform</div></div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span id="apparel-sync-time" style="font-size:11px;color:var(--ink-faint);"></span>
+      <button class="btn primary" onclick="syncApparelOrders()">↻ Sync from Jotform</button>
+    </div>
+  </div>
+  <div id="apparel-alert" style="display:none;padding:14px 18px;border-radius:10px;margin-bottom:14px;font-size:13px;"></div>
+  <!-- Summary -->
+  <div id="apparel-summary" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"></div>
+  <!-- Filters -->
+  <div class="table-toolbar" style="border-radius:12px 12px 0 0;margin-bottom:0;">
+    <input type="text" id="apparel-search" placeholder="Search name or product…" oninput="renderApparelOrders()" style="width:200px;">
+    <select id="apparel-filter-status" class="form-select" style="width:160px;" onchange="renderApparelOrders()">
+      <option value="">All orders</option>
+      <option value="pending">Pending fulfillment</option>
+      <option value="ready">Ready for pickup</option>
+      <option value="delivered">Delivered</option>
+    </select>
+  </div>
+  <div class="table-wrap" style="border-radius:0 0 12px 12px;">
+    <table>
+      <thead><tr>
+        <th>Date</th><th>Parent</th><th>Student(s)</th><th>Items</th>
+        <th style="text-align:right;">Total</th><th>Payment</th><th>Status</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="apparel-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- GEAR ORDERS -->
+<div id="page-gearorders" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div class="page-title">Gear Orders</div><div class="page-subtitle">Track parent gear & weapon orders</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" onclick="importGearCSV()">📥 Import CSV</button>
+      <button class="btn primary" onclick="openAddGearOrder()">+ Add Order</button>
+    </div>
+  </div>
+  <!-- Summary bar -->
+  <div id="gear-summary" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"></div>
+  <!-- Filters -->
+  <div class="table-toolbar" style="margin-bottom:0;border-radius:12px 12px 0 0;">
+    <input type="text" id="gear-search" placeholder="Search student or order…" oninput="renderGearOrders()" style="width:200px;">
+    <select id="gear-filter-paid" class="form-select" style="width:140px;" onchange="renderGearOrders()">
+      <option value="">All orders</option>
+      <option value="unpaid">Unpaid only</option>
+      <option value="paid">Paid only</option>
+    </select>
+    <select id="gear-filter-type" class="form-select" style="width:180px;" onchange="renderGearOrders()">
+      <option value="">All types</option>
+      <option>Purple Belt Package</option>
+      <option>BBC Weapon</option>
+      <option>Master's Club Weapon</option>
+      <option>Custom</option>
+    </select>
+    <input type="file" id="gear-csv-input" accept=".csv" style="display:none;" onchange="handleGearCSV(this)">
+  </div>
+  <div class="table-wrap" style="border-radius:0 0 12px 12px;">
+    <table>
+      <thead><tr>
+        <th>Date</th><th>Student</th><th>Order Type</th><th>Details</th>
+        <th style="text-align:right;">Amount</th><th>Payment</th><th>Status</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="gear-tbody"></tbody>
+    </table>
+  </div>
 </div>
 
 <!-- BELT ORDER -->
@@ -1147,6 +1221,60 @@ tbody td{font-size:11px!important;}
   </div>
 </div>
 
+<div class="modal-backdrop" id="modal-gear-order">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header"><div class="modal-title" id="gear-modal-title">Add Gear Order</div><button class="btn ghost" onclick="closeModal('modal-gear-order')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="go-date" type="date"></div>
+        <div class="form-group"><label class="form-label">Student</label>
+          <select class="form-select" id="go-student" onchange="goStudentChange()">
+            <option value="">— Select or type below —</option>
+          </select>
+        </div>
+        <div class="form-group full"><label class="form-label">Student name (if not on roster)</label><input class="form-input" id="go-name" placeholder="e.g. Timothy Bass"></div>
+        <div class="form-group"><label class="form-label">Order type</label>
+          <select class="form-select" id="go-type" onchange="goTypeChange()">
+            <option>Purple Belt Package A — $155</option>
+            <option>Purple Belt Package B — $145</option>
+            <option>Purple Belt Package C — $125</option>
+            <option>Purple Belt Package D — $95</option>
+            <option>BBC Weapon — Nunchaku</option>
+            <option>BBC Weapon — Bo Staff</option>
+            <option>BBC Weapon — Escrima</option>
+            <option>Master's Club Weapon — Nunchaku</option>
+            <option>Master's Club Weapon — Bo Staff</option>
+            <option>Master's Club Weapon — Escrima</option>
+            <option>Master's Club Weapon — Kama</option>
+            <option>Custom</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Amount ($)</label><input class="form-input" id="go-amount" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        <div class="form-group full"><label class="form-label">Color / size details</label><input class="form-input" id="go-details" placeholder="e.g. Headgear: Red · Gloves: Black · Shin: Blue · Size: YM"></div>
+        <div class="form-group"><label class="form-label">Payment method</label>
+          <select class="form-select" id="go-payment">
+            <option value="Unpaid">Unpaid</option>
+            <option value="Venmo">Venmo</option>
+            <option value="PayPal">PayPal</option>
+            <option value="Zelle">Zelle</option>
+            <option value="Cash">Cash</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Paid?</label>
+          <select class="form-select" id="go-paid">
+            <option value="false">Not yet</option>
+            <option value="true">Paid ✓</option>
+          </select>
+        </div>
+        <div class="form-group full"><label class="form-label">Notes</label><textarea class="form-input" id="go-notes" rows="2" placeholder="Any special requests or comments"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-gear-order')">Cancel</button>
+      <button class="btn primary" onclick="saveGearOrder()">Save Order</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1357,6 +1485,9 @@ if(!DB.customGroups)DB.customGroups=[];
 if(!DB.classNotes)DB.classNotes=[];
 if(!DB.regLinks)DB.regLinks={};
 if(!DB.reminders)DB.reminders=[];
+if(!DB.gearOrders)DB.gearOrders=[];
+if(!DB.apparelOrders)DB.apparelOrders=[];
+if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
 
 // Apply saved curriculum overrides
 Object.entries(DB.curriculumOverrides).forEach(([k,v])=>{if(CURRICULUM[k])CURRICULUM[k].currentCycle=v;});
@@ -1451,7 +1582,7 @@ function nav(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+page).classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes};
+  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders};
   fns[page]?.();
 }
 
@@ -2927,6 +3058,9 @@ if(!DB.customGroups)DB.customGroups=[];
 if(!DB.classNotes)DB.classNotes=[];
 if(!DB.regLinks)DB.regLinks={};
 if(!DB.reminders)DB.reminders=[];
+if(!DB.gearOrders)DB.gearOrders=[];
+if(!DB.apparelOrders)DB.apparelOrders=[];
+if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
 
   // Migrate belt names (idempotent)
   if(!DB._migrated_v4){
@@ -5607,6 +5741,301 @@ function renderRevenueChart(){
 }
 
 // ══════════════════════════════════════════════════════
+// APPAREL ORDERS (Jotform sync)
+// ══════════════════════════════════════════════════════
+const JOTFORM_PROXY = '/.netlify/functions/jotform';
+const FULFILLMENT_STATUSES = ['pending', 'ready', 'delivered'];
+
+function initApparelOrders() {
+  if (!DB.apparelOrders) DB.apparelOrders = [];
+  if (!DB.apparelOrderStatus) DB.apparelOrderStatus = {};
+  renderApparelOrders();
+  // Show last sync time
+  const el = $('apparel-sync-time');
+  if (el && DB.apparelLastSync) el.textContent = 'Last synced ' + fmtDate(DB.apparelLastSync);
+}
+
+async function syncApparelOrders() {
+  const btn = document.querySelector('#page-apparel .btn.primary');
+  if (btn) { btn.textContent = '↻ Syncing…'; btn.disabled = true; }
+  showApparelAlert('', '');
+  try {
+    const res = await fetch(JOTFORM_PROXY);
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      showApparelAlert('error', '⚠ ' + (data.error || 'Sync failed. Check that JOTFORM_API_KEY is set in Netlify.'));
+      return;
+    }
+    DB.apparelOrders = data.orders || [];
+    DB.apparelLastSync = new Date().toISOString().slice(0, 10);
+    save();
+    renderApparelOrders();
+    const el = $('apparel-sync-time');
+    if (el) el.textContent = 'Synced just now';
+    showApparelAlert('success', '✓ Synced ' + DB.apparelOrders.length + ' orders from Jotform.');
+  } catch(e) {
+    showApparelAlert('error', '⚠ Connection error: ' + e.message);
+  } finally {
+    if (btn) { btn.textContent = '↻ Sync from Jotform'; btn.disabled = false; }
+  }
+}
+
+function showApparelAlert(type, msg) {
+  const el = $('apparel-alert');
+  if (!el) return;
+  if (!msg) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.style.background = type === 'error' ? 'var(--red-light)' : 'var(--green-light)';
+  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
+  el.style.border = '1px solid ' + (type === 'error' ? 'var(--red)' : 'var(--green)');
+  el.textContent = msg;
+}
+
+function renderApparelOrders() {
+  if (!DB.apparelOrders) DB.apparelOrders = [];
+  if (!DB.apparelOrderStatus) DB.apparelOrderStatus = {};
+  const search = ($('apparel-search')?.value || '').toLowerCase();
+  const filterStatus = $('apparel-filter-status')?.value || '';
+
+  let orders = [...DB.apparelOrders];
+  if (search) orders = orders.filter(o =>
+    (o.parentName || '').toLowerCase().includes(search) ||
+    (o.students || '').toLowerCase().includes(search) ||
+    (o.products || []).some(p => p.name.toLowerCase().includes(search))
+  );
+  if (filterStatus) orders = orders.filter(o =>
+    (DB.apparelOrderStatus[o.id] || 'pending') === filterStatus
+  );
+
+  // Summary
+  const all = DB.apparelOrders;
+  const totalRevenue = all.reduce((s, o) => s + (o.total || 0), 0);
+  const pending = all.filter(o => (DB.apparelOrderStatus[o.id] || 'pending') === 'pending').length;
+  const ready = all.filter(o => DB.apparelOrderStatus[o.id] === 'ready').length;
+  const delivered = all.filter(o => DB.apparelOrderStatus[o.id] === 'delivered').length;
+  const summary = $('apparel-summary');
+  if (summary) summary.innerHTML = `
+    <div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">Total Revenue</div><div class="stat-num">$${totalRevenue.toFixed(2)}</div><div class="stat-sub">${all.length} order(s)</div></div>
+    <div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">Pending</div><div class="stat-num" style="color:var(--amber);">${pending}</div><div class="stat-sub">awaiting fulfillment</div></div>
+    <div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">Ready</div><div class="stat-num" style="color:var(--blue);">${ready}</div><div class="stat-sub">ready for pickup</div></div>
+    <div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">Delivered</div><div class="stat-num" style="color:var(--green);">${delivered}</div><div class="stat-sub">completed</div></div>`;
+
+  const tbody = $('apparel-tbody');
+  if (!tbody) return;
+  if (!orders.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--ink-muted);">' +
+      (DB.apparelOrders.length ? 'No orders match filter.' : 'No orders yet — click "↻ Sync from Jotform" to load orders.') + '</td></tr>';
+    return;
+  }
+
+  const statusColors = { pending: 'var(--amber)', ready: 'var(--blue)', delivered: 'var(--green)' };
+  const statusBg = { pending: 'var(--amber-light)', ready: 'var(--blue-light)', delivered: 'var(--green-light)' };
+
+  tbody.innerHTML = orders.map(o => {
+    const status = DB.apparelOrderStatus[o.id] || 'pending';
+    const statusBadge = `<span style="background:${statusBg[status]};color:${statusColors[status]};border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;text-transform:capitalize;">${status}</span>`;
+    const paidBadge = o.paid
+      ? `<span class="badge badge-green">Paid ✓</span>`
+      : `<span class="badge badge-gray">Pending</span>`;
+    const itemList = (o.products || []).map(p =>
+      `<div style="font-size:11px;">${p.qty}× ${p.name}${p.options?.length ? ' — ' + p.options.join(', ') : ''}</div>`
+    ).join('');
+    const nextStatus = status === 'pending' ? 'ready' : status === 'ready' ? 'delivered' : null;
+    const advBtn = nextStatus
+      ? `<button class="btn small success" onclick="advanceApparelStatus('${o.id}')" title="Mark as ${nextStatus}">${nextStatus === 'ready' ? '📦 Ready' : '✓ Delivered'}</button> `
+      : '';
+    return `<tr>
+      <td style="font-size:12px;color:var(--ink-muted);white-space:nowrap;">${fmtDate(o.date)}</td>
+      <td><strong style="font-size:13px;">${o.parentName || '—'}</strong>${o.email ? `<div style="font-size:10px;color:var(--ink-faint);">${o.email}</div>` : ''}</td>
+      <td style="font-size:12px;">${o.students || '—'}</td>
+      <td>${itemList || '—'}</td>
+      <td style="text-align:right;font-weight:600;">${o.total ? '$' + o.total.toFixed(2) : '—'}</td>
+      <td>${paidBadge}</td>
+      <td>${statusBadge}</td>
+      <td style="white-space:nowrap;">${advBtn}<button class="btn small" onclick="resetApparelStatus('${o.id}')">↩</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function advanceApparelStatus(id) {
+  if (!DB.apparelOrderStatus) DB.apparelOrderStatus = {};
+  const cur = DB.apparelOrderStatus[id] || 'pending';
+  const next = cur === 'pending' ? 'ready' : cur === 'ready' ? 'delivered' : null;
+  if (next) { DB.apparelOrderStatus[id] = next; save(); renderApparelOrders(); toast('Order marked as ' + next); }
+}
+function resetApparelStatus(id) {
+  if (!DB.apparelOrderStatus) DB.apparelOrderStatus = {};
+  DB.apparelOrderStatus[id] = 'pending';
+  save(); renderApparelOrders();
+}
+
+// ══════════════════════════════════════════════════════
+// GEAR ORDERS
+// ══════════════════════════════════════════════════════
+const GEAR_PRICES={'Purple Belt Package A — $155':155,'Purple Belt Package B — $145':145,'Purple Belt Package C — $125':125,'Purple Belt Package D — $95':95,'BBC Weapon — Nunchaku':0,'BBC Weapon — Bo Staff':0,'BBC Weapon — Escrima':0,"Master's Club Weapon — Nunchaku":0,"Master's Club Weapon — Bo Staff":0,"Master's Club Weapon — Escrima":0,"Master's Club Weapon — Kama":0,'Custom':0};
+let _editingGearId=null;
+
+function initGearOrders(){if(!DB.gearOrders)DB.gearOrders=[];
+if(!DB.apparelOrders)DB.apparelOrders=[];
+if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};renderGearOrders();}
+
+function renderGearOrders(){
+  if(!DB.gearOrders)DB.gearOrders=[];
+if(!DB.apparelOrders)DB.apparelOrders=[];
+if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
+  const search=($('gear-search')?.value||'').toLowerCase();
+  const filterPaid=$('gear-filter-paid')?.value||'';
+  const filterType=$('gear-filter-type')?.value||'';
+  let orders=[...DB.gearOrders].sort((a,b)=>b.date.localeCompare(a.date));
+  if(search)orders=orders.filter(o=>(o.studentName||'').toLowerCase().includes(search)||(o.orderType||'').toLowerCase().includes(search)||(o.details||'').toLowerCase().includes(search));
+  if(filterPaid==='unpaid')orders=orders.filter(o=>!o.paid);
+  if(filterPaid==='paid')orders=orders.filter(o=>o.paid);
+  if(filterType)orders=orders.filter(o=>(o.orderType||'').includes(filterType));
+
+  // Summary bar
+  const all=DB.gearOrders;
+  const totalOwed=all.filter(o=>!o.paid).reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
+  const totalPaid=all.filter(o=>o.paid).reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
+  const summary=$('gear-summary');
+  if(summary)summary.innerHTML=`
+    <div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">Outstanding</div><div class="stat-num" style="color:var(--red);">$${totalOwed.toFixed(2)}</div><div class="stat-sub">${all.filter(o=>!o.paid).length} order(s)</div></div>
+    <div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">Collected</div><div class="stat-num" style="color:var(--green);">$${totalPaid.toFixed(2)}</div><div class="stat-sub">${all.filter(o=>o.paid).length} order(s)</div></div>
+    <div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">Total Orders</div><div class="stat-num">${all.length}</div></div>`;
+
+  const tbody=$('gear-tbody');if(!tbody)return;
+  if(!orders.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--ink-muted);">No orders yet — click "+ Add Order" to log one.</td></tr>';return;}
+  tbody.innerHTML=orders.map(o=>{
+    const paidBadge=o.paid
+      ?`<span class="badge badge-green">Paid</span>`
+      :`<span class="badge badge-gray">Unpaid</span>`;
+    const payBadge=o.paymentMethod&&o.paymentMethod!=='Unpaid'
+      ?`<span class="badge" style="background:var(--blue-light);color:var(--blue);font-size:10px;">${o.paymentMethod}</span>`:
+      `<span style="color:var(--ink-faint);font-size:12px;">—</span>`;
+    return `<tr>
+      <td style="font-size:12px;color:var(--ink-muted);white-space:nowrap;">${fmtDate(o.date)}</td>
+      <td><strong style="font-size:13px;">${o.studentName||'—'}</strong></td>
+      <td style="font-size:12px;">${o.orderType||'—'}</td>
+      <td style="font-size:11px;color:var(--ink-muted);max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${o.details||''}">${o.details||'—'}</td>
+      <td style="text-align:right;font-weight:600;">${o.amount?'$'+parseFloat(o.amount).toFixed(2):'—'}</td>
+      <td>${payBadge}</td>
+      <td>${paidBadge}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn small" onclick="toggleGearPaid(${o.id})">${o.paid?'↩ Unpaid':'✓ Paid'}</button>
+        <button class="btn small" onclick="editGearOrder(${o.id})">Edit</button>
+        <button class="btn small" onclick="deleteGearOrder(${o.id})">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openAddGearOrder(){
+  _editingGearId=null;
+  $('gear-modal-title').textContent='Add Gear Order';
+  $('go-date').value=new Date().toISOString().slice(0,10);
+  $('go-student').innerHTML='<option value="">— Select student —</option>'+
+    DB.students.filter(s=>s.status==='Active').map(s=>`<option value="${s.id}">${s.first} ${s.last}</option>`).join('');
+  $('go-student').value='';$('go-name').value='';
+  $('go-type').value='Purple Belt Package A — $155';
+  $('go-amount').value='155';
+  $('go-details').value='';$('go-notes').value='';
+  $('go-payment').value='Unpaid';$('go-paid').value='false';
+  $('modal-gear-order').classList.add('open');
+}
+function goStudentChange(){
+  const sel=$('go-student');const id=parseInt(sel.value);
+  if(id){const s=DB.students.find(x=>x.id===id);if(s)$('go-name').value=s.first+' '+s.last;}
+}
+function goTypeChange(){
+  const t=$('go-type').value;const price=GEAR_PRICES[t];
+  if(price>0)$('go-amount').value=price;
+}
+function editGearOrder(id){
+  const o=DB.gearOrders.find(x=>x.id===id);if(!o)return;
+  _editingGearId=id;
+  $('gear-modal-title').textContent='Edit Gear Order';
+  $('go-student').innerHTML='<option value="">— Select student —</option>'+
+    DB.students.filter(s=>s.status==='Active').map(s=>`<option value="${s.id}">${s.first} ${s.last}</option>`).join('');
+  $('go-date').value=o.date||'';
+  $('go-student').value=o.studentId||'';
+  $('go-name').value=o.studentName||'';
+  $('go-type').value=o.orderType||'Custom';
+  $('go-amount').value=o.amount||'';
+  $('go-details').value=o.details||'';
+  $('go-notes').value=o.notes||'';
+  $('go-payment').value=o.paymentMethod||'Unpaid';
+  $('go-paid').value=o.paid?'true':'false';
+  $('modal-gear-order').classList.add('open');
+}
+function saveGearOrder(){
+  const studentId=parseInt($('go-student').value)||null;
+  const studentName=$('go-name').value.trim()||($('go-student').options[$('go-student').selectedIndex]?.text)||'';
+  const order={
+    id:_editingGearId||Date.now(),
+    date:$('go-date').value||new Date().toISOString().slice(0,10),
+    studentId,studentName,
+    orderType:$('go-type').value,
+    amount:parseFloat($('go-amount').value)||0,
+    details:$('go-details').value.trim(),
+    notes:$('go-notes').value.trim(),
+    paymentMethod:$('go-payment').value,
+    paid:$('go-paid').value==='true'
+  };
+  if(!DB.gearOrders)DB.gearOrders=[];
+if(!DB.apparelOrders)DB.apparelOrders=[];
+if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
+  if(_editingGearId){const i=DB.gearOrders.findIndex(x=>x.id===_editingGearId);if(i>=0)DB.gearOrders[i]=order;}
+  else DB.gearOrders.unshift(order);
+  save();closeModal('modal-gear-order');renderGearOrders();
+  toast(_editingGearId?'Order updated.':'Order logged.');
+}
+function toggleGearPaid(id){
+  const o=DB.gearOrders.find(x=>x.id===id);if(!o)return;
+  o.paid=!o.paid;if(o.paid&&o.paymentMethod==='Unpaid')o.paymentMethod='Venmo';
+  save();renderGearOrders();toast(o.paid?'Marked paid ✓':'Marked unpaid');
+}
+function deleteGearOrder(id){
+  if(!confirm('Delete this order?'))return;
+  DB.gearOrders=DB.gearOrders.filter(x=>x.id!==id);
+  save();renderGearOrders();
+}
+function importGearCSV(){$('gear-csv-input').click();}
+function handleGearCSV(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const lines=e.target.result.split(/\r?\n/).filter(l=>l.trim());
+    if(lines.length<2){toast('CSV appears empty.');return;}
+    const headers=lines[0].split(',').map(h=>h.replace(/^"|"$/g,'').trim().toLowerCase());
+    let imported=0;
+    for(let i=1;i<lines.length;i++){
+      const cols=lines[i].match(/(".*?"|[^,]+)(?=,|$)/g)||lines[i].split(',');
+      const vals=cols.map(c=>c.replace(/^"|"$/g,'').trim());
+      const get=(...keys)=>{for(const k of keys){const idx=headers.findIndex(h=>h.includes(k));if(idx>=0&&vals[idx])return vals[idx];}return '';};
+      const name=get('student','name');if(!name)continue;
+      const matched=DB.students.find(s=>`${s.first} ${s.last}`.toLowerCase()===name.toLowerCase());
+      const order={
+        id:Date.now()+i,
+        date:get('date','timestamp')||new Date().toISOString().slice(0,10),
+        studentId:matched?.id||null,
+        studentName:name,
+        orderType:get('package','order type','weapon','type')||'Custom',
+        amount:parseFloat(get('amount','price','total').replace(/[^0-9.]/g,''))||0,
+        details:get('color','size','detail'),
+        notes:get('note','comment','question'),
+        paymentMethod:'Unpaid',paid:false
+      };
+      if(!DB.gearOrders)DB.gearOrders=[];
+if(!DB.apparelOrders)DB.apparelOrders=[];
+if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
+      DB.gearOrders.unshift(order);imported++;
+    }
+    save();renderGearOrders();input.value='';
+    toast(`Imported ${imported} order(s) from CSV.`);
+  };
+  reader.readAsText(file);
+}
+
+// ══════════════════════════════════════════════════════
 // REMINDERS
 // ══════════════════════════════════════════════════════
 function addReminder(){
@@ -5614,6 +6043,9 @@ function addReminder(){
   const text=(inp?.value||'').trim();
   if(!text)return;
   if(!DB.reminders)DB.reminders=[];
+if(!DB.gearOrders)DB.gearOrders=[];
+if(!DB.apparelOrders)DB.apparelOrders=[];
+if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
   DB.reminders.unshift({id:Date.now(),text,date:new Date().toISOString().slice(0,10),done:false});
   inp.value='';
   save();renderReminders();
@@ -5631,6 +6063,9 @@ function deleteReminder(id){
 function renderReminders(){
   const el=$('reminders-list');if(!el)return;
   if(!DB.reminders)DB.reminders=[];
+if(!DB.gearOrders)DB.gearOrders=[];
+if(!DB.apparelOrders)DB.apparelOrders=[];
+if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
   const active=DB.reminders.filter(r=>!r.done);
   const done=DB.reminders.filter(r=>r.done);
   if(!DB.reminders.length){
