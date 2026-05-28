@@ -1488,6 +1488,7 @@ if(!DB.reminders)DB.reminders=[];
 if(!DB.gearOrders)DB.gearOrders=[];
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
+if(!DB.jotformApiKey)DB.jotformApiKey='';
 
 // Apply saved curriculum overrides
 Object.entries(DB.curriculumOverrides).forEach(([k,v])=>{if(CURRICULUM[k])CURRICULUM[k].currentCycle=v;});
@@ -3061,6 +3062,7 @@ if(!DB.reminders)DB.reminders=[];
 if(!DB.gearOrders)DB.gearOrders=[];
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
+if(!DB.jotformApiKey)DB.jotformApiKey='';
 
   // Migrate belt names (idempotent)
   if(!DB._migrated_v4){
@@ -5743,36 +5745,95 @@ function renderRevenueChart(){
 // ══════════════════════════════════════════════════════
 // APPAREL ORDERS (Jotform sync)
 // ══════════════════════════════════════════════════════
-var JOTFORM_PROXY = '/.netlify/functions/jotform';
-const FULFILLMENT_STATUSES = ['pending', 'ready', 'delivered'];
+const JOTFORM_FORM_ID = '261055009001137';
 
 function initApparelOrders() {
   if (!DB.apparelOrders) DB.apparelOrders = [];
   if (!DB.apparelOrderStatus) DB.apparelOrderStatus = {};
   renderApparelOrders();
-  // Show last sync time
   const el = $('apparel-sync-time');
   if (el && DB.apparelLastSync) el.textContent = 'Last synced ' + fmtDate(DB.apparelLastSync);
+  // Prompt for API key if not set
+  if (!DB.jotformApiKey) {
+    showApparelAlert('info', '⚙ Enter your Jotform API key below to enable syncing.');
+    renderApparelApiKeyPrompt();
+  }
+}
+
+function renderApparelApiKeyPrompt() {
+  const alert = $('apparel-alert');
+  if (!alert) return;
+  alert.style.display = 'block';
+  alert.style.background = 'var(--blue-light)';
+  alert.style.color = 'var(--blue)';
+  alert.style.border = '1px solid var(--blue)';
+  alert.innerHTML = '<strong>⚙ Jotform API Key required</strong><br>' +
+    '<span style="font-size:12px;">Find it at jotform.com → Account → Settings → API → Create New Key</span><br>' +
+    '<div style="display:flex;gap:8px;margin-top:8px;">' +
+    '<input id="jotform-key-input" class="form-input" placeholder="Paste API key here…" style="flex:1;font-size:12px;" type="password">' +
+    '<button class="btn primary" onclick="saveJotformKey()" style="font-size:12px;">Save & Sync</button>' +
+    '</div>';
+}
+
+function saveJotformKey() {
+  const key = ($('jotform-key-input')?.value || '').trim();
+  if (!key) { toast('Please enter your Jotform API key.'); return; }
+  DB.jotformApiKey = key;
+  save();
+  showApparelAlert('', '');
+  syncApparelOrders();
 }
 
 async function syncApparelOrders() {
+  if (!DB.jotformApiKey) { renderApparelApiKeyPrompt(); return; }
   const btn = document.querySelector('#page-apparel .btn.primary');
   if (btn) { btn.textContent = '↻ Syncing…'; btn.disabled = true; }
   showApparelAlert('', '');
   try {
-    const res = await fetch(JOTFORM_PROXY);
-    const data = await res.json();
-    if (!res.ok || data.error) {
-      showApparelAlert('error', '⚠ ' + (data.error || 'Sync failed. Check that JOTFORM_API_KEY is set in Netlify.'));
+    const url = 'https://api.jotform.com/form/' + JOTFORM_FORM_ID +
+      '/submissions?apiKey=' + encodeURIComponent(DB.jotformApiKey) +
+      '&limit=100&orderby=created_at&direction=DESC';
+    const res = await fetch(url);
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch(e) {
+      showApparelAlert('error', '⚠ Unexpected response from Jotform: ' + text.slice(0, 120));
       return;
     }
-    DB.apparelOrders = data.orders || [];
+    if (data.responseCode !== 200) {
+      showApparelAlert('error', '⚠ Jotform error: ' + (data.message || data.responseCode));
+      if (data.responseCode === 401) { delete DB.jotformApiKey; save(); renderApparelApiKeyPrompt(); }
+      return;
+    }
+    // Parse submissions
+    const orders = (data.content || []).map(sub => {
+      const ans = sub.answers || {};
+      const get = (...kws) => {
+        for (const kw of kws) {
+          const key = Object.keys(ans).find(k => (ans[k].text||'').toLowerCase().includes(kw.toLowerCase()));
+          if (key) { const a = ans[key].answer; if(!a)continue; if(typeof a==='object'&&(a.first||a.last))return((a.first||'')+' '+(a.last||'')).trim(); return String(a).trim(); }
+        } return '';
+      };
+      let products = [];
+      const pk = Object.keys(ans).find(k => (ans[k].text||'').toLowerCase().includes('product'));
+      if (pk && ans[pk].answer) {
+        try {
+          const raw = ans[pk].answer;
+          const arr = typeof raw==='string' ? JSON.parse(raw) : (Array.isArray(raw)?raw:[]);
+          products = arr.filter(p=>p&&p.name).map(p=>({name:p.name,price:parseFloat(p.price)||0,qty:parseInt(p.quantity)||1,options:(p.options||[]).map(o=>(o.name||'')+': '+(o.value||o.defaultValue||'')).filter(Boolean)}));
+        } catch(e){}
+      }
+      const students=[get("student's name"),get("student's name.1"),get("student's name.2")].filter(Boolean).join(', ');
+      const total=products.reduce((s,p)=>s+(p.price*p.qty),0);
+      const rawJSON=JSON.stringify(sub);
+      return {id:sub.id,date:(sub.created_at||'').slice(0,10),parentName:get('full name'),email:get('e-mail','email'),phone:get('contact number','phone'),students,products,total,invoiceId:get('invoice'),notes:get('special instruction','note','comment'),paid:rawJSON.includes('"PAID"')};
+    });
+    DB.apparelOrders = orders;
     DB.apparelLastSync = new Date().toISOString().slice(0, 10);
-    save();
-    renderApparelOrders();
+    save(); renderApparelOrders();
     const el = $('apparel-sync-time');
     if (el) el.textContent = 'Synced just now';
-    showApparelAlert('success', '✓ Synced ' + DB.apparelOrders.length + ' orders from Jotform.');
+    showApparelAlert('success', '✓ Synced ' + orders.length + ' orders from Jotform.');
   } catch(e) {
     showApparelAlert('error', '⚠ Connection error: ' + e.message);
   } finally {
@@ -5785,9 +5846,10 @@ function showApparelAlert(type, msg) {
   if (!el) return;
   if (!msg) { el.style.display = 'none'; return; }
   el.style.display = 'block';
-  el.style.background = type === 'error' ? 'var(--red-light)' : 'var(--green-light)';
-  el.style.color = type === 'error' ? 'var(--red)' : 'var(--green)';
-  el.style.border = '1px solid ' + (type === 'error' ? 'var(--red)' : 'var(--green)');
+  const colors = { error: ['var(--red-light)','var(--red)'], success: ['var(--green-light)','var(--green)'], info: ['var(--blue-light)','var(--blue)'] };
+  const [bg, fg] = colors[type] || colors.info;
+  el.style.background = bg; el.style.color = fg;
+  el.style.border = '1px solid ' + fg;
   el.textContent = msg;
 }
 
@@ -5877,12 +5939,14 @@ let _editingGearId=null;
 
 function initGearOrders(){if(!DB.gearOrders)DB.gearOrders=[];
 if(!DB.apparelOrders)DB.apparelOrders=[];
-if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};renderGearOrders();}
+if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
+if(!DB.jotformApiKey)DB.jotformApiKey='';renderGearOrders();}
 
 function renderGearOrders(){
   if(!DB.gearOrders)DB.gearOrders=[];
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
+if(!DB.jotformApiKey)DB.jotformApiKey='';
   const search=($('gear-search')?.value||'').toLowerCase();
   const filterPaid=$('gear-filter-paid')?.value||'';
   const filterType=$('gear-filter-type')?.value||'';
@@ -5983,6 +6047,7 @@ function saveGearOrder(){
   if(!DB.gearOrders)DB.gearOrders=[];
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
+if(!DB.jotformApiKey)DB.jotformApiKey='';
   if(_editingGearId){const i=DB.gearOrders.findIndex(x=>x.id===_editingGearId);if(i>=0)DB.gearOrders[i]=order;}
   else DB.gearOrders.unshift(order);
   save();closeModal('modal-gear-order');renderGearOrders();
@@ -6027,6 +6092,7 @@ function handleGearCSV(input){
       if(!DB.gearOrders)DB.gearOrders=[];
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
+if(!DB.jotformApiKey)DB.jotformApiKey='';
       DB.gearOrders.unshift(order);imported++;
     }
     save();renderGearOrders();input.value='';
@@ -6046,6 +6112,7 @@ function addReminder(){
 if(!DB.gearOrders)DB.gearOrders=[];
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
+if(!DB.jotformApiKey)DB.jotformApiKey='';
   DB.reminders.unshift({id:Date.now(),text,date:new Date().toISOString().slice(0,10),done:false});
   inp.value='';
   save();renderReminders();
@@ -6066,6 +6133,7 @@ function renderReminders(){
 if(!DB.gearOrders)DB.gearOrders=[];
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
+if(!DB.jotformApiKey)DB.jotformApiKey='';
   const active=DB.reminders.filter(r=>!r.done);
   const done=DB.reminders.filter(r=>r.done);
   if(!DB.reminders.length){
