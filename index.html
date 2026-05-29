@@ -5921,7 +5921,8 @@ function renderClassPlanModal(){
   try{
   const body=$('classplan-modal-body');if(!body)return;
   const group=_cpDraft.group||'Little Dragons';
-  const dur=GROUP_DURATION[group]||60;
+  const _GD={'Little Dragons':30,'Karate Kids':45,'Black Belt Club':60,"Master's Club":60,'Legends Club':60};
+  const dur=_GD[group]||60;
   const ais=DB.students.filter(s=>s.status==='Active'&&s.ai);
   const currKey=getGroupCurriculumKey(group);
   const prog=CURRICULUM[currKey];
