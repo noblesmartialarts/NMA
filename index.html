@@ -5781,7 +5781,7 @@ function renderRevenueChart(){
 function initLeaders(){
   const el=$('leaders-content');if(!el)return;
   const ais=DB.students.filter(s=>s.status==='Active'&&s.ai);
-  const leaders=DB.students.filter(s=>s.status==='Active'&&s.studentLeader);
+  const leaders=DB.students.filter(s=>s.status==='Active'&&s.leader);
   
   let html='';
   // Assistant Instructors section
@@ -5807,7 +5807,7 @@ function initLeaders(){
   // Student Leaders section (future use)
   html+=`<div class="section-divider"><span>🏅 Student Leaders (${leaders.length})</span></div>`;
   if(!leaders.length){
-    html+='<div style="color:var(--ink-muted);font-size:13px;padding:16px;">No students currently flagged as Student Leaders. Add a <em>studentLeader</em> flag to student profiles to feature them here.</div>';
+    html+='<div style="color:var(--ink-muted);font-size:13px;padding:16px;">No students currently flagged as Student Leaders. Edit a student profile and enable the Student Leader flag to feature them here.</div>';
   }
   
   el.innerHTML=html;
@@ -6608,7 +6608,8 @@ function deleteReminder(id){
   save();renderReminders();
 }
 function renderReminders(){
-  const el=$('reminders-list');if(!el)return;
+  const el=$('reminders-list');
+  if(!el){setTimeout(renderReminders,200);return;}
   if(!DB.reminders)DB.reminders=[];
 if(!DB.classPlans)DB.classPlans=[];
 if(!DB.gearOrders)DB.gearOrders=[];
