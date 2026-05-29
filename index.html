@@ -1612,6 +1612,7 @@ function addHistory(s,type,note,date){
 // ══════════════════════════════════════════════════════
 function nav(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  if(page==='dashboard')setTimeout(renderReminders,50);
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+page).classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
@@ -5804,10 +5805,24 @@ function initLeaders(){
     html+='</div>';
   }
   
-  // Student Leaders section (future use)
+  // Student Leaders section
   html+=`<div class="section-divider"><span>🏅 Student Leaders (${leaders.length})</span></div>`;
   if(!leaders.length){
-    html+='<div style="color:var(--ink-muted);font-size:13px;padding:16px;">No students currently flagged as Student Leaders. Edit a student profile and enable the Student Leader flag to feature them here.</div>';
+    html+='<div style="color:var(--ink-muted);font-size:13px;padding:16px;">No students flagged as Student Leaders yet. Edit a student profile and enable the Leader flag.</div>';
+  } else {
+    html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">';
+    for(const s of leaders){
+      html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;gap:12px;align-items:flex-start;">
+        <div style="width:42px;height:42px;border-radius:50%;background:var(--amber-light);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:var(--amber);flex-shrink:0;">${s.first[0]}${s.last[0]}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:14px;cursor:pointer;color:var(--link);" onclick="viewStudent(${s.id})">${s.first} ${s.last}</div>
+          <div style="font-size:12px;color:var(--ink-muted);">${s.group} · ${s.belt}</div>
+          ${s.email?`<div style="font-size:11px;color:var(--ink-faint);margin-top:2px;">${s.email}</div>`:''}
+        </div>
+        <span class="badge" style="background:var(--amber-light);color:var(--amber);font-size:10px;flex-shrink:0;">Leader</span>
+      </div>`;
+    }
+    html+='</div>';
   }
   
   el.innerHTML=html;
@@ -5910,146 +5925,142 @@ function renderClassPlanModal(){
   const currKey=getGroupCurriculumKey(group);
   const prog=CURRICULUM[currKey];
   const cycle=prog?prog.cycles.find(c=>c.num===prog.currentCycle)||prog.cycles[0]:null;
-  
-  // Time breakdown
   let times={};
   if(dur===30){times={warmup:7,slot1:10,slot2:8,final:4,bowout:1};}
   else if(dur===45){times={warmup:8,slot1:12,slot2:12,final:10,bowout:3};}
   else{times={warmup:10,slot1:15,slot2:15,final:15,bowout:5};}
-
-  // BBC+ gets sparring option for slot 2
-  const hasSparring=['Black Belt Club',"Master's Club",'Legends Club'].includes(group);
-  
-  // Curriculum options from current cycle
+  const hasSparring=['Black Belt Club',"Master\'s Club",'Legends Club'].includes(group);
   const currOpts=[];
   if(cycle){
     if(cycle.form)currOpts.push({type:'form',label:'Form: '+cycle.form});
     if(cycle.selfDefense)currOpts.push({type:'selfDefense',label:'Self-Defense: '+cycle.selfDefense});
     if(cycle.kicks)currOpts.push({type:'kicks',label:'Kicks: '+cycle.kicks});
-    if(cycle.weapon&&['Black Belt Club',"Master's Club",'Legends Club'].includes(group))currOpts.push({type:'weapon',label:'Weapon: '+cycle.weapon});
+    if(cycle.weapon&&['Black Belt Club',"Master\'s Club",'Legends Club'].includes(group))currOpts.push({type:'weapon',label:'Weapon: '+cycle.weapon});
     if(cycle.fights)currOpts.push({type:'fights',label:'Fight Set: '+cycle.fights});
   }
   if(_cpDraft.testPrep)currOpts.push({type:'testReview',label:'Test Review — Full Run-Through'});
-
-  // Warm-up options based on group
   const warmupOpts=group==='Little Dragons'||group==='Karate Kids'
     ?[...WARMUP_IDEAS.young,...WARMUP_IDEAS.all]
     :[...WARMUP_IDEAS.older,...WARMUP_IDEAS.all];
-  
   const finalOpts=group==='Little Dragons'||group==='Karate Kids'
     ?[...FINAL_ACTIVITIES.young,...FINAL_ACTIVITIES.all]
     :[...FINAL_ACTIVITIES.older,...FINAL_ACTIVITIES.all];
-
-  // Eligible students for test prep callout
   const eligible=DB.students.filter(s=>s.status==='Active'&&s.group===group&&stripeEligible(s));
 
-  const selStyle=(val,opt)=>val===opt?'background:var(--indigo-light);border-color:var(--indigo);color:var(--indigo);':'';
+  function sel(val,cmp){return val===cmp?'background:var(--indigo-light);border-color:var(--indigo);color:var(--indigo);':'';}
 
-  body.innerHTML=`
-  <!-- Group + Date + AI -->
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:20px 0 16px;">
-    <div class="form-group" style="margin:0;">
-      <label class="form-label">Group</label>
-      <select class="form-select" id="cp-group" onchange="cpSetGroup(this.value)">
-        ${['Little Dragons','Karate Kids','Black Belt Club',"Master's Club",'Legends Club'].map(g=>`<option${g===group?' selected':''}>${g}</option>`).join('')}
-      </select>
-    </div>
-    <div class="form-group" style="margin:0;">
-      <label class="form-label">Date</label>
-      <input class="form-input" type="date" id="cp-date" value="${_cpDraft.date||''}" onchange="_cpDraft.date=this.value">
-    </div>
-    <div class="form-group" style="margin:0;">
-      <label class="form-label">Asst. Instructor</label>
-      <select class="form-select" id="cp-ai" onchange="cpSetAI(this.value)">
-        <option value="">— None —</option>
-        ${ais.map(s=>`<option value="${s.id}"${s.id===_cpDraft.aiId?' selected':''}>${s.first} ${s.last}</option>`).join('')}
-      </select>
-    </div>
-  </div>
+  // Build HTML using concatenation to avoid nested backtick issues
+  let h='';
+  // Header row
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:20px 0 16px;">';
+  h+='<div class="form-group" style="margin:0;"><label class="form-label">Group</label><select class="form-select" id="cp-group">';
+  ['Little Dragons','Karate Kids','Black Belt Club',"Master's Club",'Legends Club'].forEach(g=>{h+='<option'+(g===group?' selected':'')+'>'+g+'</option>';});
+  h+='</select></div>';
+  h+='<div class="form-group" style="margin:0;"><label class="form-label">Date</label>';
+  h+='<input class="form-input" type="date" id="cp-date" value="'+(_cpDraft.date||'')+'"></div>';
+  h+='<div class="form-group" style="margin:0;"><label class="form-label">Asst. Instructor</label><select class="form-select" id="cp-ai">';
+  h+='<option value="">— None —</option>';
+  ais.forEach(s=>{h+='<option value="'+s.id+'"'+( s.id===_cpDraft.aiId?' selected':'')+'>'+s.first+' '+s.last+'</option>';});
+  h+='</select></div></div>';
 
-  <!-- Duration badge + test prep toggle -->
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <span style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">⏱ ${dur} min class</span>
-    <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-      <input type="checkbox" id="cp-testprep" ${_cpDraft.testPrep?'checked':''} onchange="cpToggleTestPrep(this.checked)" style="accent-color:var(--amber);">
-      <span style="color:var(--amber);font-weight:600;">Test Prep Mode</span>
-    </label>
-    ${eligible.length?`<span style="font-size:11px;color:var(--amber);">${eligible.length} student(s) stripe-ready</span>`:''}
-  </div>
+  // Duration + test prep
+  h+='<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">';
+  h+='<span style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;">⏱ '+dur+' min class</span>';
+  h+='<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">';
+  h+='<input type="checkbox" id="cp-testprep"'+(_cpDraft.testPrep?' checked':'')+' style="accent-color:var(--amber);"> ';
+  h+='<span style="color:var(--amber);font-weight:600;">Test Prep Mode</span></label>';
+  if(eligible.length)h+='<span style="font-size:11px;color:var(--amber);">'+eligible.length+' stripe-ready</span>';
+  h+='</div>';
+  if(_cpDraft.testPrep&&eligible.length){
+    h+='<div style="background:var(--amber-light);border:1px solid var(--amber);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;">';
+    h+='<strong>Test-eligible:</strong> '+eligible.map(s=>s.first+' '+s.last+' ('+s.belt+')').join(', ')+'</div>';
+  }
 
-  ${_cpDraft.testPrep&&eligible.length?`
-  <div style="background:var(--amber-light);border:1px solid var(--amber);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;">
-    <strong>Test-eligible students:</strong> ${eligible.map(s=>s.first+' '+s.last+' ('+s.belt+')').join(', ')}
-  </div>`:''}
+  // Time bar
+  h+='<div style="display:flex;gap:2px;border-radius:8px;overflow:hidden;height:28px;margin-bottom:20px;font-size:10px;font-weight:600;text-align:center;">';
+  h+='<div style="flex:'+times.warmup+';background:#6366f1;color:#fff;min-width:36px;display:flex;align-items:center;justify-content:center;">Warm<br>'+times.warmup+'m</div>';
+  h+='<div style="flex:'+times.slot1+';background:#0ea5e9;color:#fff;min-width:36px;display:flex;align-items:center;justify-content:center;">Slot1<br>'+times.slot1+'m</div>';
+  h+='<div style="flex:'+times.slot2+';background:#10b981;color:#fff;min-width:36px;display:flex;align-items:center;justify-content:center;">Slot2<br>'+times.slot2+'m</div>';
+  h+='<div style="flex:'+times.final+';background:#f59e0b;color:#fff;min-width:36px;display:flex;align-items:center;justify-content:center;">Final<br>'+times.final+'m</div>';
+  h+='<div style="flex:'+times.bowout+';background:#6b7280;color:#fff;min-width:24px;display:flex;align-items:center;justify-content:center;">'+times.bowout+'m</div></div>';
 
-  <!-- Time breakdown bar -->
-  <div style="display:flex;gap:2px;border-radius:8px;overflow:hidden;height:28px;margin-bottom:20px;font-size:10px;font-weight:600;">
-    <div style="flex:${times.warmup};background:#6366f1;display:flex;align-items:center;justify-content:center;color:#fff;min-width:40px;">Warm-Up<br>${times.warmup}m</div>
-    <div style="flex:${times.slot1};background:#0ea5e9;display:flex;align-items:center;justify-content:center;color:#fff;min-width:40px;">Slot 1<br>${times.slot1}m</div>
-    <div style="flex:${times.slot2};background:#10b981;display:flex;align-items:center;justify-content:center;color:#fff;min-width:40px;">Slot 2<br>${times.slot2}m</div>
-    <div style="flex:${times.final};background:#f59e0b;display:flex;align-items:center;justify-content:center;color:#fff;min-width:40px;">Final<br>${times.final}m</div>
-    <div style="flex:${times.bowout};background:#6b7280;display:flex;align-items:center;justify-content:center;color:#fff;min-width:28px;">${times.bowout}m</div>
-  </div>
+  // Warm-Up
+  h+='<div style="margin-bottom:20px;">';
+  h+='<div style="font-weight:700;font-size:13px;margin-bottom:8px;">'+
+    '<span style="background:#6366f1;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;margin-right:6px;">1</span>'+
+    'Warm-Up <span style="font-size:11px;color:var(--ink-faint);font-weight:400;">('+times.warmup+' min'+(ais.length?' · Jr. Instructor leads':' · You lead')+')</span></div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;" id="cp-warmup-btns">';
+  warmupOpts.forEach((w,i)=>{h+='<button class="btn small cp-warmup-btn" data-val="'+encodeURIComponent(w)+'" style="'+sel(_cpDraft.warmup,w)+'">'+w+'</button>';});
+  h+='</div>';
+  h+='<input class="form-input" id="cp-warmup-custom" placeholder="Or type a custom warm-up…" style="font-size:12px;" value="'+(warmupOpts.includes(_cpDraft.warmup)?'':(_cpDraft.warmup||''))+'"></div>';
 
-  <!-- Section 1: Warm-Up -->
-  <div style="margin-bottom:20px;">
-    <div style="font-weight:700;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
-      <span style="background:#6366f1;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;">1</span>
-      Warm-Up <span style="font-size:11px;color:var(--ink-faint);font-weight:400;">(${times.warmup} min${ais.length?' · Jr. Instructor leads':' · You lead'})</span>
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
-      ${warmupOpts.map(w=>`<button class="btn small" style="${selStyle(_cpDraft.warmup,w)}" onclick="cpPick('warmup','${w.replace(/'/g,"\\'")}',this)">${w}</button>`).join('')}
-    </div>
-    <input class="form-input" id="cp-warmup-custom" placeholder="Custom warm-up…" style="font-size:12px;margin-top:4px;" value="${warmupOpts.includes(_cpDraft.warmup)?'':(_cpDraft.warmup||'')}" oninput="cpPickCustom('warmup',this.value)">
-  </div>
+  // Slot 1
+  h+='<div style="margin-bottom:20px;">';
+  h+='<div style="font-weight:700;font-size:13px;margin-bottom:8px;">'+
+    '<span style="background:#0ea5e9;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;margin-right:6px;">2</span>'+
+    'Curriculum — Slot 1 <span style="font-size:11px;color:var(--ink-faint);font-weight:400;">('+times.slot1+' min)</span></div>';
+  if(cycle)h+='<div style="font-size:11px;color:var(--ink-muted);margin-bottom:6px;">Current: '+prog.program+' · '+cycle.label+'</div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;" id="cp-slot1-btns">';
+  currOpts.forEach((o,i)=>{h+='<button class="btn cp-slot1-btn" style="font-size:12px;'+sel(_cpDraft.slot1Label,o.label)+'" data-type="'+encodeURIComponent(o.type)+'" data-label="'+encodeURIComponent(o.label)+'">'+o.label+'</button>';});
+  if(!currOpts.length)h+='<span style="font-size:12px;color:var(--ink-muted);">No curriculum data for this group.</span>';
+  h+='</div></div>';
 
-  <!-- Section 2: Curriculum Slot 1 -->
-  <div style="margin-bottom:20px;">
-    <div style="font-weight:700;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
-      <span style="background:#0ea5e9;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;">2</span>
-      Curriculum — Slot 1 <span style="font-size:11px;color:var(--ink-faint);font-weight:400;">(${times.slot1} min)</span>
-    </div>
-    ${cycle?`<div style="font-size:11px;color:var(--ink-muted);margin-bottom:6px;">Current: ${prog.program} · ${cycle.label}</div>`:''}
-    <div style="display:flex;flex-wrap:wrap;gap:6px;">
-      ${currOpts.map(o=>`<button class="btn" style="font-size:12px;${selStyle(_cpDraft.slot1Label,o.label)}" onclick="cpPickSlot(1,'${o.type}','${o.label.replace(/'/g,"\\'").replace(/"/g,"&quot;")}',this)">${o.label}</button>`).join('')}
-    </div>
-    ${!currOpts.length?'<div style="font-size:12px;color:var(--ink-muted);">No curriculum data for this group.</div>':''}
-  </div>
+  // Slot 2
+  h+='<div style="margin-bottom:20px;">';
+  h+='<div style="font-weight:700;font-size:13px;margin-bottom:8px;">'+
+    '<span style="background:#10b981;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;margin-right:6px;">3</span>'+
+    'Curriculum — Slot 2'+(hasSparring?' or Sparring':'')+' <span style="font-size:11px;color:var(--ink-faint);font-weight:400;">('+times.slot2+' min)</span></div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;" id="cp-slot2-btns">';
+  currOpts.filter(o=>o.label!==_cpDraft.slot1Label).forEach((o,i)=>{
+    h+='<button class="btn cp-slot2-btn" style="font-size:12px;'+sel(_cpDraft.slot2Label,o.label)+'" data-type="'+encodeURIComponent(o.type)+'" data-label="'+encodeURIComponent(o.label)+'">'+o.label+'</button>';
+  });
+  if(hasSparring)h+='<button class="btn cp-slot2-btn" style="font-size:12px;'+sel(_cpDraft.slot2Label,'Sparring')+'" data-type="sparring" data-label="Sparring">⚔ Sparring</button>';
+  h+='</div></div>';
 
-  <!-- Section 3: Curriculum Slot 2 or Sparring -->
-  <div style="margin-bottom:20px;">
-    <div style="font-weight:700;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
-      <span style="background:#10b981;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;">3</span>
-      Curriculum — Slot 2${hasSparring?' or Sparring':''} <span style="font-size:11px;color:var(--ink-faint);font-weight:400;">(${times.slot2} min)</span>
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;">
-      ${currOpts.filter(o=>o.label!==_cpDraft.slot1Label).map(o=>`<button class="btn" style="font-size:12px;${selStyle(_cpDraft.slot2Label,o.label)}" onclick="cpPickSlot(2,'${o.type}','${o.label.replace(/'/g,"\\'").replace(/"/g,"&quot;")}',this)">${o.label}</button>`).join('')}
-      ${hasSparring?`<button class="btn" style="font-size:12px;${selStyle(_cpDraft.slot2Label,'Sparring')}" onclick="cpPickSlot(2,'sparring','Sparring',this)">⚔ Sparring</button>`:''}
-    </div>
-  </div>
+  // Final Activity
+  h+='<div style="margin-bottom:20px;">';
+  h+='<div style="font-weight:700;font-size:13px;margin-bottom:8px;">'+
+    '<span style="background:#f59e0b;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;margin-right:6px;">4</span>'+
+    'Final Activity / Game <span style="font-size:11px;color:var(--ink-faint);font-weight:400;">('+times.final+' min)</span></div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;" id="cp-final-btns">';
+  finalOpts.forEach((f,i)=>{h+='<button class="btn small cp-final-btn" data-val="'+encodeURIComponent(f)+'" style="'+sel(_cpDraft.finalActivity,f)+'">'+f+'</button>';});
+  h+='</div>';
+  h+='<input class="form-input" id="cp-final-custom" placeholder="Or type a custom activity…" style="font-size:12px;" value="'+(finalOpts.includes(_cpDraft.finalActivity)?'':(_cpDraft.finalActivity||''))+'"></div>';
 
-  <!-- Section 4: Final Activity -->
-  <div style="margin-bottom:20px;">
-    <div style="font-weight:700;font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
-      <span style="background:#f59e0b;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;">4</span>
-      Final Activity / Game <span style="font-size:11px;color:var(--ink-faint);font-weight:400;">(${times.final} min)</span>
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
-      ${finalOpts.map(f=>`<button class="btn small" style="${selStyle(_cpDraft.finalActivity,f)}" onclick="cpPick('finalActivity','${f.replace(/'/g,"\\'")}',this)">${f}</button>`).join('')}
-    </div>
-    <input class="form-input" id="cp-final-custom" placeholder="Custom activity…" style="font-size:12px;margin-top:4px;" value="${finalOpts.includes(_cpDraft.finalActivity)?'':(_cpDraft.finalActivity||'')}" oninput="cpPickCustom('finalActivity',this.value)">
-  </div>
+  // Notes
+  h+='<div class="form-group" style="margin-bottom:20px;"><label class="form-label">Instructor notes</label>';
+  h+='<textarea class="form-input" id="cp-notes" rows="2" placeholder="Anything to communicate to the jr. instructor…" style="font-size:12px;">'+(_cpDraft.notes||'')+'</textarea></div>';
 
-  <!-- Notes -->
-  <div class="form-group" style="margin-bottom:20px;">
-    <label class="form-label">Instructor notes</label>
-    <textarea class="form-input" rows="2" placeholder="Anything to communicate to the jr. instructor beforehand…" style="font-size:12px;" oninput="_cpDraft.notes=this.value">${_cpDraft.notes||''}</textarea>
-  </div>
+  // Footer
+  h+='<div style="display:flex;justify-content:flex-end;gap:8px;padding-top:8px;border-top:1px solid var(--border);">';
+  h+='<button class="btn" id="cp-cancel-btn">Cancel</button>';
+  h+='<button class="btn primary" onclick="saveClassPlan()">Save Plan</button></div>';
 
-  <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:8px;border-top:1px solid var(--border);">
-    <button class="btn" onclick="closeModal('modal-classplan')">Cancel</button>
-    <button class="btn primary" onclick="saveClassPlan()">Save Plan</button>
-  </div>`;
+  body.innerHTML=h;
+
+  // Wire up events after innerHTML is set
+  $('cp-group').onchange=function(){cpSetGroup(this.value);};
+  $('cp-date').onchange=function(){_cpDraft.date=this.value;};
+  $('cp-ai').onchange=function(){cpSetAI(this.value);};
+  $('cp-testprep').onchange=function(){cpToggleTestPrep(this.checked);};
+  if($('cp-warmup-custom'))$('cp-warmup-custom').oninput=function(){_cpDraft.warmup=this.value;};
+  if($('cp-final-custom'))$('cp-final-custom').oninput=function(){_cpDraft.finalActivity=this.value;};
+  if($('cp-notes'))$('cp-notes').oninput=function(){_cpDraft.notes=this.value;};
+  if($('cp-cancel-btn'))$('cp-cancel-btn').onclick=function(){closeModal('modal-classplan');};
+
+  // Button delegation
+  document.querySelectorAll('.cp-warmup-btn').forEach(btn=>{
+    btn.onclick=function(){_cpDraft.warmup=decodeURIComponent(this.dataset.val);if($('cp-warmup-custom'))$('cp-warmup-custom').value='';renderClassPlanModal();};
+  });
+  document.querySelectorAll('.cp-slot1-btn').forEach(btn=>{
+    btn.onclick=function(){_cpDraft.slot1Type=decodeURIComponent(this.dataset.type);_cpDraft.slot1Label=decodeURIComponent(this.dataset.label);renderClassPlanModal();};
+  });
+  document.querySelectorAll('.cp-slot2-btn').forEach(btn=>{
+    btn.onclick=function(){_cpDraft.slot2Type=decodeURIComponent(this.dataset.type);_cpDraft.slot2Label=decodeURIComponent(this.dataset.label);renderClassPlanModal();};
+  });
+  document.querySelectorAll('.cp-final-btn').forEach(btn=>{
+    btn.onclick=function(){_cpDraft.finalActivity=decodeURIComponent(this.dataset.val);if($('cp-final-custom'))$('cp-final-custom').value='';renderClassPlanModal();};
+  });
 }
 
 function cpSetGroup(g){_cpDraft.group=g;_cpDraft.slot1Type='';_cpDraft.slot1Label='';_cpDraft.slot2Type='';_cpDraft.slot2Label='';renderClassPlanModal();}
