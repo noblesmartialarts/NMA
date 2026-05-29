@@ -5918,6 +5918,7 @@ function editClassPlan(id){
 }
 
 function renderClassPlanModal(){
+  try{
   const body=$('classplan-modal-body');if(!body)return;
   const group=_cpDraft.group||'Little Dragons';
   const dur=GROUP_DURATION[group]||60;
@@ -5929,13 +5930,13 @@ function renderClassPlanModal(){
   if(dur===30){times={warmup:7,slot1:10,slot2:8,final:4,bowout:1};}
   else if(dur===45){times={warmup:8,slot1:12,slot2:12,final:10,bowout:3};}
   else{times={warmup:10,slot1:15,slot2:15,final:15,bowout:5};}
-  const hasSparring=['Black Belt Club',"Master\'s Club",'Legends Club'].includes(group);
+  const hasSparring=['Black Belt Club',"Master's Club",'Legends Club'].includes(group);
   const currOpts=[];
   if(cycle){
     if(cycle.form)currOpts.push({type:'form',label:'Form: '+cycle.form});
     if(cycle.selfDefense)currOpts.push({type:'selfDefense',label:'Self-Defense: '+cycle.selfDefense});
     if(cycle.kicks)currOpts.push({type:'kicks',label:'Kicks: '+cycle.kicks});
-    if(cycle.weapon&&['Black Belt Club',"Master\'s Club",'Legends Club'].includes(group))currOpts.push({type:'weapon',label:'Weapon: '+cycle.weapon});
+    if(cycle.weapon&&['Black Belt Club',"Master's Club",'Legends Club'].includes(group))currOpts.push({type:'weapon',label:'Weapon: '+cycle.weapon});
     if(cycle.fights)currOpts.push({type:'fights',label:'Fight Set: '+cycle.fights});
   }
   if(_cpDraft.testPrep)currOpts.push({type:'testReview',label:'Test Review — Full Run-Through'});
@@ -6061,6 +6062,7 @@ function renderClassPlanModal(){
   document.querySelectorAll('.cp-final-btn').forEach(btn=>{
     btn.onclick=function(){_cpDraft.finalActivity=decodeURIComponent(this.dataset.val);if($('cp-final-custom'))$('cp-final-custom').value='';renderClassPlanModal();};
   });
+  }catch(e){console.error('renderClassPlanModal error:',e);alert('Class plan error: '+e.message);}
 }
 
 function cpSetGroup(g){_cpDraft.group=g;_cpDraft.slot1Type='';_cpDraft.slot1Label='';_cpDraft.slot2Type='';_cpDraft.slot2Label='';renderClassPlanModal();}
