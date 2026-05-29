@@ -5941,12 +5941,19 @@ function renderClassPlanModal(){
     if(cycle.fights)currOpts.push({type:'fights',label:'Fight Set: '+cycle.fights});
   }
   if(_cpDraft.testPrep)currOpts.push({type:'testReview',label:'Test Review — Full Run-Through'});
-  const warmupOpts=group==='Little Dragons'||group==='Karate Kids'
-    ?[...WARMUP_IDEAS.young,...WARMUP_IDEAS.all]
-    :[...WARMUP_IDEAS.older,...WARMUP_IDEAS.all];
-  const finalOpts=group==='Little Dragons'||group==='Karate Kids'
-    ?[...FINAL_ACTIVITIES.young,...FINAL_ACTIVITIES.all]
-    :[...FINAL_ACTIVITIES.older,...FINAL_ACTIVITIES.all];
+  const _WU={
+    all:['Jumping Jacks','Push-Ups','Burpees','High Knees','Bear Crawl','Crab Walk','Shuffle Steps','Lunge Walk','Mountain Climbers'],
+    young:['Sensei Says','Ninja Freeze (Red Light/Green Light)','Animal Walk Relay','Freeze Tag','Simon Says — Stances','Follow the Leader'],
+    older:['Shadow Sparring (1 min)','Conditioning Circuit','Kick Combinations Down the Floor','Partner Pad Warm-Up','Jump Rope']
+  };
+  const _FA={
+    all:['Sensei Says','Ninja Freeze','Dodge Pad','Relay Race','King of the Circle','Statue Challenge','Technique Knockout','Obstacle Course'],
+    young:['Animal Walk Race','Crab Fight','Balloon Pop Kick Challenge','Freeze Dance — Martial Arts style'],
+    older:['Sparring King of the Ring','Conditioning Circuit Challenge','Board Break Prep','Partner Flow Drill','1v1 Technique Challenge']
+  };
+  const isYoung=group==='Little Dragons'||group==='Karate Kids';
+  const warmupOpts=isYoung?[..._WU.young,..._WU.all]:[..._WU.older,..._WU.all];
+  const finalOpts=isYoung?[..._FA.young,..._FA.all]:[..._FA.older,..._FA.all];
   const eligible=DB.students.filter(s=>s.status==='Active'&&s.group===group&&stripeEligible(s));
 
   function sel(val,cmp){return val===cmp?'background:var(--indigo-light);border-color:var(--indigo);color:var(--indigo);':'';}
