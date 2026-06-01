@@ -1743,8 +1743,12 @@ if(!DB.customGroups)DB.customGroups=[];
 if(!DB.classNotes)DB.classNotes=[];
 if(!DB.regLinks)DB.regLinks={};
 if(!DB.reminders)DB.reminders=[];
+if(!DB.gearOrders)DB.gearOrders=[];
+if(!DB.apparelOrders)DB.apparelOrders=[];
+if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
+if(!DB.jotformApiKey)DB.jotformApiKey='';
 if(!DB.classPlans)DB.classPlans=[];
-if(!DB.classSchedule)DB.classSchedule=[
+if(!DB.classSchedule||!Array.isArray(DB.classSchedule)||!DB.classSchedule.length)DB.classSchedule=[
   {id:1,day:1,time:'10:00',group:'Legends Club',dur:60},
   {id:2,day:1,time:'11:00',group:'Little Dragons',dur:30},
   {id:3,day:1,time:'11:30',group:'Karate Kids',dur:45},
@@ -1755,10 +1759,7 @@ if(!DB.cancelledDays)DB.cancelledDays=[];
 if(!DB.trials)DB.trials=[];
 if(!DB.smsLog)DB.smsLog=[];
 if(!DB.twilioConfig)DB.twilioConfig={sid:'',token:'',from:''};
-if(!DB.gearOrders)DB.gearOrders=[];
-if(!DB.apparelOrders)DB.apparelOrders=[];
-if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
-if(!DB.jotformApiKey)DB.jotformApiKey='';
+if(!DB.curriculumData)DB.curriculumData={};
 
 // Apply saved curriculum overrides
 Object.entries(DB.curriculumOverrides).forEach(([k,v])=>{if(CURRICULUM[k])CURRICULUM[k].currentCycle=v;});
@@ -3371,18 +3372,6 @@ if(!DB.customGroups)DB.customGroups=[];
 if(!DB.classNotes)DB.classNotes=[];
 if(!DB.regLinks)DB.regLinks={};
 if(!DB.reminders)DB.reminders=[];
-if(!DB.classPlans)DB.classPlans=[];
-if(!DB.classSchedule)DB.classSchedule=[
-  {id:1,day:1,time:'10:00',group:'Legends Club',dur:60},
-  {id:2,day:1,time:'11:00',group:'Little Dragons',dur:30},
-  {id:3,day:1,time:'11:30',group:'Karate Kids',dur:45},
-  {id:4,day:1,time:'12:15',group:'Black Belt Club',dur:60},
-  {id:5,day:1,time:'13:30',group:"Master's Club",dur:60}
-];
-if(!DB.cancelledDays)DB.cancelledDays=[];
-if(!DB.trials)DB.trials=[];
-if(!DB.smsLog)DB.smsLog=[];
-if(!DB.twilioConfig)DB.twilioConfig={sid:'',token:'',from:''};
 if(!DB.gearOrders)DB.gearOrders=[];
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
@@ -6930,17 +6919,6 @@ var _cpEditId=null;
 
 function initClassPlans(){
   if(!DB.classPlans)DB.classPlans=[];
-if(!DB.classSchedule)DB.classSchedule=[
-  {id:1,day:1,time:'10:00',group:'Legends Club',dur:60},
-  {id:2,day:1,time:'11:00',group:'Little Dragons',dur:30},
-  {id:3,day:1,time:'11:30',group:'Karate Kids',dur:45},
-  {id:4,day:1,time:'12:15',group:'Black Belt Club',dur:60},
-  {id:5,day:1,time:'13:30',group:"Master's Club",dur:60}
-];
-if(!DB.cancelledDays)DB.cancelledDays=[];
-if(!DB.trials)DB.trials=[];
-if(!DB.smsLog)DB.smsLog=[];
-if(!DB.twilioConfig)DB.twilioConfig={sid:'',token:'',from:''};
   renderClassPlansList();
 }
 
@@ -7716,18 +7694,6 @@ function addReminder(){
   const text=(inp?.value||'').trim();
   if(!text)return;
   if(!DB.reminders)DB.reminders=[];
-if(!DB.classPlans)DB.classPlans=[];
-if(!DB.classSchedule)DB.classSchedule=[
-  {id:1,day:1,time:'10:00',group:'Legends Club',dur:60},
-  {id:2,day:1,time:'11:00',group:'Little Dragons',dur:30},
-  {id:3,day:1,time:'11:30',group:'Karate Kids',dur:45},
-  {id:4,day:1,time:'12:15',group:'Black Belt Club',dur:60},
-  {id:5,day:1,time:'13:30',group:"Master's Club",dur:60}
-];
-if(!DB.cancelledDays)DB.cancelledDays=[];
-if(!DB.trials)DB.trials=[];
-if(!DB.smsLog)DB.smsLog=[];
-if(!DB.twilioConfig)DB.twilioConfig={sid:'',token:'',from:''};
 if(!DB.gearOrders)DB.gearOrders=[];
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
@@ -7750,18 +7716,6 @@ function renderReminders(){
   const el=$('reminders-list');
   if(!el){setTimeout(renderReminders,200);return;}
   if(!DB.reminders)DB.reminders=[];
-if(!DB.classPlans)DB.classPlans=[];
-if(!DB.classSchedule)DB.classSchedule=[
-  {id:1,day:1,time:'10:00',group:'Legends Club',dur:60},
-  {id:2,day:1,time:'11:00',group:'Little Dragons',dur:30},
-  {id:3,day:1,time:'11:30',group:'Karate Kids',dur:45},
-  {id:4,day:1,time:'12:15',group:'Black Belt Club',dur:60},
-  {id:5,day:1,time:'13:30',group:"Master's Club",dur:60}
-];
-if(!DB.cancelledDays)DB.cancelledDays=[];
-if(!DB.trials)DB.trials=[];
-if(!DB.smsLog)DB.smsLog=[];
-if(!DB.twilioConfig)DB.twilioConfig={sid:'',token:'',from:''};
 if(!DB.gearOrders)DB.gearOrders=[];
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
