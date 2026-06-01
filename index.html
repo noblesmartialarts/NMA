@@ -6030,7 +6030,7 @@ function printPromoCertificate(studentId,fromBelt,fromGroup,toBelt,toGroup){
 }
 
 // Hook into promoteBelt to offer certificate on cross-group promotion
-const _origMassPromote=applyMassPromotion||null;
+const _origMassPromote=(typeof applyMassPromotion!=='undefined'?applyMassPromotion:null);
 function checkAndOfferCertificate(s,fromBelt,fromGroup,toBelt,toGroup){
   if(fromGroup!==toGroup){
     // Cross-group promotion — offer certificate
@@ -6600,7 +6600,8 @@ function renderTimerPage() {
   var classDay = isClassDay();
   var cancelled = isCancelled();
 
-  if(dayEl) dayEl.textContent = DAY_NAMES[dow] + (classDay ? ' — Class Day' : '');
+  var _DN=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  if(dayEl) dayEl.textContent = _DN[dow] + (classDay ? ' — Class Day' : '');
   if(subEl) subEl.textContent = cancelled ? '⚠ Marked as cancelled today' : (classDay ? 'Classes scheduled below' : 'No classes scheduled today');
   if(subEl) subEl.style.color = cancelled ? 'var(--amber)' : '';
   if(cancelBtn) {
@@ -6630,11 +6631,12 @@ function renderScheduleRow() {
 
   if(!todaySlots.length) {
     // Show all slots (other days) for reference
+    var _DN2=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     var allSlots = DB.classSchedule.slice().sort(function(a,b){
       if(a.day!==b.day) return a.day-b.day; return a.time.localeCompare(b.time);
     });
     row.innerHTML = '<div style="color:var(--ink-muted);font-size:13px;width:100%;">No classes today. Next scheduled: ' +
-      (allSlots.length ? DAY_NAMES[allSlots[0].day]+' '+fmt12(allSlots[0].time)+' — '+allSlots[0].group : 'none') + '</div>';
+      (allSlots.length ? _DN2[allSlots[0].day]+' '+fmt12(allSlots[0].time)+' — '+allSlots[0].group : 'none') + '</div>';
     return;
   }
 
@@ -6793,11 +6795,12 @@ function renderActiveTimer() {
     });
     if(activePlan) {
       planSummary.style.display = 'block';
+      var _sc=['#6366f1','#0ea5e9','#10b981','#f59e0b'];
       var planRows = [
-        {label:'Warm-Up', val:activePlan.warmup, color:SEG_COLORS[0]},
-        {label:'Slot 1', val:activePlan.slot1Label, color:SEG_COLORS[1]},
-        {label:'Slot 2', val:activePlan.slot2Label, color:SEG_COLORS[2]},
-        {label:'Final Activity', val:activePlan.finalActivity, color:SEG_COLORS[3]}
+        {label:'Warm-Up', val:activePlan.warmup, color:_sc[0]},
+        {label:'Slot 1', val:activePlan.slot1Label, color:_sc[1]},
+        {label:'Slot 2', val:activePlan.slot2Label, color:_sc[2]},
+        {label:'Final Activity', val:activePlan.finalActivity, color:_sc[3]}
       ].filter(function(r){return r.val;});
       var isCurrentRow = function(r){ return seg && seg.detail === r.val; };
       planDetail.innerHTML = planRows.map(function(r){
@@ -7314,11 +7317,12 @@ function viewClassPlan(id) {
 
   $('cpv-title').textContent = p.group + ' — ' + fmtDate(p.date);
   
+  var _SC=['#6366f1','#0ea5e9','#10b981','#f59e0b','#6b7280'];
   var segs = [
-    {label:'🥋 Bow In / Warm-Up', val:p.warmup, col:SEG_COLORS[0]},
-    {label:'📚 Curriculum — Slot 1', val:p.slot1Label, col:SEG_COLORS[1]},
-    {label:'📚 Curriculum — Slot 2', val:p.slot2Label, col:SEG_COLORS[2]},
-    {label:'🎮 Final Activity', val:p.finalActivity, col:SEG_COLORS[3]},
+    {label:'🥋 Bow In / Warm-Up', val:p.warmup, col:_SC[0]},
+    {label:'📚 Curriculum — Slot 1', val:p.slot1Label, col:_SC[1]},
+    {label:'📚 Curriculum — Slot 2', val:p.slot2Label, col:_SC[2]},
+    {label:'🎮 Final Activity', val:p.finalActivity, col:_SC[3]},
   ];
   
   var h = '<div style="margin-top:16px;">';
