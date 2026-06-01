@@ -6529,15 +6529,26 @@ function getSegments(group, plan) {
 }
 
 function initTimer() {
-  if(!DB.classSchedule)DB.classSchedule=[
-    {id:1,day:1,time:'10:00',group:'Legends Club',dur:60},
-    {id:2,day:1,time:'11:00',group:'Little Dragons',dur:30},
-    {id:3,day:1,time:'11:30',group:'Karate Kids',dur:45},
-    {id:4,day:1,time:'12:15',group:'Black Belt Club',dur:60},
-    {id:5,day:1,time:'13:30',group:"Master's Club",dur:60}
-  ];
-  renderTimerPage();
-  startClock();
+  try {
+    if(!DB.classSchedule||!Array.isArray(DB.classSchedule)||!DB.classSchedule.length){
+      DB.classSchedule=[
+        {id:1,day:1,time:'10:00',group:'Legends Club',dur:60},
+        {id:2,day:1,time:'11:00',group:'Little Dragons',dur:30},
+        {id:3,day:1,time:'11:30',group:'Karate Kids',dur:45},
+        {id:4,day:1,time:'12:15',group:'Black Belt Club',dur:60},
+        {id:5,day:1,time:'13:30',group:"Master's Club",dur:60}
+      ];
+    }
+    if(!DB.cancelledDays)DB.cancelledDays=[];
+    renderTimerPage();
+    startClock();
+  } catch(e) {
+    console.error('initTimer error:',e);
+    var row=$('timer-schedule-row');
+    if(row)row.innerHTML='<div style="color:var(--red);font-size:13px;padding:16px;">Timer error: '+e.message+'</div>';
+    var clk=$('timer-clock');
+    if(clk)clk.textContent='Error';
+  }
 }
 
 function startClock() {
@@ -6602,6 +6613,8 @@ function renderTimerPage() {
 
 function renderScheduleRow() {
   var row = $('timer-schedule-row'); if(!row) return;
+  try{
+  console.log('[Timer] classSchedule:', DB.classSchedule ? DB.classSchedule.length+' slots' : 'MISSING');
   if(!DB.classSchedule||!DB.classSchedule.length){
     row.innerHTML='<div style="color:var(--ink-muted);font-size:13px;">No schedule set — click ⚙ Schedule to add your classes.</div>';
     return;
@@ -6610,7 +6623,9 @@ function renderScheduleRow() {
   var now = new Date();
   var nowMins = now.getHours()*60 + now.getMinutes();
   var cancelled = isCancelled();
-  var todaySlots = DB.classSchedule.filter(function(s){ return s.day === dow; })
+  var todaySlots = DB.classSchedule.filter(function(s){ return s.day === dow; });
+  console.log('[Timer] dow:'+dow+' todaySlots:'+todaySlots.length+' cancelled:'+cancelled);
+  todaySlots = todaySlots
     .sort(function(a,b){ return a.time.localeCompare(b.time); });
 
   if(!todaySlots.length) {
@@ -6654,6 +6669,7 @@ function renderScheduleRow() {
       (isRunning ? '<div style="font-size:10px;color:#6366f1;margin-top:4px;font-weight:600;">▶ RUNNING</div>' : '') +
       '</div>';
   }).join('');
+  } catch(e) { console.error('renderScheduleRow error:',e); row.innerHTML='<div style="color:var(--red);font-size:13px;">Schedule error: '+e.message+'</div>'; }
 }
 
 function fmt12(time24) {
