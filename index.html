@@ -317,6 +317,7 @@ tbody td{font-size:11px!important;}
     <div class="nav-section-label">Students</div>
     <div class="nav-item" data-page="roster" onclick="nav('roster')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Roster</span></div>
     <div class="nav-item" data-page="leaders" onclick="nav('leaders')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Leaders</span></div>
+    <div class="nav-item" data-page="assistlog" onclick="nav('assistlog')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assist Log</span></div>
     <div class="nav-item" data-page="classplans" onclick="nav('classplans')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="16" y2="18"/></svg><span>Class Plans</span></div>
     <div class="nav-item" data-page="timer" onclick="nav('timer')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 14.5 15.5"/><path d="M5 3l4 2M19 3l-4 2"/></svg><span>Class Timer</span></div>
     <div class="nav-item" data-page="attendance" onclick="nav('attendance')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Attendance</span></div>
@@ -382,6 +383,50 @@ tbody td{font-size:11px!important;}
       <button class="btn primary" onclick="addReminder()">+ Add</button>
     </div>
     <div id="reminders-list"></div>
+  </div>
+</div>
+
+<!-- ASSIST LOG -->
+<div id="page-assistlog" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div class="page-title">Assist Log</div>
+      <div class="page-subtitle">Track student leader class assists — 100 required for Assistant Instructor</div>
+    </div>
+    <button class="btn primary" onclick="openLogAssist()">+ Log Class</button>
+  </div>
+
+  <!-- Progress cards -->
+  <div id="assist-progress-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:24px;"></div>
+
+  <!-- History table -->
+  <div class="section-divider"><span>Assist History</span></div>
+  <div class="table-toolbar" style="border-radius:12px 12px 0 0;margin-bottom:0;">
+    <input type="text" id="assist-search" placeholder="Search student…" oninput="renderAssistLog()" style="width:180px;">
+    <input type="month" id="assist-filter-month" class="form-input" style="width:150px;" onchange="renderAssistLog()">
+  </div>
+  <div class="table-wrap" style="border-radius:0 0 12px 12px;">
+    <table>
+      <thead><tr><th>Date</th><th>Students who assisted</th><th>Actions</th></tr></thead>
+      <tbody id="assist-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- LOG ASSIST MODAL -->
+<div class="modal-backdrop" id="modal-assist-log">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header"><div class="modal-title">Log Class Assist</div><button class="btn ghost" onclick="closeModal('modal-assist-log')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Class date</label><input class="form-input" id="al-date" type="date"></div>
+      <div class="form-group"><label class="form-label">Who assisted?</label>
+        <div id="al-student-list" style="display:flex;flex-direction:column;gap:8px;margin-top:4px;"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-assist-log')">Cancel</button>
+      <button class="btn primary" onclick="saveAssistLog()">Save</button>
+    </div>
   </div>
 </div>
 
@@ -468,6 +513,24 @@ tbody td{font-size:11px!important;}
       <button class="btn primary" onclick="openNewClassPlan()">+ New Plan</button>
     </div>
   </div>
+  <!-- Filter bar -->
+  <div class="table-toolbar" style="border-radius:12px;margin-bottom:16px;">
+    <input type="text" id="cp-search" placeholder="Search group, warm-up, activity…" oninput="renderClassPlansList()" style="width:220px;">
+    <select id="cp-filter-group" class="form-select" style="width:160px;" onchange="renderClassPlansList()">
+      <option value="">All groups</option>
+      <option>Little Dragons</option>
+      <option>Karate Kids</option>
+      <option>Black Belt Club</option>
+      <option>Master's Club</option>
+      <option>Legends Club</option>
+    </select>
+    <select id="cp-filter-testprep" class="form-select" style="width:150px;" onchange="renderClassPlansList()">
+      <option value="">All plans</option>
+      <option value="1">Test Prep only</option>
+      <option value="0">Regular only</option>
+    </select>
+  </div>
+
   <!-- Library panel -->
   <div id="classplan-library" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px;">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
@@ -1203,6 +1266,50 @@ tbody td{font-size:11px!important;}
   <div id="classnotes-list" style="margin-top:14px;"></div>
 </div>
 
+<!-- ASSIST LOG -->
+<div id="page-assistlog" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div class="page-title">Assist Log</div>
+      <div class="page-subtitle">Track student leader class assists — 100 required for Assistant Instructor</div>
+    </div>
+    <button class="btn primary" onclick="openLogAssist()">+ Log Class</button>
+  </div>
+
+  <!-- Progress cards -->
+  <div id="assist-progress-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:24px;"></div>
+
+  <!-- History table -->
+  <div class="section-divider"><span>Assist History</span></div>
+  <div class="table-toolbar" style="border-radius:12px 12px 0 0;margin-bottom:0;">
+    <input type="text" id="assist-search" placeholder="Search student…" oninput="renderAssistLog()" style="width:180px;">
+    <input type="month" id="assist-filter-month" class="form-input" style="width:150px;" onchange="renderAssistLog()">
+  </div>
+  <div class="table-wrap" style="border-radius:0 0 12px 12px;">
+    <table>
+      <thead><tr><th>Date</th><th>Students who assisted</th><th>Actions</th></tr></thead>
+      <tbody id="assist-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- LOG ASSIST MODAL -->
+<div class="modal-backdrop" id="modal-assist-log">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header"><div class="modal-title">Log Class Assist</div><button class="btn ghost" onclick="closeModal('modal-assist-log')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Class date</label><input class="form-input" id="al-date" type="date"></div>
+      <div class="form-group"><label class="form-label">Who assisted?</label>
+        <div id="al-student-list" style="display:flex;flex-direction:column;gap:8px;margin-top:4px;"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-assist-log')">Cancel</button>
+      <button class="btn primary" onclick="saveAssistLog()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- CLASS TIMER -->
 
 
@@ -1899,7 +2006,7 @@ function nav(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+page).classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,timer:initTimer,sms:initSms,trials:initTrials};
+  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,trials:initTrials};
   fns[page]?.();
 }
 
@@ -6492,6 +6599,170 @@ function smsOneTrial(id) {
 
 
 // ══════════════════════════════════════════════════════
+// ASSIST LOG
+// ══════════════════════════════════════════════════════
+var ASSIST_GOAL = 100;
+
+function getLeaders() {
+  // All active students with leader OR ai flag
+  return DB.students.filter(function(s){
+    return s.status === 'Active' && (s.leader || s.ai);
+  }).sort(function(a,b){
+    return (a.last||'').localeCompare(b.last||'');
+  });
+}
+
+function getAssistCount(studentId) {
+  if(!DB.assistLog) return 0;
+  return Object.values(DB.assistLog).filter(function(ids){
+    return Array.isArray(ids) && ids.includes(studentId);
+  }).length;
+}
+
+function initAssistLog() {
+  if(!DB.assistLog) DB.assistLog = {};
+  var monthEl = $('assist-filter-month');
+  if(monthEl && !monthEl.value) monthEl.value = new Date().toISOString().slice(0,7);
+  renderAssistProgressCards();
+  renderAssistLog();
+}
+
+function renderAssistProgressCards() {
+  var el = $('assist-progress-cards'); if(!el) return;
+  var leaders = getLeaders();
+  if(!leaders.length) {
+    el.innerHTML = '<div style="color:var(--ink-muted);font-size:13px;grid-column:1/-1;">No student leaders or assistant instructors found. Flag students using the Leader or AI flag on their profile.</div>';
+    return;
+  }
+  el.innerHTML = leaders.map(function(s) {
+    var count = getAssistCount(s.id);
+    var pct = Math.min(100, Math.round(count / ASSIST_GOAL * 100));
+    var isAI = s.ai;
+    var isEligible = count >= ASSIST_GOAL;
+    var barColor = isAI ? '#6366f1' : isEligible ? 'var(--green)' : 'var(--blue)';
+    var badge = isAI
+      ? '<span style="background:var(--indigo-light);color:var(--indigo);border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;">Asst. Instructor</span>'
+      : isEligible
+        ? '<span style="background:var(--green-light);color:var(--green);border-radius:20px;padding:1px 8px;font-size:10px;font-weight:700;">Eligible ✓</span>'
+        : '<span style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:1px 8px;font-size:10px;color:var(--ink-muted);">Student Leader</span>';
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">' +
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;">' +
+        '<div>' +
+          '<div style="font-weight:700;font-size:14px;cursor:pointer;color:var(--link);" onclick="viewStudent('+s.id+')">' + s.first + ' ' + s.last + '</div>' +
+          '<div style="font-size:11px;color:var(--ink-muted);">' + s.group + ' · ' + s.belt + '</div>' +
+        '</div>' +
+        badge +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">' +
+        '<span style="font-size:12px;color:var(--ink-muted);">Classes assisted</span>' +
+        '<span style="font-size:18px;font-weight:800;color:'+barColor+';">' + count + '<span style="font-size:12px;color:var(--ink-faint);font-weight:400;">/'+ASSIST_GOAL+'</span></span>' +
+      '</div>' +
+      '<div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;">' +
+        '<div style="height:100%;width:'+pct+'%;background:'+barColor+';border-radius:4px;transition:width .3s;"></div>' +
+      '</div>' +
+      (isEligible && !isAI ? '<div style="font-size:11px;color:var(--green);margin-top:6px;font-weight:600;">🎉 Ready for promotion to Asst. Instructor!</div>' : '') +
+    '</div>';
+  }).join('');
+}
+
+function renderAssistLog() {
+  var tbody = $('assist-tbody'); if(!tbody) return;
+  if(!DB.assistLog) DB.assistLog = {};
+  var search = ($('assist-search') && $('assist-search').value || '').toLowerCase();
+  var month = $('assist-filter-month') && $('assist-filter-month').value || '';
+
+  var entries = Object.entries(DB.assistLog)
+    .filter(function(e){ return Array.isArray(e[1]) && e[1].length; })
+    .sort(function(a,b){ return b[0].localeCompare(a[0]); });
+
+  if(month) entries = entries.filter(function(e){ return e[0].startsWith(month); });
+
+  if(search) entries = entries.filter(function(e){
+    return e[1].some(function(id){
+      var s = DB.students.find(function(x){return x.id===id;});
+      return s && (s.first+' '+s.last).toLowerCase().includes(search);
+    });
+  });
+
+  if(!entries.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--ink-muted);">No assist sessions logged yet.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = entries.map(function(e){
+    var date = e[0], ids = e[1];
+    var names = ids.map(function(id){
+      var s = DB.students.find(function(x){return x.id===id;});
+      return s ? '<span style="background:var(--indigo-light);color:var(--indigo);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;margin:2px;display:inline-block;">'+s.first+' '+s.last+'</span>' : '';
+    }).join('');
+    return '<tr>' +
+      '<td style="white-space:nowrap;font-size:13px;">'+fmtDate(date)+'</td>' +
+      '<td>'+names+'</td>' +
+      '<td style="white-space:nowrap;">' +
+        '<button class="btn small" onclick="editAssistEntry(\''+date+'\')">Edit</button> ' +
+        '<button class="btn small" onclick="deleteAssistEntry(\''+date+'\')">✕</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function openLogAssist(editDate) {
+  if(!DB.assistLog) DB.assistLog = {};
+  var dateEl = $('al-date');
+  if(dateEl) dateEl.value = editDate || new Date().toISOString().slice(0,10);
+  var leaders = getLeaders();
+  var existing = editDate ? (DB.assistLog[editDate]||[]) : [];
+  var list = $('al-student-list'); if(!list) return;
+  list.innerHTML = leaders.map(function(s){
+    var checked = existing.includes(s.id);
+    return '<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;border:1px solid '+(checked?'#6366f1':'var(--border)')+';background:'+(checked?'var(--indigo-light)':'transparent')+';transition:all .15s;">' +
+      '<input type="checkbox" value="'+s.id+'" '+(checked?'checked':'')+' style="accent-color:#6366f1;width:16px;height:16px;" onchange="this.closest(\'label\').style.borderColor=this.checked?\'#6366f1\':\'var(--border)\';this.closest(\'label\').style.background=this.checked?\'var(--indigo-light)\':\'transparent\'">' +
+      '<div>' +
+        '<div style="font-weight:600;font-size:13px;">'+s.first+' '+s.last+'</div>' +
+        '<div style="font-size:11px;color:var(--ink-muted);">'+s.group+' · '+(s.ai?'Asst. Instructor':'Student Leader')+'</div>' +
+      '</div>' +
+      '<div style="margin-left:auto;font-size:11px;color:var(--ink-faint);">'+getAssistCount(s.id)+' assists</div>' +
+    '</label>';
+  }).join('');
+  $('modal-assist-log').classList.add('open');
+}
+
+function editAssistEntry(date) { openLogAssist(date); }
+
+function saveAssistLog() {
+  if(!DB.assistLog) DB.assistLog = {};
+  var date = $('al-date') && $('al-date').value;
+  if(!date) { toast('Please select a date.'); return; }
+  var checked = [];
+  var checkboxes = document.querySelectorAll('#al-student-list input[type="checkbox"]');
+  checkboxes.forEach(function(cb){ if(cb.checked) checked.push(parseInt(cb.value)); });
+  if(!checked.length) {
+    delete DB.assistLog[date];
+  } else {
+    DB.assistLog[date] = checked;
+    // Add to each student's history
+    checked.forEach(function(id){
+      var s = DB.students.find(function(x){return x.id===id;});
+      if(s){ addHistory(s,'assist','Assisted in class on '+fmtDate(date),date); }
+    });
+  }
+  save();
+  closeModal('modal-assist-log');
+  renderAssistProgressCards();
+  renderAssistLog();
+  toast('Logged '+checked.length+' assist(s) for '+fmtDate(date)+'!');
+}
+
+function deleteAssistEntry(date) {
+  if(!confirm('Remove all assists logged for '+fmtDate(date)+'?')) return;
+  delete DB.assistLog[date];
+  save();
+  renderAssistProgressCards();
+  renderAssistLog();
+}
+
+
+// ══════════════════════════════════════════════════════
 // CLASS TIMER
 // ══════════════════════════════════════════════════════
 var _timerInterval = null;
@@ -6513,17 +6784,26 @@ function getSegments(group, plan) {
               60:{warmup:10,slot1:15,slot2:15,final:15,bowout:5}};
   var slot = DB.classSchedule.find(function(s){return s.group===group;});
   var d = dur[slot ? slot.dur : 60] || dur[60];
+  // Use plan's custom times if set
+  if(plan){
+    if(plan.t_warmup)d.warmup=plan.t_warmup;
+    if(plan.t_slot1)d.slot1=plan.t_slot1;
+    if(plan.t_slot2)d.slot2=plan.t_slot2;
+    if(plan.t_final)d.final=plan.t_final;
+    if(plan.t_bowout)d.bowout=plan.t_bowout;
+  }
+  var _sc=['#6366f1','#0ea5e9','#10b981','#f59e0b','#6b7280'];
   var segs = [
-    {label:'Bow In / Warm-Up', mins:d.warmup, color:SEG_COLORS[0],
+    {label:'Bow In / Warm-Up', mins:d.warmup, color:_sc[0],
       detail: plan && plan.warmup ? plan.warmup : null},
-    {label:'Curriculum — Slot 1', mins:d.slot1, color:SEG_COLORS[1],
+    {label:'Curriculum — Slot 1', mins:d.slot1, color:_sc[1],
       detail: plan && plan.slot1Label ? plan.slot1Label : null},
     {label:'Curriculum — Slot 2' + (['Black Belt Club',"Master's Club",'Legends Club'].includes(group)?' / Sparring':''),
-      mins:d.slot2, color:SEG_COLORS[2],
+      mins:d.slot2, color:_sc[2],
       detail: plan && plan.slot2Label ? plan.slot2Label : null},
-    {label:'Final Activity', mins:d.final, color:SEG_COLORS[3],
+    {label:'Final Activity', mins:d.final, color:_sc[3],
       detail: plan && plan.finalActivity ? plan.finalActivity : null},
-    {label:'Bow Out', mins:d.bowout, color:SEG_COLORS[4], detail:null}
+    {label:'Bow Out', mins:d.bowout, color:_sc[4], detail:null}
   ];
   return segs;
 }
@@ -7031,7 +7311,16 @@ function renderClassPlansList(){
     return;
   }
   const _GDlist={'Little Dragons':30,'Karate Kids':45,'Black Belt Club':60,"Master's Club":60,'Legends Club':60};
-  const sorted=[...DB.classPlans].sort((a,b)=>b.date.localeCompare(a.date));
+  const search=(($('cp-search')&&$('cp-search').value)||'').toLowerCase();
+  const filterGroup=($('cp-filter-group')&&$('cp-filter-group').value)||'';
+  const filterTestPrep=($('cp-filter-testprep')&&$('cp-filter-testprep').value)||'';
+  let plans=[...DB.classPlans];
+  if(search)plans=plans.filter(p=>(p.group||'').toLowerCase().includes(search)||(p.warmup||'').toLowerCase().includes(search)||(p.slot1Label||'').toLowerCase().includes(search)||(p.slot2Label||'').toLowerCase().includes(search)||(p.finalActivity||'').toLowerCase().includes(search)||(p.aiName||'').toLowerCase().includes(search));
+  if(filterGroup)plans=plans.filter(p=>p.group===filterGroup);
+  if(filterTestPrep==='1')plans=plans.filter(p=>p.testPrep);
+  if(filterTestPrep==='0')plans=plans.filter(p=>!p.testPrep);
+  if(!plans.length&&DB.classPlans.length){el.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:40px;text-align:center;color:var(--ink-muted);font-size:13px;">No plans match your filter.</div>';return;}
+  const sorted=plans.sort((a,b)=>b.date.localeCompare(a.date));
   el.innerHTML=sorted.map(p=>{
     const dur=_GDlist[p.group]||60;
     const segs=[p.warmup,p.slot1Label,p.slot2Label,p.finalActivity].filter(Boolean);
@@ -7159,19 +7448,45 @@ function renderClassPlanModal(){
     h+='<strong>Test-eligible:</strong> '+eligible.map(s=>s.first+' '+s.last+' ('+s.belt+')').join(', ')+'</div>';
   }
 
+  // Use draft times if customized, else defaults
+  var tw=_cpDraft.t_warmup||times.warmup;
+  var ts1=_cpDraft.t_slot1||times.slot1;
+  var ts2=_cpDraft.t_slot2||times.slot2;
+  var tf=_cpDraft.t_final||times.final;
+  var tbo=_cpDraft.t_bowout||times.bowout;
   // Time bar
-  h+='<div style="display:flex;gap:2px;border-radius:8px;overflow:hidden;height:28px;margin-bottom:20px;font-size:10px;font-weight:600;text-align:center;">';
-  h+='<div style="flex:'+times.warmup+';background:#6366f1;color:#fff;min-width:36px;display:flex;align-items:center;justify-content:center;">Warm<br>'+times.warmup+'m</div>';
-  h+='<div style="flex:'+times.slot1+';background:#0ea5e9;color:#fff;min-width:36px;display:flex;align-items:center;justify-content:center;">Slot1<br>'+times.slot1+'m</div>';
-  h+='<div style="flex:'+times.slot2+';background:#10b981;color:#fff;min-width:36px;display:flex;align-items:center;justify-content:center;">Slot2<br>'+times.slot2+'m</div>';
-  h+='<div style="flex:'+times.final+';background:#f59e0b;color:#fff;min-width:36px;display:flex;align-items:center;justify-content:center;">Final<br>'+times.final+'m</div>';
-  h+='<div style="flex:'+times.bowout+';background:#6b7280;color:#fff;min-width:24px;display:flex;align-items:center;justify-content:center;">'+times.bowout+'m</div></div>';
+  h+='<div id="cp-timebar" style="display:flex;gap:2px;border-radius:8px;overflow:hidden;height:28px;margin-bottom:20px;font-size:10px;font-weight:600;text-align:center;">';
+  h+='<div style="flex:'+tw+';background:#6366f1;color:#fff;min-width:36px;display:flex;align-items:center;justify-content:center;">Warm<br>'+tw+'m</div>';
+  h+='<div style="flex:'+ts1+';background:#0ea5e9;color:#fff;min-width:36px;display:flex;align-items:center;justify-content:center;">Slot1<br>'+ts1+'m</div>';
+  h+='<div style="flex:'+ts2+';background:#10b981;color:#fff;min-width:36px;display:flex;align-items:center;justify-content:center;">Slot2<br>'+ts2+'m</div>';
+  h+='<div style="flex:'+tf+';background:#f59e0b;color:#fff;min-width:36px;display:flex;align-items:center;justify-content:center;">Final<br>'+tf+'m</div>';
+  h+='<div style="flex:'+tbo+';background:#6b7280;color:#fff;min-width:24px;display:flex;align-items:center;justify-content:center;">'+tbo+'m</div></div>';
+
+  // Time editor - editable minutes per segment
+  h+='<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:18px;">';
+  h+='<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:8px;">Segment Timing <span id="cp-time-total-label" style="font-weight:400;color:var(--ink-faint);"></span></div>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+  [
+    {key:'warmup',label:'Warm-Up',col:'#6366f1'},
+    {key:'slot1',label:'Slot 1',col:'#0ea5e9'},
+    {key:'slot2',label:'Slot 2',col:'#10b981'},
+    {key:'final',label:'Final',col:'#f59e0b'},
+    {key:'bowout',label:'Bow Out',col:'#6b7280'}
+  ].forEach(function(seg){
+    var val=(_cpDraft['t_'+seg.key]!==undefined?_cpDraft['t_'+seg.key]:times[seg.key==='bowout'?'bowout':seg.key]);
+    h+='<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">';
+    h+='<div style="width:8px;height:8px;border-radius:50%;background:'+seg.col+';"></div>';
+    h+='<input type="number" min="1" max="60" value="'+val+'" id="cp-t-'+seg.key+'" oninput="cpUpdateTiming()" style="width:52px;text-align:center;font-size:13px;font-weight:600;padding:4px;" class="form-input">';
+    h+='<div style="font-size:10px;color:var(--ink-muted);">'+seg.label+'</div>';
+    h+='</div>';
+  });
+  h+='</div></div>';
 
   // Warm-Up
   h+='<div style="margin-bottom:20px;">';
   h+='<div style="font-weight:700;font-size:13px;margin-bottom:8px;">'+
     '<span style="background:#6366f1;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;margin-right:6px;">1</span>'+
-    'Warm-Up <span style="font-size:11px;color:var(--ink-faint);font-weight:400;">('+times.warmup+' min'+(ais.length?' · Jr. Instructor leads':' · You lead')+')</span></div>';
+    'Warm-Up <span id="cp-lbl-warmup" style="font-size:11px;color:var(--ink-faint);font-weight:400;">('+(_cpDraft.t_warmup||times.warmup)+' min'+(ais.length?' · Jr. Instructor leads':' · You lead')+')</span></div>';
   h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;" id="cp-warmup-btns">';
   warmupOpts.forEach((w,i)=>{h+='<button class="btn small cp-warmup-btn" data-val="'+encodeURIComponent(w)+'" style="'+sel(_cpDraft.warmup,w)+'">'+w+'</button>';});
   h+='</div>';
@@ -7230,6 +7545,8 @@ function renderClassPlanModal(){
   if($('cp-final-custom'))$('cp-final-custom').oninput=function(){_cpDraft.finalActivity=this.value;};
   if($('cp-notes'))$('cp-notes').oninput=function(){_cpDraft.notes=this.value;};
   if($('cp-cancel-btn'))$('cp-cancel-btn').onclick=function(){closeModal('modal-classplan');};
+  // Wire timing inputs and show initial total
+  setTimeout(cpUpdateTiming,0);
 
   // Button delegation
   document.querySelectorAll('.cp-warmup-btn').forEach(btn=>{
@@ -7280,7 +7597,12 @@ function saveClassPlan(){
       slot2Type:_cpDraft.slot2Type||'',
       slot2Label:_cpDraft.slot2Label||'',
       finalActivity:_cpDraft.finalActivity||'',
-      notes:_cpDraft.notes||''
+      notes:_cpDraft.notes||'',
+      t_warmup:_cpDraft.t_warmup||null,
+      t_slot1:_cpDraft.t_slot1||null,
+      t_slot2:_cpDraft.t_slot2||null,
+      t_final:_cpDraft.t_final||null,
+      t_bowout:_cpDraft.t_bowout||null
     };
     if(!DB.classPlans)DB.classPlans=[];
     if(_cpEditId){
@@ -7673,6 +7995,28 @@ function removeLibraryItem(type,idx){
   const key=type==='warmup'?'warmups':'activities';
   DB.classLibrary[key].splice(idx,1);
   save();renderLibraryPanel();
+}
+
+function cpUpdateTiming(){
+  var keys=['warmup','slot1','slot2','final','bowout'];
+  var total=0;
+  keys.forEach(function(k){
+    var el=$('cp-t-'+k);
+    var v=parseInt(el&&el.value)||0;
+    _cpDraft['t_'+k]=v;
+    total+=v;
+  });
+  // Update total label
+  var lbl=$('cp-time-total-label');
+  var dur={30:30,45:45,60:60};
+  var groupDur={'Little Dragons':30,'Karate Kids':45,'Black Belt Club':60,"Master's Club":60,'Legends Club':60};
+  var expected=groupDur[_cpDraft.group]||60;
+  if(lbl){
+    var diff=total-expected;
+    var color=Math.abs(diff)<=2?'var(--green)':diff>0?'var(--red)':'var(--amber)';
+    lbl.textContent='— '+total+' min total'+(diff===0?' ✓':diff>0?' (+'+diff+' over)':' ('+diff+' under)');
+    lbl.style.color=color;
+  }
 }
 // ══════════════════════════════════════════════════════
 // GEAR ORDERS
