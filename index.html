@@ -681,6 +681,12 @@ tbody td{font-size:11px!important;}
     <button class="btn primary" onclick="saveCheckin()">Save &amp; Close</button>
   </div>
   <div class="ci-grid" id="checkin-grid"></div>
+
+  <!-- Leader assist section -->
+  <div id="ci-leader-section" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+    <div style="font-weight:700;font-size:13px;margin-bottom:10px;">⭐ Who assisted today?</div>
+    <div id="ci-leader-list" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+  </div>
 </div>
 
 <!-- BELT TESTING -->
@@ -2436,10 +2442,12 @@ function saveAttendance(){
 // STRIPE CHECK-IN
 // ══════════════════════════════════════════════════════
 let ciState={};
-function initCheckin(){$('ci-date').value=new Date().toISOString().slice(0,10);ciState={};renderCheckin();}
+var _ciLeaderState={};
+function initCheckin(){$('ci-date').value=new Date().toISOString().slice(0,10);ciState={};_ciLeaderState={};renderCheckin();renderCiLeaders();}
 function renderCheckin(){
   const date=$('ci-date').value,grp=$('ci-group').value;
   $('ci-date-label').textContent='Class on '+fmtFull(date);
+  renderCiLeaders();
   let students=DB.students.filter(s=>s.status==='Active');
   if(grp)students=students.filter(s=>s.group===grp);
   const existing=DB.attendance[date]||{};
@@ -2481,9 +2489,51 @@ function saveCheckin(){
     if(cs.present)addHistory(s,'class','Attended class (check-in)',date);
     if(cs.stripesAwarded>0){const old=s.stripes;s.stripes=Math.min(maxStripes(s),s.stripes+cs.stripesAwarded);awarded+=cs.stripesAwarded;addHistory(s,'stripe',`Stripes: ${old} → ${s.stripes}`,date);}
   });
-  ciState={};save();toast(`Saved! ${awarded} stripe(s) awarded.`);
+  // Log leader assists
+  var date2 = $('ci-date').value;
+  var assistedIds = Object.keys(_ciLeaderState).filter(function(k){return _ciLeaderState[k];}).map(Number);
+  if(assistedIds.length) {
+    if(!DB.assistLog) DB.assistLog = {};
+    var existing2 = DB.assistLog[date2] || [];
+    // Merge with any existing entries for this date
+    assistedIds.forEach(function(id){ if(!existing2.includes(id)) existing2.push(id); });
+    DB.assistLog[date2] = existing2;
+    var removedIds = Object.keys(_ciLeaderState).filter(function(k){return !_ciLeaderState[k];}).map(Number);
+    removedIds.forEach(function(id){ existing2 = existing2.filter(function(x){return x!==id;}); });
+    if(existing2.length) DB.assistLog[date2]=existing2; else delete DB.assistLog[date2];
+  }
+  _ciLeaderState={};ciState={};save();toast('Saved! '+awarded+' stripe(s) awarded.'+(assistedIds.length?' · '+assistedIds.length+' assist(s) logged.':''));
 }
 
+
+function renderCiLeaders() {
+  var section = $('ci-leader-section');
+  var list = $('ci-leader-list');
+  if(!section || !list) return;
+  var leaders = DB.students.filter(function(s){
+    return s.status==='Active' && (s.leader || s.ai);
+  });
+  if(!leaders.length) { section.style.display='none'; return; }
+  section.style.display = 'block';
+  var date = $('ci-date') && $('ci-date').value || '';
+  // Pre-fill from existing assistLog if editing a date that was already logged
+  if(date && DB.assistLog && DB.assistLog[date]) {
+    DB.assistLog[date].forEach(function(id){ _ciLeaderState[id]=true; });
+  }
+  list.innerHTML = leaders.map(function(s){
+    var checked = !!_ciLeaderState[s.id];
+    return '<div id="ci-leader-'+s.id+'" onclick="ciToggleLeader('+s.id+')" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:20px;border:2px solid '+(checked?'#6366f1':'var(--border)')+';background:'+(checked?'var(--indigo-light)':'var(--surface)')+';font-size:13px;font-weight:600;transition:all .15s;">'+
+      '<span style="font-size:15px;">'+(checked?'✓':'○')+'</span>'+
+      s.first+' '+s.last+
+      '<span style="font-size:10px;font-weight:400;color:var(--ink-muted);">'+getAssistCount(s.id)+'</span>'+
+    '</div>';
+  }).join('');
+}
+
+function ciToggleLeader(id) {
+  _ciLeaderState[id] = !_ciLeaderState[id];
+  renderCiLeaders();
+}
 // ══════════════════════════════════════════════════════
 // BELT TESTING
 // ══════════════════════════════════════════════════════
@@ -6614,9 +6664,11 @@ function getLeaders() {
 
 function getAssistCount(studentId) {
   if(!DB.assistLog) return 0;
-  return Object.values(DB.assistLog).filter(function(ids){
+  var logged = Object.values(DB.assistLog).filter(function(ids){
     return Array.isArray(ids) && ids.includes(studentId);
   }).length;
+  var adj = (DB.assistAdjustments && DB.assistAdjustments[studentId]) || 0;
+  return logged + adj;
 }
 
 function initAssistLog() {
@@ -6655,12 +6707,15 @@ function renderAssistProgressCards() {
       '</div>' +
       '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">' +
         '<span style="font-size:12px;color:var(--ink-muted);">Classes assisted</span>' +
-        '<span style="font-size:18px;font-weight:800;color:'+barColor+';">' + count + '<span style="font-size:12px;color:var(--ink-faint);font-weight:400;">/'+ASSIST_GOAL+'</span></span>' +
+        '<div style="display:flex;align-items:center;gap:6px;">' +
+          '<span style="font-size:18px;font-weight:800;color:'+barColor+';">' + count + (!isAI?'<span style="font-size:12px;color:var(--ink-faint);font-weight:400;">/'+ASSIST_GOAL+'</span>':'') + '</span>' +
+          '<button onclick="openAdjustAssists('+s.id+')" style="font-size:10px;padding:2px 7px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;color:var(--ink-muted);">+Adjust</button>' +
+        '</div>' +
       '</div>' +
-      '<div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;">' +
+      (!isAI ? '<div style="background:var(--border);border-radius:4px;height:8px;overflow:hidden;margin-bottom:6px;">' +
         '<div style="height:100%;width:'+pct+'%;background:'+barColor+';border-radius:4px;transition:width .3s;"></div>' +
-      '</div>' +
-      (isEligible && !isAI ? '<div style="font-size:11px;color:var(--green);margin-top:6px;font-weight:600;">🎉 Ready for promotion to Asst. Instructor!</div>' : '') +
+      '</div>' : '<div style="height:6px;"></div>') +
+      (isEligible && !isAI ? '<div style="font-size:11px;color:var(--green);font-weight:600;">🎉 Ready for promotion to Asst. Instructor!</div>' : '') +
     '</div>';
   }).join('');
 }
@@ -6751,6 +6806,28 @@ function saveAssistLog() {
   renderAssistProgressCards();
   renderAssistLog();
   toast('Logged '+checked.length+' assist(s) for '+fmtDate(date)+'!');
+}
+
+function openAdjustAssists(studentId) {
+  var s = DB.students.find(function(x){return x.id===studentId;});
+  if(!s) return;
+  var current = (DB.assistAdjustments && DB.assistAdjustments[studentId]) || 0;
+  var logged = getAssistCount(studentId) - current;
+  var val = prompt(
+    s.first+' '+s.last+' — Manual Adjustment\n\n'+
+    'Logged from sessions: '+logged+'\n'+
+    'Current manual adjustment: '+current+'\n'+
+    'Total: '+(logged+current)+'\n\n'+
+    'Enter the number of ADDITIONAL classes to add (or a negative number to subtract):'
+  );
+  if(val === null) return;
+  var n = parseInt(val);
+  if(isNaN(n)) { toast('Please enter a valid number.'); return; }
+  if(!DB.assistAdjustments) DB.assistAdjustments = {};
+  DB.assistAdjustments[studentId] = Math.max(0, current + n);
+  save();
+  renderAssistProgressCards();
+  toast('Adjusted! '+s.first+' now has '+getAssistCount(studentId)+' total assists.');
 }
 
 function deleteAssistEntry(date) {
