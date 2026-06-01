@@ -429,8 +429,11 @@ tbody td{font-size:11px!important;}
       <button class="btn primary" id="timer-playpause" onclick="timerToggle()" style="min-width:100px;font-size:16px;">▶ Start</button>
       <button class="btn" onclick="timerSkipNext()" title="Next segment">⏭</button>
     </div>
-    <!-- Class plan content hint -->
-    <div id="timer-plan-hint" style="margin-top:14px;padding:10px 14px;background:var(--blue-light);border-radius:8px;font-size:12px;color:var(--blue);display:none;"></div>
+    <!-- Class plan summary -->
+    <div id="timer-plan-summary" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:14px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);margin-bottom:8px;">📋 Today's Class Plan</div>
+      <div id="timer-plan-detail" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;"></div>
+    </div>
   </div>
 </div>
 
@@ -460,7 +463,31 @@ tbody td{font-size:11px!important;}
 <div id="page-classplans" class="page">
   <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
     <div><div class="page-title">Class Plans</div><div class="page-subtitle">Build and save structured class plans for each group</div></div>
-    <button class="btn primary" onclick="openNewClassPlan()">+ New Plan</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn" onclick="toggleLibraryPanel()">📚 Library</button>
+      <button class="btn primary" onclick="openNewClassPlan()">+ New Plan</button>
+    </div>
+  </div>
+  <!-- Library panel -->
+  <div id="classplan-library" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:10px;">🏃 Warm-Ups</div>
+        <div id="library-warmups-list" style="margin-bottom:8px;"></div>
+        <div style="display:flex;gap:6px;">
+          <input class="form-input" id="library-warmup-input" placeholder="Add warm-up…" style="flex:1;font-size:12px;" onkeydown="if(event.key==='Enter')addLibraryItem('warmup')">
+          <button class="btn small primary" onclick="addLibraryItem('warmup')">+</button>
+        </div>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:10px;">🎮 Final Activities</div>
+        <div id="library-activities-list" style="margin-bottom:8px;"></div>
+        <div style="display:flex;gap:6px;">
+          <input class="form-input" id="library-activity-input" placeholder="Add activity…" style="flex:1;font-size:12px;" onkeydown="if(event.key==='Enter')addLibraryItem('activity')">
+          <button class="btn small primary" onclick="addLibraryItem('activity')">+</button>
+        </div>
+      </div>
+    </div>
   </div>
   <!-- Saved plans list -->
   <div id="classplans-list"></div>
@@ -1748,6 +1775,7 @@ if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
 if(!DB.jotformApiKey)DB.jotformApiKey='';
 if(!DB.classPlans)DB.classPlans=[];
+if(!DB.classLibrary)DB.classLibrary={warmups:[],activities:[]};
 if(!DB.classSchedule||!Array.isArray(DB.classSchedule)||!DB.classSchedule.length)DB.classSchedule=[
   {id:1,day:1,time:'10:00',group:'Legends Club',dur:60},
   {id:2,day:1,time:'11:00',group:'Little Dragons',dur:30},
@@ -3376,6 +3404,20 @@ if(!DB.gearOrders)DB.gearOrders=[];
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
 if(!DB.jotformApiKey)DB.jotformApiKey='';
+if(!DB.classPlans)DB.classPlans=[];
+if(!DB.classLibrary)DB.classLibrary={warmups:[],activities:[]};
+if(!DB.cancelledDays)DB.cancelledDays=[];
+if(!DB.trials)DB.trials=[];
+if(!DB.smsLog)DB.smsLog=[];
+if(!DB.twilioConfig)DB.twilioConfig={sid:'',token:'',from:''};
+if(!DB.curriculumData)DB.curriculumData={};
+if(!DB.classSchedule||!Array.isArray(DB.classSchedule)||!DB.classSchedule.length)DB.classSchedule=[
+  {id:1,day:1,time:'10:00',group:'Legends Club',dur:60},
+  {id:2,day:1,time:'11:00',group:'Little Dragons',dur:30},
+  {id:3,day:1,time:'11:30',group:'Karate Kids',dur:45},
+  {id:4,day:1,time:'12:15',group:'Black Belt Club',dur:60},
+  {id:5,day:1,time:'13:30',group:"Master's Club",dur:60}
+];
 
   // Migrate belt names (idempotent)
   if(!DB._migrated_v4){
@@ -6704,14 +6746,33 @@ function renderActiveTimer() {
     }).join('');
   }
 
-  // Class plan hint
-  var hintEl = $('timer-plan-hint');
-  if(hintEl) {
-    if(seg.detail) {
-      hintEl.textContent = '📋 ' + seg.detail;
-      hintEl.style.display = 'block';
+  // Class plan summary panel
+  var planSummary = $('timer-plan-summary');
+  var planDetail = $('timer-plan-detail');
+  if(planSummary && planDetail && _timerActiveSlot) {
+    var activePlan = DB.classPlans && DB.classPlans.find(function(p){
+      return p.group === _timerActiveSlot.group && p.date === todayStr();
+    });
+    if(activePlan) {
+      planSummary.style.display = 'block';
+      var planRows = [
+        {label:'Warm-Up', val:activePlan.warmup, color:SEG_COLORS[0]},
+        {label:'Slot 1', val:activePlan.slot1Label, color:SEG_COLORS[1]},
+        {label:'Slot 2', val:activePlan.slot2Label, color:SEG_COLORS[2]},
+        {label:'Final Activity', val:activePlan.finalActivity, color:SEG_COLORS[3]}
+      ].filter(function(r){return r.val;});
+      var isCurrentRow = function(r){ return seg && seg.detail === r.val; };
+      planDetail.innerHTML = planRows.map(function(r){
+        var cur = isCurrentRow(r);
+        return '<div style="padding:6px 10px;border-radius:8px;' +
+          (cur?'background:'+r.color+'22;border:1px solid '+r.color+';':'background:var(--surface);border:1px solid var(--border);')+'">' +
+          '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:'+(cur?r.color:'var(--ink-muted)')+';">'+r.label+'</div>'+
+          '<div style="font-weight:600;font-size:12px;margin-top:1px;">'+r.val+'</div></div>';
+      }).join('')+
+      (activePlan.aiName?'<div style="grid-column:1/-1;padding:4px 10px;font-size:11px;color:var(--ink-muted);">⭐ Asst. Instructor: <strong>'+activePlan.aiName+'</strong></div>':'')+
+      (activePlan.notes?'<div style="grid-column:1/-1;padding:6px 10px;border-radius:8px;background:var(--amber-light);border:1px solid var(--amber);font-size:11px;color:var(--amber);"><strong>Notes:</strong> '+activePlan.notes+'</div>':'');
     } else {
-      hintEl.style.display = 'none';
+      planSummary.style.display = 'none';
     }
   }
 }
@@ -7022,8 +7083,10 @@ function renderClassPlanModal(){
     older:['Sparring King of the Ring','Conditioning Circuit Challenge','Board Break Prep','Partner Flow Drill','1v1 Technique Challenge']
   };
   const isYoung=group==='Little Dragons'||group==='Karate Kids';
-  const warmupOpts=isYoung?[..._WU.young,..._WU.all]:[..._WU.older,..._WU.all];
-  const finalOpts=isYoung?[..._FA.young,..._FA.all]:[..._FA.older,..._FA.all];
+  const _customWU=(DB.classLibrary&&DB.classLibrary.warmups)||[];
+  const _customFA=(DB.classLibrary&&DB.classLibrary.activities)||[];
+  const warmupOpts=isYoung?[..._WU.young,..._WU.all,..._customWU]:[..._WU.older,..._WU.all,..._customWU];
+  const finalOpts=isYoung?[..._FA.young,..._FA.all,..._customFA]:[..._FA.older,..._FA.all,..._customFA];
   const eligible=DB.students.filter(s=>s.status==='Active'&&s.group===group&&stripeEligible(s));
 
   function sel(val,cmp){return val===cmp?'background:var(--indigo-light);border-color:var(--indigo);color:var(--indigo);':'';}
@@ -7517,6 +7580,53 @@ function resetApparelStatus(id) {
   save(); renderApparelOrders();
 }
 
+
+function toggleLibraryPanel(){
+  const p=$('classplan-library');
+  if(!p)return;
+  const open=p.style.display==='none'||!p.style.display;
+  p.style.display=open?'block':'none';
+  if(open)renderLibraryPanel();
+}
+
+function renderLibraryPanel(){
+  if(!DB.classLibrary)DB.classLibrary={warmups:[],activities:[]};
+  const wu=$('library-warmups-list');
+  const fa=$('library-activities-list');
+  if(wu)wu.innerHTML=(DB.classLibrary.warmups||[]).map((w,i)=>
+    `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border);">
+      <span style="flex:1;font-size:12px;">${w}</span>
+      <button class="btn ghost" style="font-size:10px;padding:2px 6px;" onclick="removeLibraryItem('warmup',${i})">✕</button>
+    </div>`
+  ).join('')||(  '<div style="font-size:12px;color:var(--ink-faint);padding:4px 0;">No custom warm-ups yet.</div>');
+  if(fa)fa.innerHTML=(DB.classLibrary.activities||[]).map((a,i)=>
+    `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border);">
+      <span style="flex:1;font-size:12px;">${a}</span>
+      <button class="btn ghost" style="font-size:10px;padding:2px 6px;" onclick="removeLibraryItem('activity',${i})">✕</button>
+    </div>`
+  ).join('')||('<div style="font-size:12px;color:var(--ink-faint);padding:4px 0;">No custom activities yet.</div>');
+}
+
+function addLibraryItem(type){
+  if(!DB.classLibrary)DB.classLibrary={warmups:[],activities:[]};
+  const inputId=type==='warmup'?'library-warmup-input':'library-activity-input';
+  const val=($( inputId)&&$(inputId).value.trim())||'';
+  if(!val)return;
+  const key=type==='warmup'?'warmups':'activities';
+  if(!DB.classLibrary[key])DB.classLibrary[key]=[];
+  if(DB.classLibrary[key].includes(val)){toast('Already in library.');return;}
+  DB.classLibrary[key].push(val);
+  $(inputId).value='';
+  save();renderLibraryPanel();
+  toast(val+' added to library!');
+}
+
+function removeLibraryItem(type,idx){
+  if(!DB.classLibrary)return;
+  const key=type==='warmup'?'warmups':'activities';
+  DB.classLibrary[key].splice(idx,1);
+  save();renderLibraryPanel();
+}
 // ══════════════════════════════════════════════════════
 // GEAR ORDERS
 // ══════════════════════════════════════════════════════
