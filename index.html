@@ -2400,6 +2400,7 @@ function onAttDateChange(){
 // ══════════════════════════════════════════════════════
 let attState={};
 function initAttendance(){
+  _attLeaderState={};
   // Add print list button if not present
   setTimeout(()=>{
     const bar=document.querySelector('#page-attendance .att-bar');
@@ -2429,6 +2430,7 @@ function renderAttendance(){
   }
   $('att-grid').innerHTML=students.map(s=>{const st=attState[s.id]||'';return `<div class="att-card ${st==='present'?'present':st==='absent'?'absent':''}" id="att-${s.id}" onclick="toggleAtt(${s.id})"><div class="att-avatar">${initials(s)}</div><div><div class="att-name">${s.first} ${s.last}</div><div class="att-belt">${s.belt}</div></div><div class="att-check">${st==='present'?'✓':st==='absent'?'✗':'–'}</div></div>`;}).join('');
   updateAttCount(students);
+  renderAttLeaders();
 }
 function toggleAtt(sid){
   const cur=attState[sid]||'';attState[sid]=cur===''?'present':cur==='present'?'absent':'';
