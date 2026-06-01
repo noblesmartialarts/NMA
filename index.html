@@ -659,6 +659,12 @@ tbody td{font-size:11px!important;}
     <button class="btn primary" onclick="saveAttendance()">Save</button>
   </div>
   <div class="att-grid" id="att-grid"></div>
+
+  <!-- Leader assist section -->
+  <div id="att-leader-section" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+    <div style="font-weight:700;font-size:13px;margin-bottom:10px;">⭐ Who assisted today?</div>
+    <div id="att-leader-list" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+  </div>
 </div>
 
 <!-- STRIPE CHECK-IN -->
@@ -2382,8 +2388,11 @@ function selectAttDate(date){
   // Scroll to att-grid
   $('att-grid')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
+var _attLeaderState={};
 function onAttDateChange(){
+  _attLeaderState={};
   renderAttendance();
+  renderAttLeaders();
 }
 
 // ══════════════════════════════════════════════════════
@@ -2430,12 +2439,52 @@ function toggleAtt(sid){
   if(grp)students=students.filter(s=>s.group===grp);updateAttCount(students);
 }
 function updateAttCount(students){const p=students.filter(s=>attState[s.id]==='present').length;$('att-count').textContent=`${p} / ${students.length}`;}
+
+function renderAttLeaders() {
+  var section = $('att-leader-section');
+  var list = $('att-leader-list');
+  if(!section || !list) return;
+  var leaders = DB.students.filter(function(s){
+    return s.status==='Active' && (s.leader || s.ai);
+  });
+  if(!leaders.length) { section.style.display='none'; return; }
+  section.style.display = 'block';
+  // Pre-fill from existing assistLog for this date
+  var date = $('att-date-select') && $('att-date-select').value || '';
+  if(date && DB.assistLog && DB.assistLog[date]) {
+    DB.assistLog[date].forEach(function(id){ _attLeaderState[id]=true; });
+  }
+  list.innerHTML = leaders.map(function(s){
+    var checked = !!_attLeaderState[s.id];
+    return '<div id="att-leader-'+s.id+'" onclick="attToggleLeader('+s.id+')" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:20px;border:2px solid '+(checked?'#6366f1':'var(--border)')+';background:'+(checked?'var(--indigo-light)':'var(--surface)')+';font-size:13px;font-weight:600;transition:all .15s;">'+
+      '<span>'+(checked?'✓':'○')+'</span>'+
+      s.first+' '+s.last+
+      '<span style="font-size:10px;font-weight:400;color:var(--ink-muted);">'+getAssistCount(s.id)+'</span>'+
+    '</div>';
+  }).join('');
+}
+
+function attToggleLeader(id) {
+  _attLeaderState[id] = !_attLeaderState[id];
+  renderAttLeaders();
+}
 function saveAttendance(){
   const date=$('att-date-select')?.value;if(!date){alert('Select a class date first.');return;}
   DB.attendance[date]={...attState};
   DB.students.forEach(s=>{if(attState[s.id]==='present')addHistory(s,'class','Attended class',date);});
+  // Log leader assists
+  var assistIds = Object.keys(_attLeaderState).filter(function(k){return _attLeaderState[k];}).map(Number);
+  if(assistIds.length) {
+    if(!DB.assistLog) DB.assistLog = {};
+    DB.assistLog[date] = assistIds;
+  } else if(DB.assistLog && DB.assistLog[date]) {
+    // If previously had assists but now none checked, clear them
+    // (only if _attLeaderState was initialized for this date)
+    // Keep existing if we never loaded this date's leaders
+  }
+  _attLeaderState = {};
   save();renderClassDateChips();renderAttDateSelect();
-  toast('Attendance saved for '+fmtDate(date));
+  toast('Attendance saved for '+fmtDate(date)+(assistIds.length?' · '+assistIds.length+' assist(s) logged.':''));
 }
 
 // ══════════════════════════════════════════════════════
