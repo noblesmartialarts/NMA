@@ -7522,10 +7522,7 @@ function resetApparelStatus(id) {
 const GEAR_PRICES={'Purple Belt Package A — $155':155,'Purple Belt Package B — $145':145,'Purple Belt Package C — $125':125,'Purple Belt Package D — $95':95,'BBC Weapon — Nunchaku':0,'BBC Weapon — Bo Staff':0,'BBC Weapon — Escrima':0,"Master's Club Weapon — Nunchaku":0,"Master's Club Weapon — Bo Staff":0,"Master's Club Weapon — Escrima":0,"Master's Club Weapon — Kama":0,'Custom':0};
 let _editingGearId=null;
 
-function initGearOrders(){if(!DB.gearOrders)DB.gearOrders=[];
-if(!DB.apparelOrders)DB.apparelOrders=[];
-if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
-if(!DB.jotformApiKey)DB.jotformApiKey='';renderGearOrders();}
+function initGearOrders(){if(!DB.gearOrders)DB.gearOrders=[];renderGearOrders();}
 
 function renderGearOrders(){
   if(!DB.gearOrders)DB.gearOrders=[];
@@ -7694,10 +7691,6 @@ function addReminder(){
   const text=(inp?.value||'').trim();
   if(!text)return;
   if(!DB.reminders)DB.reminders=[];
-if(!DB.gearOrders)DB.gearOrders=[];
-if(!DB.apparelOrders)DB.apparelOrders=[];
-if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
-if(!DB.jotformApiKey)DB.jotformApiKey='';
   DB.reminders.unshift({id:Date.now(),text,date:new Date().toISOString().slice(0,10),done:false});
   inp.value='';
   save();renderReminders();
@@ -7716,10 +7709,6 @@ function renderReminders(){
   const el=$('reminders-list');
   if(!el){setTimeout(renderReminders,200);return;}
   if(!DB.reminders)DB.reminders=[];
-if(!DB.gearOrders)DB.gearOrders=[];
-if(!DB.apparelOrders)DB.apparelOrders=[];
-if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
-if(!DB.jotformApiKey)DB.jotformApiKey='';
   const active=DB.reminders.filter(r=>!r.done);
   const done=DB.reminders.filter(r=>r.done);
   if(!DB.reminders.length){
