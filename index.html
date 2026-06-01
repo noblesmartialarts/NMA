@@ -7178,17 +7178,6 @@ function saveClassPlan(){
     notes:_cpDraft.notes||''
   };
   if(!DB.classPlans)DB.classPlans=[];
-if(!DB.classSchedule)DB.classSchedule=[
-  {id:1,day:1,time:'10:00',group:'Legends Club',dur:60},
-  {id:2,day:1,time:'11:00',group:'Little Dragons',dur:30},
-  {id:3,day:1,time:'11:30',group:'Karate Kids',dur:45},
-  {id:4,day:1,time:'12:15',group:'Black Belt Club',dur:60},
-  {id:5,day:1,time:'13:30',group:"Master's Club",dur:60}
-];
-if(!DB.cancelledDays)DB.cancelledDays=[];
-if(!DB.trials)DB.trials=[];
-if(!DB.smsLog)DB.smsLog=[];
-if(!DB.twilioConfig)DB.twilioConfig={sid:'',token:'',from:''};
   if(_cpEditId){const i=DB.classPlans.findIndex(x=>x.id===_cpEditId);if(i>=0)DB.classPlans[i]=plan;}
   else DB.classPlans.unshift(plan);
   save();closeModal('modal-classplan');renderClassPlansList();
