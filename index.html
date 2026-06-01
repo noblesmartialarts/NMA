@@ -7162,26 +7162,42 @@ function cpPickSlot(num,type,label,btn){
   renderClassPlanModal();
 }
 function saveClassPlan(){
-  const plan={
-    id:_cpEditId||Date.now(),
-    group:_cpDraft.group,
-    date:_cpDraft.date||new Date().toISOString().slice(0,10),
-    aiId:_cpDraft.aiId||null,
-    aiName:_cpDraft.aiName||'',
-    testPrep:!!_cpDraft.testPrep,
-    warmup:_cpDraft.warmup||'',
-    slot1Type:_cpDraft.slot1Type||'',
-    slot1Label:_cpDraft.slot1Label||'',
-    slot2Type:_cpDraft.slot2Type||'',
-    slot2Label:_cpDraft.slot2Label||'',
-    finalActivity:_cpDraft.finalActivity||'',
-    notes:_cpDraft.notes||''
-  };
-  if(!DB.classPlans)DB.classPlans=[];
-  if(_cpEditId){const i=DB.classPlans.findIndex(x=>x.id===_cpEditId);if(i>=0)DB.classPlans[i]=plan;}
-  else DB.classPlans.unshift(plan);
-  save();closeModal('modal-classplan');renderClassPlansList();
-  toast(_cpEditId?'Plan updated.':'Plan saved!');
+  try{
+    toast('Saving…');
+    const plan={
+      id:_cpEditId||Date.now(),
+      group:_cpDraft.group||'Little Dragons',
+      date:_cpDraft.date||new Date().toISOString().slice(0,10),
+      aiId:_cpDraft.aiId||null,
+      aiName:_cpDraft.aiName||'',
+      testPrep:!!_cpDraft.testPrep,
+      warmup:_cpDraft.warmup||'',
+      slot1Type:_cpDraft.slot1Type||'',
+      slot1Label:_cpDraft.slot1Label||'',
+      slot2Type:_cpDraft.slot2Type||'',
+      slot2Label:_cpDraft.slot2Label||'',
+      finalActivity:_cpDraft.finalActivity||'',
+      notes:_cpDraft.notes||''
+    };
+    if(!DB.classPlans)DB.classPlans=[];
+    if(_cpEditId){
+      const i=DB.classPlans.findIndex(x=>x.id===_cpEditId);
+      if(i>=0)DB.classPlans[i]=plan;
+      else DB.classPlans.unshift(plan);
+    } else {
+      DB.classPlans.unshift(plan);
+    }
+    closeModal('modal-classplan');
+    save();
+    // Slight delay before render to let modal animation complete
+    setTimeout(function(){
+      nav('classplans');
+      toast(_cpEditId?'Plan updated! ✓':'Plan saved! ✓');
+    }, 50);
+  }catch(e){
+    console.error('saveClassPlan error:',e);
+    toast('Error: '+e.message);
+  }
 }
 function deleteClassPlan(id){
   if(!confirm('Delete this class plan?'))return;
