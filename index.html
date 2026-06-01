@@ -493,6 +493,22 @@ tbody td{font-size:11px!important;}
   <div id="classplans-list"></div>
 </div>
 
+<!-- CLASS PLAN VIEW MODAL -->
+<div class="modal-backdrop" id="modal-classplan-view">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <div class="modal-title" id="cpv-title">Class Plan</div>
+      <button class="btn ghost" onclick="closeModal('modal-classplan-view')">✕</button>
+    </div>
+    <div class="modal-body" id="cpv-body" style="padding:0 24px 24px;"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-classplan-view')">Close</button>
+      <button class="btn" id="cpv-print-btn">🖨 Print</button>
+      <button class="btn primary" id="cpv-edit-btn">Edit</button>
+    </div>
+  </div>
+</div>
+
 <!-- CLASS PLAN BUILDER MODAL -->
 <div class="modal-backdrop" id="modal-classplan" style="align-items:flex-start;padding-top:20px;overflow-y:auto;">
   <div class="modal" style="max-width:680px;width:95%;">
@@ -6513,7 +6529,13 @@ function getSegments(group, plan) {
 }
 
 function initTimer() {
-  if(!DB.classSchedule||!DB.classSchedule.length) return;
+  if(!DB.classSchedule)DB.classSchedule=[
+    {id:1,day:1,time:'10:00',group:'Legends Club',dur:60},
+    {id:2,day:1,time:'11:00',group:'Little Dragons',dur:30},
+    {id:3,day:1,time:'11:30',group:'Karate Kids',dur:45},
+    {id:4,day:1,time:'12:15',group:'Black Belt Club',dur:60},
+    {id:5,day:1,time:'13:30',group:"Master's Club",dur:60}
+  ];
   renderTimerPage();
   startClock();
 }
@@ -6994,7 +7016,7 @@ function renderClassPlansList(){
   el.innerHTML=sorted.map(p=>{
     const dur=_GDlist[p.group]||60;
     const segs=[p.warmup,p.slot1Label,p.slot2Label,p.finalActivity].filter(Boolean);
-    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:10px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+    return `<div onclick="viewClassPlan(${p.id})" style="cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:10px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;transition:border-color .15s;" onmouseenter="this.style.borderColor='#6366f1'" onmouseleave="this.style.borderColor='var(--border)'">
       <div style="flex:1;min-width:200px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
           <strong style="font-size:14px;">${p.group}</strong>
@@ -7005,9 +7027,9 @@ function renderClassPlansList(){
         <div style="font-size:12px;margin-top:6px;color:var(--ink);">${segs.join(' → ')}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
-        <button class="btn small" onclick="printClassPlan(${p.id})">🖨 Print</button>
-        <button class="btn small" onclick="editClassPlan(${p.id})">Edit</button>
-        <button class="btn small" onclick="deleteClassPlan(${p.id})">✕</button>
+        <button class="btn small" onclick="event.stopPropagation();printClassPlan(${p.id})">🖨 Print</button>
+        <button class="btn small" onclick="event.stopPropagation();editClassPlan(${p.id})">Edit</button>
+        <button class="btn small" onclick="event.stopPropagation();deleteClassPlan(${p.id})">✕</button>
       </div>
     </div>`;
   }).join('');
@@ -7267,83 +7289,88 @@ function deleteClassPlan(id){
   save();renderClassPlansList();
 }
 
-function printClassPlan(id){
-  const p=DB.classPlans.find(x=>x.id===id);if(!p)return;
-  const dur=GROUP_DURATION[p.group]||60;
-  const currKey=getGroupCurriculumKey(p.group);
-  const prog=CURRICULUM[currKey];
-  const cycle=prog?prog.cycles.find(c=>c.num===prog.currentCycle)||prog.cycles[0]:null;
-  let times={};
-  if(dur===30){times={warmup:7,slot1:10,slot2:8,final:4,bowout:1};}
-  else if(dur===45){times={warmup:8,slot1:12,slot2:12,final:10,bowout:3};}
-  else{times={warmup:10,slot1:15,slot2:15,final:15,bowout:5};}
 
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Class Plan — ${p.group} ${p.date}</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box;}
-    body{font-family:Georgia,serif;padding:32px;color:#111;max-width:680px;margin:auto;}
-    h1{font-size:22px;margin-bottom:4px;}
-    .sub{font-size:13px;color:#555;margin-bottom:24px;}
-    .seg{display:flex;margin-bottom:14px;gap:14px;align-items:flex-start;}
-    .seg-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;flex-shrink:0;margin-top:2px;}
-    .seg-body{flex:1;}
-    .seg-title{font-weight:700;font-size:15px;}
-    .seg-meta{font-size:12px;color:#666;margin-top:2px;}
-    .seg-content{font-size:14px;margin-top:4px;padding:8px 10px;border:1px solid #ddd;border-radius:6px;background:#f9f9f9;}
-    .notes{margin-top:20px;padding:12px;border:1px dashed #aaa;border-radius:6px;font-size:13px;color:#444;}
-    .eligible{margin-top:8px;font-size:12px;color:#b45309;font-weight:600;}
-    @media print{body{padding:16px;}}
-  </style></head><body>
-  <h1>NMA Class Plan — ${p.group}</h1>
-  <div class="sub">${fmtDate(p.date)} · ${dur} min${p.aiName?' · Jr. Instructor: <strong>'+p.aiName+'</strong>':''}${p.testPrep?' · <span style="color:#b45309;">⚠ TEST PREP MODE</span>':''}</div>
-  ${p.testPrep?`<div class="eligible">Test-eligible students: ${DB.students.filter(s=>s.status==='Active'&&s.group===p.group&&stripeEligible(s)).map(s=>s.first+' '+s.last+' ('+s.belt+')').join(', ')||'None flagged'}</div><br>`:''}
-  ${cycle?`<div style="font-size:12px;color:#555;margin-bottom:16px;">Current cycle: ${prog.program} — ${cycle.label}</div>`:''}
+function viewClassPlan(id) {
+  var p = DB.classPlans.find(function(x){return x.id===id;});
+  if(!p) return;
+  var GD = {'Little Dragons':30,'Karate Kids':45,'Black Belt Club':60,"Master's Club":60,'Legends Club':60};
+  var dur = GD[p.group]||60;
 
-  <div class="seg">
-    <div class="seg-num" style="background:#6366f1;">1</div>
-    <div class="seg-body">
-      <div class="seg-title">Bow In / Warm-Up <span style="font-size:12px;font-weight:400;color:#555;">(${times.warmup} min)</span></div>
-      <div class="seg-meta">${p.aiName?'Led by '+p.aiName:'Led by Head Instructor'}</div>
-      <div class="seg-content">${p.warmup||'—'}</div>
-    </div>
-  </div>
-  <div class="seg">
-    <div class="seg-num" style="background:#0ea5e9;">2</div>
-    <div class="seg-body">
-      <div class="seg-title">Curriculum — Slot 1 <span style="font-size:12px;font-weight:400;color:#555;">(${times.slot1} min)</span></div>
-      <div class="seg-content">${p.slot1Label||'—'}</div>
-    </div>
-  </div>
-  <div class="seg">
-    <div class="seg-num" style="background:#10b981;">3</div>
-    <div class="seg-body">
-      <div class="seg-title">Curriculum — Slot 2${['Black Belt Club',"Master's Club",'Legends Club'].includes(p.group)?' / Sparring':''} <span style="font-size:12px;font-weight:400;color:#555;">(${times.slot2} min)</span></div>
-      <div class="seg-content">${p.slot2Label||'—'}</div>
-    </div>
-  </div>
-  <div class="seg">
-    <div class="seg-num" style="background:#f59e0b;">4</div>
-    <div class="seg-body">
-      <div class="seg-title">Final Activity / Game <span style="font-size:12px;font-weight:400;color:#555;">(${times.final} min)</span></div>
-      <div class="seg-content">${p.finalActivity||'—'}</div>
-    </div>
-  </div>
-  <div class="seg">
-    <div class="seg-num" style="background:#6b7280;">5</div>
-    <div class="seg-body">
-      <div class="seg-title">Bow Out <span style="font-size:12px;font-weight:400;color:#555;">(${times.bowout} min)</span></div>
-    </div>
-  </div>
-  ${p.notes?`<div class="notes"><strong>Instructor Notes:</strong> ${p.notes}</div>`:''}
-  </body></html>`);
-  w.document.close();
-  setTimeout(()=>w.print(),400);
+  $('cpv-title').textContent = p.group + ' — ' + fmtDate(p.date);
+  
+  var segs = [
+    {label:'🥋 Bow In / Warm-Up', val:p.warmup, col:SEG_COLORS[0]},
+    {label:'📚 Curriculum — Slot 1', val:p.slot1Label, col:SEG_COLORS[1]},
+    {label:'📚 Curriculum — Slot 2', val:p.slot2Label, col:SEG_COLORS[2]},
+    {label:'🎮 Final Activity', val:p.finalActivity, col:SEG_COLORS[3]},
+  ];
+  
+  var h = '<div style="margin-top:16px;">';
+  // Meta row
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">';
+  h += '<span class="badge badge-gray">'+dur+' min</span>';
+  if(p.testPrep) h += '<span class="badge" style="background:var(--amber-light);color:var(--amber);">Test Prep</span>';
+  if(p.aiName) h += '<span class="badge" style="background:var(--indigo-light);color:var(--indigo);">⭐ '+p.aiName+'</span>';
+  h += '</div>';
+  
+  // Segments
+  segs.forEach(function(s) {
+    h += '<div style="display:flex;gap:12px;margin-bottom:10px;padding:12px 14px;border-radius:10px;border:1px solid var(--border);align-items:flex-start;">';
+    h += '<div style="width:4px;border-radius:2px;background:'+s.col+';align-self:stretch;flex-shrink:0;"></div>';
+    h += '<div><div style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;">'+s.label+'</div>';
+    h += '<div style="font-size:14px;font-weight:600;margin-top:2px;">'+(s.val||'<span style="color:var(--ink-faint);">Not set</span>')+'</div></div>';
+    h += '</div>';
+  });
+  
+  if(p.notes) {
+    h += '<div style="margin-top:10px;padding:12px 14px;border-radius:10px;background:var(--amber-light);border:1px solid var(--amber);font-size:13px;">';
+    h += '<strong>📝 Notes:</strong> '+p.notes+'</div>';
+  }
+  h += '</div>';
+  
+  $('cpv-body').innerHTML = h;
+  $('cpv-print-btn').onclick = function(){ printClassPlan(id); };
+  $('cpv-edit-btn').onclick = function(){ closeModal('modal-classplan-view'); editClassPlan(id); };
+  $('modal-classplan-view').classList.add('open');
 }
 
-// ══════════════════════════════════════════════════════
-// APPAREL ORDERS (Jotform sync)
-// ══════════════════════════════════════════════════════
+function printClassPlan(id){
+  var p=DB.classPlans.find(function(x){return x.id===id;});if(!p)return;
+  var GD={'Little Dragons':30,'Karate Kids':45,'Black Belt Club':60,"Master's Club":60,'Legends Club':60};
+  var dur=GD[p.group]||60;
+  var segs=[
+    {label:'Bow In / Warm-Up',val:p.warmup,col:'#6366f1'},
+    {label:'Curriculum — Slot 1',val:p.slot1Label,col:'#0ea5e9'},
+    {label:'Curriculum — Slot 2',val:p.slot2Label,col:'#10b981'},
+    {label:'Final Activity',val:p.finalActivity,col:'#f59e0b'},
+    {label:'Bow Out',val:'',col:'#6b7280'}
+  ];
+  var html='<!DOCTYPE html><html><head><title>Class Plan</title><style>'+
+    '*{margin:0;padding:0;box-sizing:border-box;}body{font-family:system-ui,sans-serif;padding:28px;color:#111;max-width:600px;}'+
+    'h1{font-size:20px;margin-bottom:4px;}'+
+    '.meta{font-size:12px;color:#666;margin-bottom:20px;}'+
+    '.seg{display:flex;gap:12px;margin-bottom:10px;padding:12px;border:1px solid #ddd;border-radius:8px;}'+
+    '.bar{width:4px;border-radius:2px;align-self:stretch;flex-shrink:0;}'+
+    '.seg-label{font-size:10px;font-weight:700;text-transform:uppercase;color:#888;letter-spacing:.06em;}'+
+    '.seg-val{font-size:14px;font-weight:600;margin-top:2px;}'+
+    '.notes{margin-top:14px;padding:12px;background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;font-size:13px;}'+
+    '@media print{body{padding:16px;}@page{margin:.5in;}}'+
+  '</style></head><body>'+
+  '<h1>'+p.group+' — Class Plan</h1>'+
+  '<div class="meta">'+fmtDate(p.date)+' · '+dur+' min'+(p.aiName?' · Asst. Instructor: '+p.aiName:'')+(p.testPrep?' · TEST PREP':'')+  '</div>'+
+  segs.filter(function(s){return s.label==='Bow Out'||s.val;}).map(function(s){
+    return '<div class="seg"><div class="bar" style="background:'+s.col+';"></div><div><div class="seg-label">'+s.label+'</div><div class="seg-val">'+(s.val||'Bow out')+'</div></div></div>';
+  }).join('')+
+  (p.notes?'<div class="notes"><strong>Notes:</strong> '+p.notes+'</div>':'')+
+  '</body></html>';
+  var w=window.open('','_blank','width=640,height=800');
+  if(!w){toast('Allow popups to print. Or use your browser print (Cmd+P).');return;}
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(function(){w.print();},300);
+}
+
 function initApparelOrders() {
   if (!DB.apparelOrders) DB.apparelOrders = [];
   if (!DB.apparelOrderStatus) DB.apparelOrderStatus = {};
