@@ -6928,9 +6928,10 @@ function renderClassPlansList(){
     el.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:40px;text-align:center;color:var(--ink-muted);font-size:13px;">No class plans yet — click "+ New Plan" to create your first.</div>';
     return;
   }
+  const _GDlist={'Little Dragons':30,'Karate Kids':45,'Black Belt Club':60,"Master's Club":60,'Legends Club':60};
   const sorted=[...DB.classPlans].sort((a,b)=>b.date.localeCompare(a.date));
   el.innerHTML=sorted.map(p=>{
-    const dur=GROUP_DURATION[p.group]||60;
+    const dur=_GDlist[p.group]||60;
     const segs=[p.warmup,p.slot1Label,p.slot2Label,p.finalActivity].filter(Boolean);
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:10px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
       <div style="flex:1;min-width:200px;">
