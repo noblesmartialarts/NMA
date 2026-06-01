@@ -1735,6 +1735,7 @@ if(!DB.customEmailTemplates)DB.customEmailTemplates=[];
 if(!DB.promotions)DB.promotions=[];
 if(!DB.monthHistory)DB.monthHistory=[];
 if(!DB.curriculumOverrides)DB.curriculumOverrides={};
+if(!DB.curriculumData)DB.curriculumData={};
 if(!DB.classDates)DB.classDates=[];
 if(!DB.commLog)DB.commLog=[];
 if(!DB.challengeOfMonth)DB.challengeOfMonth='';
@@ -3018,6 +3019,12 @@ function saveCurriculumEditor(){
     c.ranks=ranksRaw.split(',').map(r=>r.trim()).filter(Boolean);
   });
   DB.curriculumOverrides[currEditKey]=prog.currentCycle;
+  // Persist the cycle content edits to DB so they survive page reload
+  DB.curriculumData[currEditKey]={
+    program:prog.program,
+    note:prog.note,
+    cycles:prog.cycles.map(c=>Object.assign({},c))
+  };
   save();closeModal('modal-curriculum-editor');renderCurriculum();
   toast('Curriculum saved!');
 }
@@ -3336,6 +3343,18 @@ function importRealRoster(manual){
 
   // Re-apply overrides after load
   Object.entries(DB.curriculumOverrides||{}).forEach(([k,v])=>{if(CURRICULUM[k])CURRICULUM[k].currentCycle=v;});
+  // Re-apply curriculum content edits
+  Object.entries(DB.curriculumData||{}).forEach(([k,data])=>{
+    if(CURRICULUM[k]&&data){
+      if(data.program)CURRICULUM[k].program=data.program;
+      if(data.note!==undefined)CURRICULUM[k].note=data.note;
+      if(data.cycles&&data.cycles.length){
+        data.cycles.forEach((saved,i)=>{
+          if(CURRICULUM[k].cycles[i])Object.assign(CURRICULUM[k].cycles[i],saved);
+        });
+      }
+    }
+  });
 
   // Ensure safe defaults
   if(!DB.scoreboard)DB.scoreboard={label:'',fee:31.50,start:'',end:''};
@@ -3344,6 +3363,7 @@ function importRealRoster(manual){
   if(!DB.promotions)DB.promotions=[];
   if(!DB.monthHistory)DB.monthHistory=[];
   if(!DB.curriculumOverrides)DB.curriculumOverrides={};
+  if(!DB.curriculumData)DB.curriculumData={};
   if(!DB.classDates)DB.classDates=[];
 if(!DB.commLog)DB.commLog=[];
 if(!DB.challengeOfMonth)DB.challengeOfMonth='';
