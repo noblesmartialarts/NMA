@@ -2228,7 +2228,7 @@ function renderRoster(){
       <td><div style="display:flex;align-items:center;gap:4px;">${stripeDots(s.stripes,maxStripes(s),TWO_CYCLE_BELTS.has(s.belt))}<button class="btn ghost" style="font-size:11px;padding:2px 4px;" onclick="adjustStripe(${s.id},-1)">−</button><button class="btn ghost" style="font-size:11px;padding:2px 4px;" onclick="adjustStripe(${s.id},1)">+</button></div></td>
       <td><div class="flags">${flags.join('')}</div></td>
       <td>${regBadge}</td>
-      <td style="white-space:nowrap;">${promo?`<button class="btn small success" onclick="promoteBelt(${s.id})" title="→ ${promo.belt}">→ ${promo.belt}</button> `:''}  <button class="btn small" onclick="openEditStudent(${s.id})">Edit</button> <button class="btn small" onclick="openMergeStudent(${s.id})" title="Merge">⇔</button> <button class="btn small" onclick="deleteStudent(${s.id})">✕</button></td>
+      <td style="white-space:nowrap;">${promo?`<button class="btn small success" onclick="promoteBelt(${s.id})" title="→ ${promo.belt}">→ ${promo.belt}</button> `:''}  <button class="btn small" onclick="toggleStudentActive(${s.id})" style="font-size:10px;">${s.status==='Active'?'⊘ Inactive':'↺ Active'}</button> <button class="btn small" onclick="openEditStudent(${s.id})">Edit</button> <button class="btn small" onclick="openMergeStudent(${s.id})" title="Merge">⇔</button> <button class="btn small" onclick="deleteStudent(${s.id})">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -2311,6 +2311,14 @@ function openAddStudent(){
   $('f-group').value='Little Dragons';$('f-status').value='Active';$('f-registered').value='No';
   $('f-stripes').value='0';$('f-beltsize').value='0';$('f-leader').checked=false;$('f-ai').checked=false;
   updateBeltOptions();$('modal-student').classList.add('open');
+}
+function toggleStudentActive(id){
+  const s=DB.students.find(x=>x.id===id);if(!s)return;
+  const wasActive=s.status==='Active';
+  s.status=wasActive?'Inactive':'Active';
+  addHistory(s,'status',(wasActive?'Marked inactive':'Reactivated'));
+  save();renderRoster();
+  toast(s.first+' '+s.last+' marked '+(wasActive?'inactive':'active')+'.');
 }
 function openEditStudent(id){
   const s=DB.students.find(x=>x.id===id);if(!s)return;editingStudentId=id;
@@ -7924,48 +7932,47 @@ async function syncApparelOrders() {
       // Student names: collect ALL fields with "student" in label (API reuses same label for all 3)
       const studentKeys = Object.keys(ans).filter(k => (ans[k].text||'').toLowerCase().includes('student'));
       const students = studentKeys.map(k => extractVal(ans[k].answer)).filter(Boolean).join(', ');
-      // Products: find config objects with "name" + "price" fields in the space-separated JSON
+      // Products: dual-strategy Jotform parser
       let products = [], paid = false, orderTotal = 0;
       const pk = Object.keys(ans).find(k => (ans[k].text||'').toLowerCase().includes('product'));
       if (pk && ans[pk].answer) {
         try {
           const raw = typeof ans[pk].answer === 'string' ? ans[pk].answer : JSON.stringify(ans[pk].answer);
-          // Check for PAID status anywhere in string
           paid = raw.includes('PAID');
-          // Extract total from "total":"XX.XX" pattern
-          const totM = raw.match(/"total"\s*:\s*"([\d.]+)"/); if(totM) orderTotal = parseFloat(totM[1]);
-          // Extract product names from config objects: find "name":"VALUE" near "price":NUMBER
-          // Use a regex to find name-price pairs
-          const nameRe = /"name"\s*:\s*"([^"]{5,50})"/g;
-          const priceRe = /"price"\s*:\s*(\d+(?:\.\d+)?)/;
-          const qtyRe = /"quantity"\s*:\s*(\d+)/;
-          // Also look for color and size options: "selected":"VALUE"
-          const colorRe = /"name"\s*:\s*"Color"[^}]*"selected"\s*:\s*"([^"]+)"/;
-          const sizeRe = /"name"\s*:\s*"Size"[^}]*"selected"\s*:\s*"([^"]+)"/;
-          // Find a block that has a meaningful name (not a field label) and a price
-          const bigBlock = raw.match(/\{"cid"[^]*?"paymentType"\s*:\s*"product"\}/);
-          if (bigBlock) {
-            const block = bigBlock[0];
-            const nm = block.match(/"name"\s*:\s*"([^"]{5,60})"/);
-            const pr = block.match(/"price"\s*:\s*(\d+(?:\.\d+)?)/);
-            const qt = block.match(/"quantity"\s*:\s*(\d+)/);
-            const col = block.match(/"name"\s*:\s*"Color"[^}]*?"selected"\s*:\s*"([^"]+)"/s);
-            const sz = block.match(/"name"\s*:\s*"Size"[^}]*?"selected"\s*:\s*"([^"]+)"/s);
-            if (nm && pr) {
-              const opts = [];
-              if (col) opts.push('Color: ' + col[1]);
-              if (sz) opts.push('Size: ' + sz[1]);
-              products.push({name: nm[1], price: parseFloat(pr[1])||0, qty: parseInt(qt?qt[1]:'1')||1, options: opts});
-              if (!orderTotal) orderTotal = (parseFloat(pr[1])||0) * (parseInt(qt?qt[1]:'1')||1);
-            }
+          const totM = raw.match(/"total"\s*:\s*"?([\d.]+)"?/); if(totM) orderTotal = parseFloat(totM[1]);
+          // Strategy 1: "product":["Name (Amount: X, Quantity: N, Color: C, Size: S)"] array
+          const prodArrMatch = raw.match(/"product"\s*:\s*\[([\s\S]*?)\]/);
+          if (prodArrMatch) {
+            const strs = [...prodArrMatch[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(m=>m[1]);
+            strs.forEach(function(line) {
+              const nm = line.match(/^([^(]+?)(?:\s*\(|$)/);
+              const amtM = line.match(/Amount[:\s]*([\d.]+)/i);
+              const qtyM = line.match(/Quantity[:\s]*(\d+)/i);
+              const optsM = [...line.matchAll(/,\s*([A-Za-z ]+):\s*([^,)]+)/g)]
+                .filter(function(m){ return !/amount|quantity/i.test(m[1]); })
+                .map(function(m){ return m[1].trim()+': '+m[2].trim(); });
+              if (nm && nm[1].trim().length > 2) {
+                products.push({name:nm[1].trim(), price:amtM?parseFloat(amtM[1]):0, qty:qtyM?parseInt(qtyM[1]):1, options:optsM});
+              }
+            });
           }
-          // Fallback: scan for "summary" product array
+          // Strategy 2: find {cid... paymentType:"product"} config block
           if (!products.length) {
-            const prodArr = raw.match(/"product"\s*:\s*\["([^"]+)"/);
-            if (prodArr) {
-              const line = prodArr[1];
-              const nm2 = line.match(/^([^(]+)/);
-              if (nm2) products.push({name: nm2[1].trim(), price: orderTotal, qty: 1, options: []});
+            const bigBlock = raw.match(/\{"cid"[\s\S]*?"paymentType"\s*:\s*"product"\}/);
+            if (bigBlock) {
+              const block = bigBlock[0];
+              const nm = block.match(/"name"\s*:\s*"([^"]{5,60})"/);
+              const pr = block.match(/"price"\s*:\s*([\d.]+)/);
+              const qt = block.match(/"quantity"\s*:\s*(\d+)/);
+              const col = block.match(/"name"\s*:\s*"Color"[\s\S]*?"selected"\s*:\s*"([^"]+)"/);
+              const sz  = block.match(/"name"\s*:\s*"Size"[\s\S]*?"selected"\s*:\s*"([^"]+)"/);
+              if (nm && pr) {
+                const opts = [];
+                if (col) opts.push('Color: '+col[1]);
+                if (sz)  opts.push('Size: '+sz[1]);
+                products.push({name:nm[1], price:parseFloat(pr[1])||0, qty:parseInt(qt?qt[1]:'1')||1, options:opts});
+                if (!orderTotal) orderTotal = products[0].price * products[0].qty;
+              }
             }
           }
         } catch(e) { console.warn('Product parse error:', e.message); }
@@ -8149,7 +8156,31 @@ function cpUpdateTiming(){
 // ══════════════════════════════════════════════════════
 // GEAR ORDERS
 // ══════════════════════════════════════════════════════
-const GEAR_PRICES={'Purple Belt Package A — $155':155,'Purple Belt Package B — $145':145,'Purple Belt Package C — $125':125,'Purple Belt Package D — $95':95,'BBC Weapon — Nunchaku':0,'BBC Weapon — Bo Staff':0,'BBC Weapon — Escrima':0,"Master's Club Weapon — Nunchaku":0,"Master's Club Weapon — Bo Staff":0,"Master's Club Weapon — Escrima":0,"Master's Club Weapon — Kama":0,'Custom':0};
+var GEAR_CATALOG={
+  'Purple Belt Package A — $155':   {cost:82.29, retail:166.94,price:116.86,desc:'Gear+Uniform+Duffle'},
+  'Purple Belt Package B — $145':   {cost:97.28, retail:196.93,price:137.85,desc:'Gear+Uniform+Mesh'},
+  'Purple Belt Package C — $125':   {cost:82.29, retail:166.94,price:116.86,desc:'Gear Package'},
+  'Purple Belt Package D — $95':    {cost:62.05, retail:116.95,price:86.38, desc:'Gear w/o Uniform'},
+  'BBC Weapon — Nunchaku':          {cost:4.99,  retail:9.99,  price:10.00},
+  'BBC Weapon — Bo Staff':          {cost:20.00, retail:35.00, price:30.00},
+  'BBC Weapon — Escrima':           {cost:4.99,  retail:11.99, price:10.00},
+  "Master's Club Weapon — Nunchaku":{cost:4.99,  retail:9.99,  price:10.00},
+  "Master's Club Weapon — Bo Staff":{cost:20.00, retail:35.00, price:30.00},
+  "Master's Club Weapon — Escrima": {cost:4.99,  retail:11.99, price:10.00},
+  "Master's Club Weapon — Kama":    {cost:34.00, retail:66.00, price:50.00},
+  'BBC Nunchaku Pkg + Duffle':      {cost:109.27,retail:216.92,price:151.84},
+  'BBC Nunchaku Pkg + Mesh':        {cost:102.27,retail:206.92,price:144.84},
+  'BBC Nunchaku Package':           {cost:87.28, retail:176.93,price:123.85},
+  'BBC Escrima Pkg + Duffle':       {cost:109.27,retail:218.92,price:153.24},
+  'BBC Escrima Pkg + Mesh':         {cost:102.27,retail:208.92,price:146.24},
+  'BBC Escrima Package':            {cost:87.28, retail:178.93,price:125.25},
+  "MC Bo Staff Pkg + Duffle":       {cost:124.28,retail:241.93,price:175.00},
+  "MC Bo Staff Pkg + Mesh":         {cost:117.28,retail:231.93,price:165.00},
+  "MC Bo Staff Package":            {cost:102.29,retail:201.94,price:145.00},
+  "MC Bo Staff w/o Uniform":        {cost:82.05, retail:151.95,price:110.00},
+  'Custom':                         {cost:0,     retail:0,     price:0}
+};
+var GEAR_PRICES=Object.fromEntries(Object.entries(GEAR_CATALOG).map(function(e){return[e[0],e[1].price];}));
 let _editingGearId=null;
 
 function initGearOrders(){if(!DB.gearOrders)DB.gearOrders=[];renderGearOrders();}
@@ -8172,10 +8203,15 @@ if(!DB.jotformApiKey)DB.jotformApiKey='';
   const all=DB.gearOrders;
   const totalOwed=all.filter(o=>!o.paid).reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
   const totalPaid=all.filter(o=>o.paid).reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
+  const totalRevenue=all.reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
+  const totalCost=all.reduce((s,o)=>{const cat=GEAR_CATALOG&&GEAR_CATALOG[o.orderType];return s+(cat?cat.cost:0);},0);
+  const totalProfit=totalRevenue-totalCost;
+  const margin=totalRevenue>0?Math.round(totalProfit/totalRevenue*100):0;
   const summary=$('gear-summary');
   if(summary)summary.innerHTML=`
     <div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">Outstanding</div><div class="stat-num" style="color:var(--red);">$${totalOwed.toFixed(2)}</div><div class="stat-sub">${all.filter(o=>!o.paid).length} order(s)</div></div>
     <div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">Collected</div><div class="stat-num" style="color:var(--green);">$${totalPaid.toFixed(2)}</div><div class="stat-sub">${all.filter(o=>o.paid).length} order(s)</div></div>
+    <div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">Est. Profit</div><div class="stat-num" style="color:var(--indigo);">$${totalProfit.toFixed(2)}</div><div class="stat-sub">${margin}% margin</div></div>
     <div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">Total Orders</div><div class="stat-num">${all.length}</div></div>`;
 
   const tbody=$('gear-tbody');if(!tbody)return;
@@ -8192,7 +8228,7 @@ if(!DB.jotformApiKey)DB.jotformApiKey='';
       <td><strong style="font-size:13px;">${o.studentName||'—'}</strong></td>
       <td style="font-size:12px;">${o.orderType||'—'}</td>
       <td style="font-size:11px;color:var(--ink-muted);max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${o.details||''}">${o.details||'—'}</td>
-      <td style="text-align:right;font-weight:600;">${o.amount?'$'+parseFloat(o.amount).toFixed(2):'—'}</td>
+      <td style="text-align:right;"><div style="font-weight:600;">${o.amount?'$'+parseFloat(o.amount).toFixed(2):'—'}</div>${(()=>{const c=GEAR_CATALOG&&GEAR_CATALOG[o.orderType];return c&&c.cost?'<div style="font-size:10px;color:var(--ink-faint);">cost $'+c.cost.toFixed(2)+' · +$'+(parseFloat(o.amount||c.price)-c.cost).toFixed(2)+'</div>':'';})()}</td>
       <td>${payBadge}</td>
       <td>${paidBadge}</td>
       <td style="white-space:nowrap;">
