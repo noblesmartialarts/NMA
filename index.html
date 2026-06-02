@@ -1401,9 +1401,14 @@ tbody td{font-size:11px!important;}
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:24px;">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px;">
       <div class="form-group" style="margin:0;"><label class="form-label">From (Leader / Asst. Instructor)</label><select class="form-select" id="gj-from"><option value="">— Select sender —</option></select></div>
+      <div class="form-group" style="margin:0;"><label class="form-label">Class date <span style="font-weight:400;font-size:10px;color:var(--ink-faint);">(shows present students)</span></label><input type="date" class="form-input" id="gj-date" onchange="gjRebuildToSelect()"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:10px;">
+      <div class="form-group" style="margin:0;"><label class="form-label">Group</label><select class="form-select" id="gj-group" onchange="gjRebuildToSelect()"><option value="">All groups</option><option>Little Dragons</option><option>Karate Kids</option><option>Black Belt Club</option><option>Master's Club</option><option>Legends Club</option></select></div>
+      <div class="form-group" style="margin:0;"><label class="form-label">Search name</label><input class="form-input" id="gj-search" placeholder="Type name…" oninput="gjRebuildToSelect()"></div>
       <div class="form-group" style="margin:0;"><label class="form-label">To (Student)</label><select class="form-select" id="gj-to"><option value="">— Select student —</option></select></div>
     </div>
-    <div style="font-size:10px;color:var(--ink-faint);margin-bottom:12px;">✓ = received a note in the past 60 days — consider someone new</div>
+    <div style="font-size:10px;color:var(--ink-faint);margin-bottom:10px;">✓ = received a note in the past 60 days — consider someone new</div>
     <div style="margin-bottom:10px;">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:6px;">Quick Templates</div>
       <div id="gj-templates" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
@@ -2349,7 +2354,9 @@ function openProfile(id){
   });
   const promo=getPromotion(s);
   const promoHist=(DB.promotions||[]).filter(p=>p.studentId===id).reverse();
-  const hist=(s.history||[]).slice().reverse().slice(0,30);
+  const _allHist=(s.history||[]).slice().reverse().filter(function(h){return h.type!=='class';}).slice(0,50);
+  const hist=_allHist.slice(0,10);
+  const histMore=_allHist.length>10;
   const flags=[];
   if(isAtRisk(s))flags.push('<span class="flag flag-risk">At-risk</span>');
   if(isBBC2(s))flags.push('<span class="flag flag-bbc2">BBC Level II</span>');
@@ -2385,7 +2392,8 @@ function openProfile(id){
     </div>`:''}
     ${hist.length?`<div class="section-divider"><span>Event history</span></div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;">
-      ${hist.map(h=>{const icons={class:'📅',stripe:'⭐',test:'🏆',promo:'🎖',reg:'💳'};return `<div class="hist-row"><span class="hist-icon">${icons[h.type]||'•'}</span><span class="hist-date">${fmtDate(h.date)}</span><span>${h.note}</span></div>`;}).join('')}
+      ${hist.map(h=>{const icons={class:'📅',stripe:'⭐',test:'🏆',promo:'🎖',reg:'💳',note:'📝',assist:'⭐',status:'🔄'};return `<div class="hist-row"><span class="hist-icon">${icons[h.type]||'•'}</span><span class="hist-date">${fmtDate(h.date)}</span><span>${h.note}</span></div>`;}).join('')}
+      ${histMore?`<button onclick="showMoreHistory(${s.id})" id="hist-more-btn" style="font-size:12px;color:var(--link);background:none;border:none;cursor:pointer;padding:4px 0;">Show all history…</button>`:''}
     </div>`:''}
     ${promoHist.length?`<div class="section-divider"><span>Promotion history</span></div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
@@ -2450,7 +2458,7 @@ function saveStudent(){
     if(newNote&&newNote!==oldNote){
       if(!ex.noteHistory)ex.noteHistory=[];
       ex.noteHistory.unshift({id:Date.now(),text:newNote,date:new Date().toISOString().slice(0,10)});
-      data.notes='';
+      // Keep notes field — don't clear it
     }
     DB.students[idx]={...ex,...data};toast('Student updated.');
   } else {
@@ -2633,7 +2641,13 @@ function attToggleLeader(id) {
 function saveAttendance(){
   const date=$('att-date-select')?.value;if(!date){alert('Select a class date first.');return;}
   DB.attendance[date]={...attState};
-  DB.students.forEach(s=>{if(attState[s.id]==='present')addHistory(s,'class','Attended class',date);});
+  // Log attendance but avoid flooding history — skip if already logged this date
+  DB.students.forEach(s=>{
+    if(attState[s.id]==='present'){
+      const alreadyLogged=(s.history||[]).some(function(h){return h.type==='class'&&h.date===date;});
+      if(!alreadyLogged)addHistory(s,'class','Attended class',date);
+    }
+  });
   // Log leader assists
   var grpKey = ($('att-group') && $('att-group').value) || '';
   var assistKey = grpKey ? date+'|'+grpKey : date;
@@ -7169,8 +7183,13 @@ async function sendGoodJobNote() {
   if(toS.email) {
     var subject = 'A special message for '+toS.first+' from Noble\'s Martial Arts';
     try {
-      await gmailSend(toS.email, subject, gjBuildMessage(fromS, toS, msg));
-      emailed = true; toast('Note sent to '+toS.email+' ✓');
+      if(!gmailToken) throw new Error('Gmail not connected — connect Gmail in the Email tab first.');
+      var CRLF='\r\n', body2=gjBuildMessage(fromS,toS,msg);
+      var raw2='From: me'+CRLF+'To: '+toS.email+CRLF+'Subject: '+subject+CRLF+'MIME-Version: 1.0'+CRLF+'Content-Type: text/plain; charset=utf-8'+CRLF+CRLF+body2;
+      var enc2=btoa(unescape(encodeURIComponent(raw2))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+      var res2=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',headers:{Authorization:'Bearer '+gmailToken,'Content-Type':'application/json'},body:JSON.stringify({raw:enc2})});
+      if(!res2.ok) throw new Error('Gmail API error '+res2.status);
+      emailed=true; toast('Note sent to '+toS.email+' ✓');
     } catch(e) { toast('Email failed: '+(e.message||e)+'. Note still saved.'); }
   } else { toast('No email on file — note saved but not emailed.'); }
   if(!DB.goodJobNotes) DB.goodJobNotes = [];
@@ -7184,9 +7203,13 @@ async function sendGoodJobNote() {
 
 function gjClear() {
   if($('gj-from'))$('gj-from').value='';
+  if($('gj-date'))$('gj-date').value='';
+  if($('gj-group'))$('gj-group').value='';
+  if($('gj-search'))$('gj-search').value='';
   if($('gj-to'))$('gj-to').value='';
   if($('gj-message'))$('gj-message').value='';
   if($('gj-preview'))$('gj-preview').style.display='none';
+  gjRebuildToSelect();
 }
 
 function renderGoodJobLog() {
@@ -7246,6 +7269,45 @@ function clearApparelMonthFilter() {
 }
 
 
+
+function gjRebuildToSelect() {
+  var toSel = $('gj-to'); if(!toSel) return;
+  var date = ($('gj-date')&&$('gj-date').value)||'';
+  var group = ($('gj-group')&&$('gj-group').value)||'';
+  var search = ($('gj-search')&&$('gj-search').value||'').toLowerCase();
+  var cutoff = new Date(); cutoff.setDate(cutoff.getDate()-60);
+  var cutoffStr = cutoff.toISOString().slice(0,10);
+  var recentIds = new Set((DB.goodJobNotes||[]).filter(function(n){return n.date>=cutoffStr;}).map(function(n){return n.toId;}));
+  var students = DB.students.filter(function(s){
+    if(s.status!=='Active') return false;
+    if(group && s.group!==group) return false;
+    if(search && !(s.first+' '+s.last).toLowerCase().includes(search)) return false;
+    if(date && DB.attendance[date]) {
+      var att = DB.attendance[date][s.id];
+      if(att !== 'present') return false;
+    }
+    return true;
+  }).sort(function(a,b){return a.last.localeCompare(b.last);});
+  var count = students.length;
+  toSel.innerHTML = '<option value="">— Select student ('+(date?count+' present':count+' students')+') —</option>' +
+    students.map(function(s){
+      var r = recentIds.has(s.id);
+      return '<option value="'+s.id+'">'+(r?'✓ ':'')+s.first+' '+s.last+(r?' (recent)':'')+'</option>';
+    }).join('');
+}
+
+function showMoreHistory(studentId) {
+  var s = DB.students.find(function(x){return x.id===studentId;}); if(!s) return;
+  var allHist = (s.history||[]).slice().reverse().filter(function(h){return h.type!=='class';});
+  var icons = {class:'📅',stripe:'⭐',test:'🏆',promo:'🎖',reg:'💳',note:'📝',assist:'⭐',status:'🔄'};
+  var container = document.getElementById('hist-more-btn');
+  if(container) {
+    var rows = allHist.map(function(h){
+      return '<div class="hist-row"><span class="hist-icon">'+(icons[h.type]||'•')+'</span><span class="hist-date">'+fmtDate(h.date)+'</span><span>'+h.note+'</span></div>';
+    }).join('');
+    container.outerHTML = rows;
+  }
+}
 // ══════════════════════════════════════════════════════
 // CLASS TIMER
 // ══════════════════════════════════════════════════════
@@ -8365,7 +8427,9 @@ function renderApparelOrders() {
   const search = ($('apparel-search')?.value || '').toLowerCase();
   const filterStatus = $('apparel-filter-status')?.value || '';
 
+  const filterMonth = ($('apparel-filter-month')?.value || '');
   let orders = [...DB.apparelOrders];
+  if (filterMonth) orders = orders.filter(o => o.date && o.date.startsWith(filterMonth));
   if (search) orders = orders.filter(o =>
     (o.parentName || '').toLowerCase().includes(search) ||
     (o.students || '').toLowerCase().includes(search) ||
