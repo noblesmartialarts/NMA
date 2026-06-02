@@ -318,6 +318,7 @@ tbody td{font-size:11px!important;}
     <div class="nav-item" data-page="roster" onclick="nav('roster')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Roster</span></div>
     <div class="nav-item" data-page="leaders" onclick="nav('leaders')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Leaders</span></div>
     <div class="nav-item" data-page="assistlog" onclick="nav('assistlog')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assist Log</span></div>
+    <div class="nav-item" data-page="goodjob" onclick="nav('goodjob')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg><span>Good Job</span></div>
     <div class="nav-item" data-page="classplans" onclick="nav('classplans')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="16" y2="18"/></svg><span>Class Plans</span></div>
     <div class="nav-item" data-page="timer" onclick="nav('timer')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 14.5 15.5"/><path d="M5 3l4 2M19 3l-4 2"/></svg><span>Class Timer</span></div>
     <div class="nav-item" data-page="attendance" onclick="nav('attendance')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Attendance</span></div>
@@ -428,6 +429,38 @@ tbody td{font-size:11px!important;}
       <button class="btn primary" onclick="saveAssistLog()">Save</button>
     </div>
   </div>
+</div>
+
+<!-- GOOD JOB NOTES -->
+<div id="page-goodjob" class="page">
+  <div class="page-header">
+    <div><div class="page-title">Good Job Notes</div><div class="page-subtitle">Send a personal recognition message from a student leader to a student</div></div>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:24px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px;">
+      <div class="form-group" style="margin:0;"><label class="form-label">From (Leader / Asst. Instructor)</label><select class="form-select" id="gj-from"><option value="">— Select sender —</option></select></div>
+      <div class="form-group" style="margin:0;"><label class="form-label">To (Student)</label><select class="form-select" id="gj-to"><option value="">— Select student —</option></select></div>
+    </div>
+    <div style="font-size:10px;color:var(--ink-faint);margin-bottom:12px;">✓ = received a note in the past 60 days — consider someone new</div>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:6px;">Quick Templates</div>
+      <div id="gj-templates" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label class="form-label">Message</label>
+      <textarea class="form-input" id="gj-message" rows="4" placeholder="Write your message, or pick a template above…" oninput="gjUpdatePreview()"></textarea>
+    </div>
+    <div id="gj-preview" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:6px;">Email preview</div>
+      <div id="gj-preview-body" style="white-space:pre-wrap;line-height:1.6;color:var(--ink-muted);"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn" onclick="gjClear()">Clear</button>
+      <button class="btn primary" onclick="sendGoodJobNote()">✉ Send Note</button>
+    </div>
+  </div>
+  <div class="section-divider"><span>Sent Notes</span></div>
+  <div id="gj-log"></div>
 </div>
 
 <!-- CLASS TIMER -->
@@ -756,6 +789,8 @@ tbody td{font-size:11px!important;}
   <!-- Filters -->
   <div class="table-toolbar" style="border-radius:12px 12px 0 0;margin-bottom:0;">
     <input type="text" id="apparel-search" placeholder="Search name or product…" oninput="renderApparelOrders()" style="width:200px;">
+    <input type="month" id="apparel-filter-month" class="form-input" style="width:150px;" onchange="renderApparelOrders()">
+    <button class="btn small" onclick="clearApparelMonthFilter()" style="font-size:11px;">✕ Month</button>
     <select id="apparel-filter-status" class="form-select" style="width:160px;" onchange="renderApparelOrders()">
       <option value="">All orders</option>
       <option value="pending">Pending fulfillment</option>
@@ -1358,6 +1393,38 @@ tbody td{font-size:11px!important;}
   </div>
 </div>
 
+<!-- GOOD JOB NOTES -->
+<div id="page-goodjob" class="page">
+  <div class="page-header">
+    <div><div class="page-title">Good Job Notes</div><div class="page-subtitle">Send a personal recognition message from a student leader to a student</div></div>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:24px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px;">
+      <div class="form-group" style="margin:0;"><label class="form-label">From (Leader / Asst. Instructor)</label><select class="form-select" id="gj-from"><option value="">— Select sender —</option></select></div>
+      <div class="form-group" style="margin:0;"><label class="form-label">To (Student)</label><select class="form-select" id="gj-to"><option value="">— Select student —</option></select></div>
+    </div>
+    <div style="font-size:10px;color:var(--ink-faint);margin-bottom:12px;">✓ = received a note in the past 60 days — consider someone new</div>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:6px;">Quick Templates</div>
+      <div id="gj-templates" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label class="form-label">Message</label>
+      <textarea class="form-input" id="gj-message" rows="4" placeholder="Write your message, or pick a template above…" oninput="gjUpdatePreview()"></textarea>
+    </div>
+    <div id="gj-preview" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:6px;">Email preview</div>
+      <div id="gj-preview-body" style="white-space:pre-wrap;line-height:1.6;color:var(--ink-muted);"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn" onclick="gjClear()">Clear</button>
+      <button class="btn primary" onclick="sendGoodJobNote()">✉ Send Note</button>
+    </div>
+  </div>
+  <div class="section-divider"><span>Sent Notes</span></div>
+  <div id="gj-log"></div>
+</div>
+
 <!-- CLASS TIMER -->
 
 
@@ -1385,8 +1452,10 @@ tbody td{font-size:11px!important;}
         <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="f-status"><option>Active</option><option>Inactive</option></select></div>
         <div class="form-group"><label class="form-label">Registered?</label><select class="form-select" id="f-registered"><option>Yes</option><option>No</option></select></div>
         <div class="form-group full" style="flex-direction:row;gap:18px;"><label class="checkbox-row"><input type="checkbox" id="f-leader"> Student Leader</label><label class="checkbox-row"><input type="checkbox" id="f-ai"> Asst. Instructor</label></div>
-        <div class="form-group full"><label class="form-label">Notes</label><textarea class="form-input" id="f-notes" rows="2" style="resize:vertical;"></textarea></div>
+        <div class="form-group full"><label class="form-label">Quick note</label><textarea class="form-input" id="f-notes" rows="2" style="resize:vertical;" placeholder="Add a note — it will be timestamped and logged"></textarea></div>
       </div>
+      <div id="student-note-history" style="margin-top:16px;display:none;"><div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:8px;">Note History</div><div id="student-note-list" style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div></div>
+      <div id="student-orders-section" style="margin-top:16px;display:none;"><div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:8px;">Apparel Orders</div><div id="student-orders-list"></div></div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('modal-student')">Cancel</button><button class="btn primary" onclick="saveStudent()">Save</button></div>
   </div>
@@ -1935,6 +2004,7 @@ if(!DB.monthHistory)DB.monthHistory=[];
 if(!DB.curriculumOverrides)DB.curriculumOverrides={};
 if(!DB.curriculumData)DB.curriculumData={};
 if(!DB.beltConfig)DB.beltConfig={groups:{},colors:{},crossGroup:{}};
+if(!DB.goodJobNotes)DB.goodJobNotes=[];
 if(!DB.classDates)DB.classDates=[];
 if(!DB.commLog)DB.commLog=[];
 if(!DB.challengeOfMonth)DB.challengeOfMonth='';
@@ -2055,7 +2125,7 @@ function nav(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+page).classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,trials:initTrials};
+  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,trials:initTrials,goodjob:initGoodJob};
   fns[page]?.();
 }
 
@@ -2357,6 +2427,7 @@ function toggleStudentActive(id){
   save();renderRoster();
   toast(s.first+' '+s.last+' marked '+(wasActive?'inactive':'active')+'.');
 }
+function viewStudent(id){openEditStudent(id);}
 function openEditStudent(id){
   const s=DB.students.find(x=>x.id===id);if(!s)return;editingStudentId=id;
   $('student-modal-title').textContent='Edit Student';
@@ -2372,8 +2443,19 @@ function saveStudent(){
   const first=$('f-first').value.trim(),last=$('f-last').value.trim();
   if(!first||!last){alert('First and last name required.');return;}
   const data={first,last,parent:$('f-parent').value.trim(),email:$('f-email').value.trim(),phone:$('f-phone').value.trim(),group:$('f-group').value,belt:$('f-belt').value,stripes:parseInt($('f-stripes').value),beltSize:$('f-beltsize').value,uniformSize:$('f-uniformsize').value.trim(),status:$('f-status').value,registered:$('f-registered').value,leader:$('f-leader').checked,ai:$('f-ai').checked,firstDate:$('f-firstdate').value,dob:$('f-dob').value,notes:$('f-notes').value.trim()};
-  if(editingStudentId){const idx=DB.students.findIndex(s=>s.id===editingStudentId);DB.students[idx]={...DB.students[idx],...data};toast('Student updated.');}
-  else{data.id=DB.nextId++;data.history=[];DB.students.push(data);toast('Student added!');}
+  if(editingStudentId){
+    const idx=DB.students.findIndex(s=>s.id===editingStudentId);
+    const ex=DB.students[idx];
+    const oldNote=(ex.notes||'').trim(), newNote=(data.notes||'').trim();
+    if(newNote&&newNote!==oldNote){
+      if(!ex.noteHistory)ex.noteHistory=[];
+      ex.noteHistory.unshift({id:Date.now(),text:newNote,date:new Date().toISOString().slice(0,10)});
+      data.notes='';
+    }
+    DB.students[idx]={...ex,...data};toast('Student updated.');
+  } else {
+    data.id=DB.nextId++;data.history=[];data.noteHistory=[];DB.students.push(data);toast('Student added!');
+  }
   save();closeModal('modal-student');renderRoster();
 }
 
@@ -4307,7 +4389,7 @@ function showRosterPreview(parsed){
         if(d.email&&d.email!==s.email){s.email=d.email;updated=true;}
         if(d.phone&&d.phone!==s.phone){s.phone=d.phone;updated=true;}
         if(d.parent&&d.parent!==s.parent){s.parent=d.parent;updated=true;}
-        if(d.dob&&d.dob!==s.dob){s.dob=d.dob;updated=true;}
+        if(d.dob){s.dob=d.dob;updated=true;}
       }
       return updated;
     }
@@ -6994,6 +7076,173 @@ function deleteAssistEntry(date) {
   save();
   renderAssistProgressCards();
   renderAssistLog();
+}
+
+
+// ══════════════════════════════════════════════════════
+// GOOD JOB NOTES
+// ══════════════════════════════════════════════════════
+var GJ_TEMPLATES = [
+  {label:"Great effort! 🥋", text:"I just wanted to say you worked incredibly hard in class today. Your effort and dedication really stood out. Keep it up — you're doing amazing!"},
+  {label:"Technique improving 📈", text:"I've been watching your technique and the improvement is really showing. You should be proud of how far you've come. Keep focusing and the results will keep getting better!"},
+  {label:"Great attitude 💪", text:"Your attitude in class today was awesome. You stayed focused, kept trying even when things got tough, and that's exactly what being a martial artist is about. That attitude will take you far!"},
+  {label:"Helped a classmate 🤝", text:"I noticed how you helped your classmate today without being asked. That's what student leadership looks like — you lifted someone else up, which made the whole class better. Really proud of you!"},
+  {label:"Energy & focus 🔥", text:"The energy and focus you brought to class today was contagious. You were locked in from start to finish. That's the kind of effort that earns belts. Awesome class!"},
+  {label:"Never gave up 🏆", text:"Today wasn't easy, but you never gave up. You got back up every time, kept trying, and finished strong. That kind of toughness is what separates good martial artists from great ones. So proud of you!"}
+];
+
+function initGoodJob() {
+  if(!DB.goodJobNotes) DB.goodJobNotes = [];
+  renderGoodJobSelects();
+  renderGoodJobLog();
+  setTimeout(function(){
+    var el = $('gj-templates'); if(!el) return;
+    el.innerHTML = GJ_TEMPLATES.map(function(t,i){
+      return '<button data-i="'+i+'" style="padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:var(--surface);font-size:11px;cursor:pointer;">'+t.label+'</button>';
+    }).join('');
+    el.querySelectorAll('[data-i]').forEach(function(btn){
+      btn.addEventListener('click', function(){ gjUseTemplate(GJ_TEMPLATES[+this.dataset.i].text); });
+    });
+  }, 100);
+}
+
+function gjUseTemplate(text) {
+  if($('gj-message')) $('gj-message').value = text;
+  gjUpdatePreview();
+}
+
+function renderGoodJobSelects() {
+  var fromSel = $('gj-from'), toSel = $('gj-to');
+  if(!fromSel || !toSel) return;
+  var leaders = DB.students.filter(function(s){ return s.status==='Active' && (s.leader||s.ai); });
+  fromSel.innerHTML = '<option value="">— Select sender —</option>' +
+    leaders.map(function(s){
+      return '<option value="'+s.id+'">' + s.first+' '+s.last+' ('+(s.ai?'Asst. Instructor':'Student Leader')+')</option>';
+    }).join('');
+  var cutoff = new Date(); cutoff.setDate(cutoff.getDate()-60);
+  var cutoffStr = cutoff.toISOString().slice(0,10);
+  var recentIds = new Set((DB.goodJobNotes||[]).filter(function(n){return n.date>=cutoffStr;}).map(function(n){return n.toId;}));
+  var students = DB.students.filter(function(s){return s.status==='Active';}).sort(function(a,b){return a.last.localeCompare(b.last);});
+  toSel.innerHTML = '<option value="">— Select student —</option>' +
+    students.map(function(s){
+      var r = recentIds.has(s.id);
+      return '<option value="'+s.id+'">'+(r?'✓ ':'')+s.first+' '+s.last+' — '+s.group+(r?' (recent)':'')+'</option>';
+    }).join('');
+  fromSel.onchange = gjUpdatePreview;
+  toSel.onchange = gjUpdatePreview;
+}
+
+function gjUpdatePreview() {
+  var fromId = parseInt($('gj-from')&&$('gj-from').value)||0;
+  var toId = parseInt($('gj-to')&&$('gj-to').value)||0;
+  var msg = ($('gj-message')&&$('gj-message').value.trim())||'';
+  var preview = $('gj-preview'), body = $('gj-preview-body');
+  if(!fromId||!toId||!msg||!preview||!body){if(preview)preview.style.display='none';return;}
+  var fromS = DB.students.find(function(x){return x.id===fromId;});
+  var toS = DB.students.find(function(x){return x.id===toId;});
+  if(!fromS||!toS) return;
+  preview.style.display='block';
+  body.textContent = gjBuildMessage(fromS, toS, msg);
+}
+
+function gjBuildMessage(fromS, toS, msg) {
+  var role = fromS.ai ? 'Assistant Instructor' : 'Student Leader';
+  return 'Dear '+(toS.parent||(toS.first+"'s family"))+',\n\n'
+    +fromS.first+' '+fromS.last+', one of our '+role+'s at Noble\'s Martial Arts, wanted to send a personal message to '+toS.first+':\n\n'
+    +'"'+msg.trim()+'"\n\n'
+    +'We\'re proud of the hard work and dedication '+toS.first+' shows in class. '
+    +'It\'s a pleasure to have them as part of our NMA family.\n\n'
+    +'Warm regards,\n'+fromS.first+' '+fromS.last+'\n'+role+', Noble\'s Martial Arts';
+}
+
+async function sendGoodJobNote() {
+  var fromId = parseInt($('gj-from')&&$('gj-from').value)||0;
+  var toId = parseInt($('gj-to')&&$('gj-to').value)||0;
+  var msg = ($('gj-message')&&$('gj-message').value.trim())||'';
+  if(!fromId){toast('Select a sender first.');return;}
+  if(!toId){toast('Select a recipient first.');return;}
+  if(!msg){toast('Write a message first.');return;}
+  var fromS = DB.students.find(function(x){return x.id===fromId;});
+  var toS = DB.students.find(function(x){return x.id===toId;});
+  if(!fromS||!toS) return;
+  var emailed = false;
+  if(toS.email) {
+    var subject = 'A special message for '+toS.first+' from Noble\'s Martial Arts';
+    try {
+      await gmailSend(toS.email, subject, gjBuildMessage(fromS, toS, msg));
+      emailed = true; toast('Note sent to '+toS.email+' ✓');
+    } catch(e) { toast('Email failed: '+(e.message||e)+'. Note still saved.'); }
+  } else { toast('No email on file — note saved but not emailed.'); }
+  if(!DB.goodJobNotes) DB.goodJobNotes = [];
+  var note = {id:Date.now(), date:new Date().toISOString().slice(0,10),
+    fromId:fromId, fromName:fromS.first+' '+fromS.last,
+    toId:toId, toName:toS.first+' '+toS.last, message:msg, emailed:emailed};
+  DB.goodJobNotes.unshift(note);
+  addHistory(toS,'note','Good Job note from '+fromS.first+' '+fromS.last+': "'+msg.slice(0,60)+(msg.length>60?'...':'')+'"');
+  save(); gjClear(); renderGoodJobLog(); renderGoodJobSelects();
+}
+
+function gjClear() {
+  if($('gj-from'))$('gj-from').value='';
+  if($('gj-to'))$('gj-to').value='';
+  if($('gj-message'))$('gj-message').value='';
+  if($('gj-preview'))$('gj-preview').style.display='none';
+}
+
+function renderGoodJobLog() {
+  var el = $('gj-log'); if(!el) return;
+  if(!DB.goodJobNotes||!DB.goodJobNotes.length){
+    el.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;text-align:center;color:var(--ink-muted);font-size:13px;">No notes sent yet.</div>';
+    return;
+  }
+  el.innerHTML = DB.goodJobNotes.slice(0,50).map(function(n){
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:8px;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
+        +'<div style="font-size:13px;"><strong>To:</strong> '+n.toName+' &nbsp;·&nbsp; <strong>From:</strong> '+n.fromName+'</div>'
+        +'<div style="font-size:11px;color:var(--ink-faint);">'+fmtDate(n.date)+(n.emailed?' · ✉ Emailed':' · Not emailed')+'</div>'
+      +'</div>'
+      +'<div style="font-size:13px;color:var(--ink-muted);font-style:italic;">"'+n.message+'"</div>'
+    +'</div>';
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// STUDENT EXTRAS — NOTE HISTORY + ORDER HISTORY
+// ══════════════════════════════════════════════════════
+function loadStudentExtras(id) {
+  var s = DB.students.find(function(x){return x.id===id;});
+  if(!s) return;
+  var noteSection = $('student-note-history'), noteList = $('student-note-list');
+  var history = s.noteHistory || [];
+  if(history.length && noteSection && noteList) {
+    noteSection.style.display='block';
+    noteList.innerHTML = history.map(function(n){
+      return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">'
+        +'<div style="font-size:11px;color:var(--ink-faint);margin-bottom:3px;">'+fmtDate(n.date)+'</div>'
+        +'<div style="font-size:13px;">'+n.text+'</div></div>';
+    }).join('');
+  } else if(noteSection) { noteSection.style.display='none'; }
+  var ordSection = $('student-orders-section'), ordList = $('student-orders-list');
+  if(ordSection && ordList && s.email) {
+    var orders = (DB.apparelOrders||[]).filter(function(o){
+      return (o.email||'').toLowerCase()===(s.email||'').toLowerCase();
+    }).sort(function(a,b){return b.date.localeCompare(a.date);});
+    if(orders.length) {
+      ordSection.style.display='block';
+      ordList.innerHTML = orders.map(function(o){
+        var items=(o.products||[]).map(function(p){return p.name+(p.options&&p.options.length?' ('+p.options.join(', ')+')':'');}).join(', ');
+        return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">'
+          +'<div><strong>'+fmtDate(o.date)+'</strong><span style="color:var(--ink-muted);margin-left:8px;">'+(items||'—')+'</span></div>'
+          +'<strong>'+(o.total?'$'+parseFloat(o.total).toFixed(2):'—')+'</strong></div>';
+      }).join('');
+    } else { ordSection.style.display='none'; }
+  } else if(ordSection) { ordSection.style.display='none'; }
+}
+
+// ── Apparel monthly filter helper ────────────────────
+function clearApparelMonthFilter() {
+  var el=$('apparel-filter-month'); if(el)el.value='';
+  renderApparelOrders();
 }
 
 
