@@ -1447,7 +1447,7 @@ tbody td{font-size:11px!important;}
         <div class="form-group"><label class="form-label">Uniform size</label><input class="form-input" id="f-uniformsize" placeholder="e.g. YS, AM"></div>
         <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="f-status"><option>Active</option><option>Inactive</option></select></div>
         <div class="form-group"><label class="form-label">Registered?</label><select class="form-select" id="f-registered"><option>Yes</option><option>No</option></select></div>
-        <div class="form-group full" style="flex-direction:row;gap:18px;"><label class="checkbox-row"><input type="checkbox" id="f-leader"> Student Leader</label><label class="checkbox-row"><input type="checkbox" id="f-ai"> Asst. Instructor</label></div>
+        <div class="form-group full" style="flex-direction:row;gap:18px;flex-wrap:wrap;"><label class="checkbox-row"><input type="checkbox" id="f-leader"> Student Leader</label><label class="checkbox-row"><input type="checkbox" id="f-ai"> Asst. Instructor</label><label class="checkbox-row"><input type="checkbox" id="f-instructor"> Instructor</label><label class="checkbox-row"><input type="checkbox" id="f-jrinstructor"> Jr. Instructor</label><label class="checkbox-row"><input type="checkbox" id="f-masterinstructor"> Master Instructor</label></div>
         <div class="form-group full"><label class="form-label">Quick note</label><textarea class="form-input" id="f-notes" rows="2" style="resize:vertical;" placeholder="Add a note — it will be timestamped and logged"></textarea></div>
       </div>
       <div id="student-note-history" style="margin-top:16px;display:none;"><div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:8px;">Note History</div><div id="student-note-list" style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div></div>
@@ -2386,11 +2386,13 @@ function openProfile(id){
       ${(s.noteHistory&&s.noteHistory.length)?`<div style="margin-bottom:12px;"><div class="section-divider" style="margin:8px 0 6px;"><span>Notes</span></div>${s.noteHistory.slice(0,5).map(n=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="font-size:11px;color:var(--ink-faint);margin-right:8px;">${fmtDate(n.date)}</span>${n.text}</div>`).join('')}${s.noteHistory.length>5?`<div style="font-size:11px;color:var(--link);padding:4px 0;">+${s.noteHistory.length-5} more (edit profile to view all)</div>`:''}</div>`:''}
       ${hist.map(h=>{const icons={class:'📅',stripe:'⭐',test:'🏆',promo:'🎖',reg:'💳',note:'📝',assist:'⭐',status:'🔄'};return `<div class="hist-row"><span class="hist-icon">${icons[h.type]||'•'}</span><span class="hist-date">${fmtDate(h.date)}</span><span>${h.note}</span></div>`;}).join('')}
       ${histMore?`<button onclick="showMoreHistory(${s.id})" id="hist-more-btn" style="font-size:12px;color:var(--link);background:none;border:none;cursor:pointer;padding:4px 0;">Show all history…</button>`:''}
+      <div id="profile-orders-section-${s.id}" style="margin-top:12px;"></div>
     </div>`:''}
     ${promoHist.length?`<div class="section-divider"><span>Promotion history</span></div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
       ${promoHist.map(p=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="font-size:12px;color:var(--ink-muted);min-width:70px;">${fmtDate(p.date)}</span><span class="belt-pill" style="${beltStyle(p.fromBelt)};font-size:11px;">${p.fromBelt}</span><span style="color:var(--ink-faint);">→</span><span class="belt-pill" style="${beltStyle(p.toBelt)};font-size:11px;">${p.toBelt}</span>${p.toGroup!==p.fromGroup?`<span class="badge badge-blue" style="font-size:10px;">${p.toGroup}</span>`:''}</div>`).join('')}
     </div>`:''}`;
+  renderProfileOrders(s);
 }
 
 function adjustStripe(id,delta){
@@ -2416,7 +2418,7 @@ function openAddStudent(){
   ['f-first','f-last','f-parent','f-email','f-phone','f-notes','f-uniformsize'].forEach(id=>$(id).value='');
   $('f-firstdate').value=new Date().toISOString().slice(0,10);
   $('f-group').value='Little Dragons';$('f-status').value='Active';$('f-registered').value='No';
-  $('f-stripes').value='0';$('f-beltsize').value='0';$('f-leader').checked=false;$('f-ai').checked=false;
+  $('f-stripes').value='0';$('f-beltsize').value='0';$('f-leader').checked=false;$('f-ai').checked=false;if($('f-instructor'))$('f-instructor').checked=false;if($('f-jrinstructor'))$('f-jrinstructor').checked=false;if($('f-masterinstructor'))$('f-masterinstructor').checked=false;
   updateBeltOptions();$('modal-student').classList.add('open');
 }
 function toggleStudentActive(id){
@@ -2436,13 +2438,16 @@ function openEditStudent(id){
   $('f-firstdate').value=s.firstDate||'';$('f-dob').value=s.dob||'';$('f-group').value=s.group;$('f-status').value=s.status;
   $('f-registered').value=s.registered;$('f-stripes').value=s.stripes;
   $('f-beltsize').value=s.beltSize||'0';$('f-uniformsize').value=s.uniformSize||'';
-  $('f-leader').checked=s.leader;$('f-ai').checked=s.ai;
+  $('f-leader').checked=s.leader||false;$('f-ai').checked=s.ai||false;
+  if($('f-instructor'))$('f-instructor').checked=s.instructor||false;
+  if($('f-jrinstructor'))$('f-jrinstructor').checked=s.jrInstructor||false;
+  if($('f-masterinstructor'))$('f-masterinstructor').checked=s.masterInstructor||false;
   updateBeltOptions();$('f-belt').value=s.belt;$('modal-student').classList.add('open');
 }
 function saveStudent(){
   const first=$('f-first').value.trim(),last=$('f-last').value.trim();
   if(!first||!last){alert('First and last name required.');return;}
-  const data={first,last,parent:$('f-parent').value.trim(),email:$('f-email').value.trim(),phone:$('f-phone').value.trim(),group:$('f-group').value,belt:$('f-belt').value,stripes:parseInt($('f-stripes').value),beltSize:$('f-beltsize').value,uniformSize:$('f-uniformsize').value.trim(),status:$('f-status').value,registered:$('f-registered').value,leader:$('f-leader').checked,ai:$('f-ai').checked,firstDate:$('f-firstdate').value,dob:$('f-dob').value,notes:$('f-notes').value.trim()};
+  const data={first,last,parent:$('f-parent').value.trim(),email:$('f-email').value.trim(),phone:$('f-phone').value.trim(),group:$('f-group').value,belt:$('f-belt').value,stripes:parseInt($('f-stripes').value),beltSize:$('f-beltsize').value,uniformSize:$('f-uniformsize').value.trim(),status:$('f-status').value,registered:$('f-registered').value,leader:$('f-leader').checked,ai:$('f-ai').checked,instructor:$('f-instructor')&&$('f-instructor').checked,jrInstructor:$('f-jrinstructor')&&$('f-jrinstructor').checked,masterInstructor:$('f-masterinstructor')&&$('f-masterinstructor').checked,firstDate:$('f-firstdate').value,dob:$('f-dob').value,notes:$('f-notes').value.trim()};
   if(editingStudentId){
     const idx=DB.students.findIndex(s=>s.id===editingStudentId);
     const ex=DB.students[idx];
@@ -2599,7 +2604,7 @@ function renderAttLeaders() {
   if(!section || !list) return;
   var grpVal = ($('att-group') && $('att-group').value) || '';
   var leaders = DB.students.filter(function(s){
-    return s.status==='Active' && (s.leader || s.ai);
+    return s.status==='Active' && (s.leader || s.jrInstructor);
   });
   if(!leaders.length || !grpVal) { section.style.display='none'; return; }
   section.style.display = 'block';
@@ -2745,7 +2750,7 @@ function renderCiLeaders() {
   var list = $('ci-leader-list');
   if(!section || !list) return;
   var leaders = DB.students.filter(function(s){
-    return s.status==='Active' && (s.leader || s.ai);
+    return s.status==='Active' && (s.leader || s.jrInstructor);
   });
   if(!leaders.length) { section.style.display='none'; return; }
   section.style.display = 'block';
@@ -3019,11 +3024,11 @@ function deleteInvoice(id){if(!confirm('Delete this invoice?'))return;DB.invoice
 // EMAILS
 // ══════════════════════════════════════════════════════
 const BUILTIN_TEMPLATES=[
-  {id:'welcome',name:'New student welcome',subject:s=>`Welcome to Noble's Martial Arts!`,body:s=>`Hi ${s.parent||'there'},\n\nWelcome to Noble's Martial Arts! We're so excited to have ${s.first} joining us as a new ${s.group} student.\n\n${s.first} is starting as a ${s.belt} belt. The journey ahead is fantastic!\n\nArrive 5 minutes early, bring water, and wear comfortable clothing.\n\nAny questions — just reply here.\n\n— Master Noble\nNoble's Martial Arts`},
-  {id:'missed_reg',name:'Missed registration',subject:s=>`${s.first} — ${DB.scoreboard.label||'This Month'}'s NMA Registration`,body:s=>`Dear NMA Parents,\n\nI hope this message finds you well! If you're receiving this automated email, it's because your student's name(s) weren't on the roster that I received from the Town of Wake Forest for our ${DB.scoreboard.label||'upcoming'} session.\n\nIf this was simply an oversight or something slipped through the cracks, no worries at all — just let me know and we can work together on next steps. I understand how busy things can get and I'm always happy to help. Also, if you already told me that you were taking the month off or something similar, you're good!\n\nIf your child isn't planning on continuing at this time, that's completely okay as well. We've truly enjoyed having them in class, and if you're open to it, I'd love to hear your thoughts on the program and what influenced the decision. Your feedback is always appreciated and helps us continue to grow and improve.\n\nPlease feel free to reply to this email whenever it's convenient for you.\n\nThank you for your continued support for Noble's Martial Arts!\n\nWarm regards,\nMaster Noble\nNoble's Martial Arts`},
-  {id:'stripe',name:'Stripe earned!',subject:s=>`${s.first} earned a stripe today! 🎉`,body:s=>`Hi ${s.parent||'there'},\n\n${s.first} earned a stripe today! They're now at ${s.stripes} stripe(s) on their ${s.belt} belt.\n\n${s.stripes>=maxStripes(s)?`With ${s.stripes} stripes, ${s.first} is now eligible for their next test!`:'They are building momentum!'}\n\nCelebrate with them tonight — they earned it!\n\n— Master Noble`},
-  {id:'belt_test',name:'Belt test invitation',subject:s=>`${s.first} is eligible to test for their next belt!`,body:(s,events)=>{const next=events.filter(e=>e.type==='Belt Test'&&e.date>=new Date().toISOString().slice(0,10)).sort((a,b)=>a.date.localeCompare(b.date))[0];return `Hi ${s.parent||'there'},\n\n${s.first} is eligible to test for their next belt!\n\n${next?`The upcoming belt test is on ${fmtFull(next.date)}${next.fee>0?' — test fee is '+fmt$(next.fee)+' due on the day':''}.`:'Keep an eye out for the next belt test date.'}\n\nI'm proud of ${s.first}'s progress!\n\n— Master Noble`;}},
-  {id:'at_risk',name:'Attendance check-in',subject:s=>`Checking in on ${s.first}`,body:s=>`Hi ${s.parent||'there'},\n\nI wanted to personally check in on ${s.first}. I've noticed some recent absences and wanted to make sure everything is okay.\n\n${s.first} is a ${s.belt} belt with real potential. I'd love to see them back soon!\n\n— Master Noble`}
+  {id:'welcome',name:'New student welcome',subject:s=>`Welcome to Noble's Martial Arts!`,body:s=>`Hi ${s.parent||'there'},\n\nWelcome to Noble's Martial Arts! We're so excited to have ${s.first} joining us as a new ${s.group} student.\n\n${s.first} is starting as a ${s.belt} belt. The journey ahead is fantastic!\n\nArrive 5 minutes early, bring water, and wear comfortable clothing.\n\nAny questions — just reply here.\n\n— Sensei Brandon\nNoble's Martial Arts`},
+  {id:'missed_reg',name:'Missed registration',subject:s=>`${s.first} — ${DB.scoreboard.label||'This Month'}'s NMA Registration`,body:s=>`Dear NMA Parents,\n\nI hope this message finds you well! If you're receiving this automated email, it's because your student's name(s) weren't on the roster that I received from the Town of Wake Forest for our ${DB.scoreboard.label||'upcoming'} session.\n\nIf this was simply an oversight or something slipped through the cracks, no worries at all — just let me know and we can work together on next steps. I understand how busy things can get and I'm always happy to help. Also, if you already told me that you were taking the month off or something similar, you're good!\n\nIf your child isn't planning on continuing at this time, that's completely okay as well. We've truly enjoyed having them in class, and if you're open to it, I'd love to hear your thoughts on the program and what influenced the decision. Your feedback is always appreciated and helps us continue to grow and improve.\n\nPlease feel free to reply to this email whenever it's convenient for you.\n\nThank you for your continued support for Noble's Martial Arts!\n\nWarm regards,\nSensei Brandon\nNoble's Martial Arts`},
+  {id:'stripe',name:'Stripe earned!',subject:s=>`${s.first} earned a stripe today! 🎉`,body:s=>`Hi ${s.parent||'there'},\n\n${s.first} earned a stripe today! They're now at ${s.stripes} stripe(s) on their ${s.belt} belt.\n\n${s.stripes>=maxStripes(s)?`With ${s.stripes} stripes, ${s.first} is now eligible for their next test!`:'They are building momentum!'}\n\nCelebrate with them tonight — they earned it!\n\n— Sensei Brandon`},
+  {id:'belt_test',name:'Belt test invitation',subject:s=>`${s.first} is eligible to test for their next belt!`,body:(s,events)=>{const next=events.filter(e=>e.type==='Belt Test'&&e.date>=new Date().toISOString().slice(0,10)).sort((a,b)=>a.date.localeCompare(b.date))[0];return `Hi ${s.parent||'there'},\n\n${s.first} is eligible to test for their next belt!\n\n${next?`The upcoming belt test is on ${fmtFull(next.date)}${next.fee>0?' — test fee is '+fmt$(next.fee)+' due on the day':''}.`:'Keep an eye out for the next belt test date.'}\n\nI'm proud of ${s.first}'s progress!\n\n— Sensei Brandon`;}},
+  {id:'at_risk',name:'Attendance check-in',subject:s=>`Checking in on ${s.first}`,body:s=>`Hi ${s.parent||'there'},\n\nI wanted to personally check in on ${s.first}. I've noticed some recent absences and wanted to make sure everything is okay.\n\n${s.first} is a ${s.belt} belt with real potential. I'd love to see them back soon!\n\n— Sensei Brandon`}
 ];
 function getAllTemplates(){return [...BUILTIN_TEMPLATES,...(DB.customEmailTemplates||[]).map(t=>({id:'custom_'+t.id,name:t.name+' ✦',custom:true,subject:s=>fillPlaceholders(t.subject,s),body:s=>fillPlaceholders(t.body,s)}))];}
 function fillPlaceholders(tmpl,s){return(tmpl||'').replace(/\{first\}/g,s.first||'').replace(/\{last\}/g,s.last||'').replace(/\{parent\}/g,s.parent||'').replace(/\{belt\}/g,s.belt||'').replace(/\{group\}/g,s.group||'').replace(/\{stripes\}/g,s.stripes||0);}
@@ -3542,7 +3547,7 @@ function renderLetters(){
         ${ev.fee>0?`<div style="font-size:13px;color:#666;margin-top:2px;">Test fee: <strong>${fmt$(ev.fee)}</strong></div>`:''}
       </div>
       <p style="font-size:15px;line-height:1.9;color:#222;margin-top:12px;">Please continue attending class in the weeks leading up to the test. We look forward to seeing <strong>${s.first}</strong> shine on test day!</p>
-      <p style="font-size:15px;line-height:1.9;color:#222;margin-top:24px;">Respectfully,<br><br><strong>Master Noble</strong><br>Noble's Martial Arts</p>
+      <p style="font-size:15px;line-height:1.9;color:#222;margin-top:24px;">Respectfully,<br><br><strong>Sensei Brandon</strong><br>Noble's Martial Arts</p>
     </div>`;
   }).join('');
 }
@@ -4955,7 +4960,7 @@ async function openThread(threadId) {
         '<div style="background:' + (isMe?'#f0f4ff':'#fafaf8') + ';border:1px solid ' + (isMe?'#c5d5f0':'#e8e6e0') + ';border-radius:12px;padding:14px 16px;">' +
           '<div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;">' +
             '<div style="width:30px;height:30px;border-radius:50%;background:#2d7dd2;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;">' + (isMe?'MN':initials2) + '</div>' +
-            '<div><div style="font-weight:600;font-size:13px;">' + (isMe?'Master Noble (You)':from.replace(/<.*>/,'').trim()) + '</div>' +
+            '<div><div style="font-weight:600;font-size:13px;">' + (isMe?'Sensei Brandon (You)':from.replace(/<.*>/,'').trim()) + '</div>' +
             '<div style="font-size:11px;color:#b0b0b0;">' + (date ? new Date(date).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '') + '</div></div>' +
           '</div>' +
           '<div style="font-size:13px;line-height:1.7;color:#333;white-space:pre-wrap;word-break:break-word;">' + (body || msg.snippet || '(no body)') + '</div>' +
@@ -5116,7 +5121,7 @@ async function sendMonthlyBackupEmail() {
     const sizeKB = Math.round(payload.length / 1024);
 
     const bodyText = [
-      'Hello Master Noble,',
+      'Hello Sensei Brandon,',
       '',
       'Your Noble\'s Martial Arts CRM monthly backup for ' + monthLabel + ' is attached.',
       '',
@@ -5246,7 +5251,7 @@ function birthdayEmailBody(s) {
     'Wishing ' + s.first + ' a very happy birthday!' +
     (age ? ' Hope ' + s.first + ' has an amazing ' + age + 'th birthday!' : '') + '\n\n' +
     'It\'s a privilege to have ' + s.first + ' in class. We look forward to celebrating with them!\n\n' +
-    'Warm regards,\nMaster Noble\nNoble\'s Martial Arts\n' + LINKTREE;
+    'Warm regards,\nSensei Brandon\nNoble\'s Martial Arts\n' + LINKTREE;
 }
 
 // Add birthday alert to dashboard
@@ -6314,7 +6319,7 @@ function renderInactiveAlert(){
     <div style="font-family:var(--font-display);font-size:14px;font-weight:700;color:var(--amber);margin-bottom:10px;">⚠ ${inactive.length} Student${inactive.length!==1?'s':''} Missing 3+ Weeks</div>
     ${inactive.map(s=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(201,122,16,.2);">
       <div style="flex:1;"><div style="font-weight:500;font-size:13px;">${s.first} ${s.last}</div><div style="font-size:11px;color:var(--amber);">${s.group} · Last seen: ${(()=>{const dates=Object.keys(DB.attendance).filter(d=>DB.attendance[d]?.[s.id]==='present').sort();return dates[dates.length-1]?fmtDate(dates[dates.length-1]):'Never';})()}</div></div>
-      ${s.email?`<a href="https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(s.email)}&su=${encodeURIComponent('Checking in on '+s.first+'!')}&body=${encodeURIComponent('Hi '+(s.parent||'there')+',\n\nI wanted to check in on '+s.first+'. We\'ve missed them in class! Is everything okay?\n\n— Master Noble')}" target="_blank" class="btn small" style="font-size:11px;">✉ Check in</a>`:''}
+      ${s.email?`<a href="https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(s.email)}&su=${encodeURIComponent('Checking in on '+s.first+'!')}&body=${encodeURIComponent('Hi '+(s.parent||'there')+',\n\nI wanted to check in on '+s.first+'. We\'ve missed them in class! Is everything okay?\n\n— Sensei Brandon')}" target="_blank" class="btn small" style="font-size:11px;">✉ Check in</a>`:''}
     </div>`).join('')}
   </div>`;
 }
@@ -6342,7 +6347,7 @@ async function sendWeeklyDigest(){
   const lastClass=monthDates.filter(c=>c.date<=new Date().toISOString().slice(0,10)).sort().pop();
   const lastAtt=lastClass?Object.values(DB.attendance[lastClass.date]||{}).filter(v=>v==='present').length:0;
   const body=[
-    'Good morning Master Noble!',
+    'Good morning Sensei Brandon!',
     '',
     'Your Noble\'s Martial Arts weekly snapshot:',
     '',
@@ -6411,7 +6416,7 @@ async function sendWelcomeEmails(){
   for(const id of ids){
     const s=DB.students.find(x=>x.id===id);if(!s)continue;
     const subject="Welcome to Noble's Martial Arts, "+s.first+"!";
-    const body='Hi '+(s.parent||'there')+',\n\nWe are so glad '+s.first+' joined us! Watching them in class today was awesome.\n\n'+s.first+' is starting as a '+s.belt+' belt in our '+s.group+' program. The journey ahead is going to be incredible!\n\nA few things to know:\n• Arrive 5 minutes early to get settled\n• Bring water — class gets moving!\n• Practice at home makes a huge difference\n• Check out our Parent Hub for curriculum videos: '+LINKTREE+'\n\nAny questions at all, just reply. My door is always open.\n\n— Master Noble\nNoble\'s Martial Arts';
+    const body='Hi '+(s.parent||'there')+',\n\nWe are so glad '+s.first+' joined us! Watching them in class today was awesome.\n\n'+s.first+' is starting as a '+s.belt+' belt in our '+s.group+' program. The journey ahead is going to be incredible!\n\nA few things to know:\n• Arrive 5 minutes early to get settled\n• Bring water — class gets moving!\n• Practice at home makes a huge difference\n• Check out our Parent Hub for curriculum videos: '+LINKTREE+'\n\nAny questions at all, just reply. My door is always open.\n\n— Sensei Brandon\nNoble\'s Martial Arts';
     const ok=await sendGmailMessage(s.email,subject,body);
     if(ok){s._welcomeSent=true;addHistory(s,'reg','Welcome email sent');sent++;}
   }
@@ -6470,7 +6475,7 @@ function printPromoCertificate(studentId,fromBelt,fromGroup,toBelt,toGroup){
     </div>
     <div class="promo-text">and has advanced to the <strong>${toGroup}</strong> program</div>
     <div class="date-line">${fmtFull(new Date().toISOString().slice(0,10))}</div>
-    <div class="sig-line">Master Noble — Noble's Martial Arts</div>
+    <div class="sig-line">Sensei Brandon — Noble's Martial Arts</div>
   </div>
   <script>window.onload=()=>setTimeout(()=>window.print(),500);<\/script>
   </body></html>`);
@@ -6945,12 +6950,18 @@ function smsOneTrial(id) {
 var ASSIST_GOAL = 100;
 
 function getLeaders() {
-  // All active students with leader OR ai flag
   return DB.students.filter(function(s){
-    return s.status === 'Active' && (s.leader || s.ai);
+    return s.status === 'Active' && (s.leader || s.ai || s.instructor || s.jrInstructor || s.masterInstructor);
   }).sort(function(a,b){
     return (a.last||'').localeCompare(b.last||'');
   });
+}
+function getLeaderRole(s) {
+  if(s.masterInstructor) return 'Master Instructor';
+  if(s.instructor) return 'Instructor';
+  if(s.ai) return 'Asst. Instructor';
+  if(s.jrInstructor) return 'Jr. Instructor';
+  return 'Student Leader';
 }
 
 function getAssistCount(studentId) {
@@ -7166,9 +7177,9 @@ function renderGoodJobSelects() {
   var fromSel = $('gj-from'), toSel = $('gj-to');
   if(!fromSel || !toSel) return;
   var leaders = DB.students.filter(function(s){ return s.status==='Active' && (s.leader||s.ai); });
-  fromSel.innerHTML = '<option value="">— Select sender —</option>' +
+  fromSel.innerHTML = '<option value="sensei">Sensei Brandon (Instructor)</option>' +
     leaders.map(function(s){
-      return '<option value="'+s.id+'">' + s.first+' '+s.last+' ('+(s.ai?'Asst. Instructor':'Student Leader')+')</option>';
+      return '<option value="'+s.id+'">' + s.first+' '+s.last+' ('+getLeaderRole(s)+')</option>';
     }).join('');
   var cutoff = new Date(); cutoff.setDate(cutoff.getDate()-60);
   var cutoffStr = cutoff.toISOString().slice(0,10);
@@ -7207,13 +7218,14 @@ function gjBuildMessage(fromS, toS, msg) {
 }
 
 async function sendGoodJobNote() {
-  var fromId = parseInt($('gj-from')&&$('gj-from').value)||0;
+  var fromVal = ($('gj-from')&&$('gj-from').value)||'';
   var toId = parseInt($('gj-to')&&$('gj-to').value)||0;
   var msg = ($('gj-message')&&$('gj-message').value.trim())||'';
-  if(!fromId){toast('Select a sender first.');return;}
+  if(!fromVal){toast('Select a sender first.');return;}
   if(!toId){toast('Select a recipient first.');return;}
   if(!msg){toast('Write a message first.');return;}
-  var fromS = DB.students.find(function(x){return x.id===fromId;});
+  var fromId = fromVal==='sensei'?null:parseInt(fromVal)||0;
+  var fromS = fromId ? DB.students.find(function(x){return x.id===fromId;}) : {first:'Sensei Brandon',last:'',ai:false,instructor:false,masterInstructor:true,id:'sensei'};
   var toS = DB.students.find(function(x){return x.id===toId;});
   if(!fromS||!toS) return;
   var emailed = false;
@@ -7234,7 +7246,7 @@ async function sendGoodJobNote() {
     fromId:fromId, fromName:fromS.first+' '+fromS.last,
     toId:toId, toName:toS.first+' '+toS.last, message:msg, emailed:emailed};
   DB.goodJobNotes.unshift(note);
-  addHistory(toS,'note','Good Job note from '+fromS.first+' '+fromS.last+': "'+msg.slice(0,60)+(msg.length>60?'...':'')+'"');
+  addHistory(toS,'note','Good Job note from '+(fromS.first+' '+fromS.last).trim()+': "'+msg.slice(0,60)+(msg.length>60?'...':'')+'"');
   save(); gjClear(); renderGoodJobLog(); renderGoodJobSelects();
 }
 
@@ -7344,6 +7356,40 @@ function showMoreHistory(studentId) {
     }).join('');
     container.outerHTML = rows;
   }
+}
+
+function renderProfileOrders(s) {
+  var el = document.getElementById('profile-orders-section-'+s.id);
+  if(!el) return;
+  // Match apparel orders by email
+  var orders = [];
+  if(s.email) {
+    var apparelOrds = (DB.apparelOrders||[]).filter(function(o){
+      return (o.email||'').toLowerCase()===(s.email||'').toLowerCase();
+    });
+    apparelOrds.forEach(function(o){
+      orders.push({date:o.date, type:'apparel',
+        desc:(o.products||[]).map(function(p){return p.name+(p.options&&p.options.length?' ('+p.options.join(', ')+')':'');}).join(', ')||'—',
+        total:o.total?'$'+parseFloat(o.total).toFixed(2):'—'});
+    });
+    // Also match gear orders
+    (DB.gearOrders||[]).filter(function(o){
+      var st = DB.students.find(function(x){return x.id===o.studentId;});
+      return st && (st.id===s.id || (st.parent&&s.parent&&st.parent===s.parent));
+    }).forEach(function(o){
+      orders.push({date:o.date||'', type:'gear', desc:o.orderType||'Gear Order', total:o.amount?'$'+parseFloat(o.amount).toFixed(2):'—'});
+    });
+    orders.sort(function(a,b){return b.date.localeCompare(a.date);});
+  }
+  if(!orders.length) { el.style.display='none'; return; }
+  el.innerHTML = '<div class="section-divider" style="margin:10px 0 8px;"><span>Order History ('+orders.length+')</span></div>'
+    + orders.map(function(o){
+      return '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+        +'<div><span style="font-size:11px;color:var(--ink-faint);margin-right:8px;">'+fmtDate(o.date)+'</span>'
+        +'<span class="badge badge-gray" style="font-size:9px;margin-right:6px;">'+(o.type==='gear'?'Gear':'Apparel')+'</span>'
+        +o.desc+'</div>'
+        +'<strong style="flex-shrink:0;margin-left:10px;">'+o.total+'</strong></div>';
+    }).join('');
 }
 // ══════════════════════════════════════════════════════
 // CLASS TIMER
@@ -7820,6 +7866,19 @@ function initLeaders(){
   
   let html='';
   // Assistant Instructors section
+  const masterIs=DB.students.filter(s=>s.status==='Active'&&s.masterInstructor);
+  const instructors=DB.students.filter(s=>s.status==='Active'&&s.instructor&&!s.masterInstructor);
+  html+=`<div class="section-divider"><span>🏅 Master Instructors (${masterIs.length})</span></div>`;
+  if(!masterIs.length){html+='<div style="color:var(--ink-muted);font-size:13px;padding:8px 16px;">None flagged.</div>';}
+  else{html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px;">';
+  for(const s of masterIs){html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;gap:12px;align-items:flex-start;"><div style="width:42px;height:42px;border-radius:50%;background:#7c3aed22;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#7c3aed;flex-shrink:0;">${s.first[0]}${s.last[0]}</div><div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;cursor:pointer;color:var(--link);" onclick="viewStudent(${s.id})">${s.first} ${s.last}</div><div style="font-size:12px;color:var(--ink-muted);">${s.group} · ${s.belt}</div></div><span class="badge" style="background:#7c3aed22;color:#7c3aed;font-size:10px;flex-shrink:0;">Master Instructor</span></div>`;}
+  html+='</div>';}
+  html+=`<div class="section-divider"><span>⭐ Instructors (${instructors.length})</span></div>`;
+  if(!instructors.length){html+='<div style="color:var(--ink-muted);font-size:13px;padding:8px 16px;">None flagged.</div>';}
+  else{html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px;">';
+  for(const s of instructors){html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;gap:12px;align-items:flex-start;"><div style="width:42px;height:42px;border-radius:50%;background:#2563eb22;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#2563eb;flex-shrink:0;">${s.first[0]}${s.last[0]}</div><div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;cursor:pointer;color:var(--link);" onclick="viewStudent(${s.id})">${s.first} ${s.last}</div><div style="font-size:12px;color:var(--ink-muted);">${s.group} · ${s.belt}</div></div><span class="badge" style="background:#2563eb22;color:#2563eb;font-size:10px;flex-shrink:0;">Instructor</span></div>`;}
+  html+='</div>';}
+  const jrIs=DB.students.filter(s=>s.status==='Active'&&s.jrInstructor&&!s.ai&&!s.instructor&&!s.masterInstructor);
   html+=`<div class="section-divider"><span>⭐ Assistant Instructors (${ais.length})</span></div>`;
   if(!ais.length){
     html+='<div style="color:var(--ink-muted);font-size:13px;padding:16px;">No assistant instructors flagged yet. Edit a student profile and enable the AI flag.</div>';
@@ -7840,6 +7899,11 @@ function initLeaders(){
   }
   
   // Student Leaders section
+  html+=`<div class="section-divider"><span>🎯 Jr. Instructors (${jrIs.length})</span></div>`;
+  if(!jrIs.length){html+='<div style="color:var(--ink-muted);font-size:13px;padding:8px 16px;">None flagged.</div>';}
+  else{html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px;">';
+  for(const s of jrIs){html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;gap:12px;align-items:flex-start;"><div style="width:42px;height:42px;border-radius:50%;background:#0891b222;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#0891b2;flex-shrink:0;">${s.first[0]}${s.last[0]}</div><div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;cursor:pointer;color:var(--link);" onclick="viewStudent(${s.id})">${s.first} ${s.last}</div><div style="font-size:12px;color:var(--ink-muted);">${s.group} · ${s.belt}</div></div><span class="badge" style="background:#0891b222;color:#0891b2;font-size:10px;flex-shrink:0;">Jr. Instructor</span></div>`;}
+  html+='</div>';}
   html+=`<div class="section-divider"><span>🏅 Student Leaders (${leaders.length})</span></div>`;
   if(!leaders.length){
     html+='<div style="color:var(--ink-muted);font-size:13px;padding:16px;">No students flagged as Student Leaders yet. Edit a student profile and enable the Leader flag.</div>';
