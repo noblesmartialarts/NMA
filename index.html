@@ -321,7 +321,7 @@ tbody td{font-size:11px!important;}
     <div class="nav-item" data-page="classplans" onclick="nav('classplans')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="16" y2="18"/></svg><span>Class Plans</span></div>
     <div class="nav-item" data-page="timer" onclick="nav('timer')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 14.5 15.5"/><path d="M5 3l4 2M19 3l-4 2"/></svg><span>Class Timer</span></div>
     <div class="nav-item" data-page="attendance" onclick="nav('attendance')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Attendance</span></div>
-    <div class="nav-item" data-page="checkin" onclick="nav('checkin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Stripe Check-in</span></div>
+
     <div class="nav-item" data-page="testing" onclick="nav('testing')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Belt Testing</span></div>
     <div class="nav-section-label">Operations</div>
     <div class="nav-item" data-page="revenue" onclick="nav('revenue')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Revenue</span></div>
@@ -657,6 +657,10 @@ tbody td{font-size:11px!important;}
     <div class="spacer"></div>
     <div style="text-align:right;"><div style="font-size:20px;font-family:var(--font-display);font-weight:700;" id="att-count">0 / 0</div><div style="font-size:11px;color:var(--ink-muted);">Present</div></div>
     <button class="btn primary" onclick="saveAttendance()">Save</button>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin-left:8px;">
+        <input type="checkbox" id="att-stripe-mode" onchange="toggleStripeMode()" style="accent-color:var(--amber);">
+        <span style="color:var(--amber);font-weight:600;">⭐ Stripe Test Day</span>
+      </label>
   </div>
   <div class="att-grid" id="att-grid"></div>
 
@@ -1067,6 +1071,28 @@ tbody td{font-size:11px!important;}
   </div>
 </div>
 
+<!-- BELT CONFIG MODAL -->
+<div class="modal-backdrop" id="modal-belt-config" style="align-items:flex-start;padding-top:20px;overflow-y:auto;">
+  <div class="modal" style="max-width:720px;width:95%;">
+    <div class="modal-header">
+      <div class="modal-title">⚙ Configure Belt Paths</div>
+      <button class="btn ghost" onclick="closeModal('modal-belt-config')">✕</button>
+    </div>
+    <div class="modal-body" style="padding:0 24px 24px;">
+      <p style="font-size:13px;color:var(--ink-muted);margin:16px 0;">
+        Customize belt progressions, colors, and cross-group promotions for your school. Changes override the defaults immediately.
+      </p>
+      <!-- Group selector -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;" id="belt-config-group-tabs"></div>
+      <div id="belt-config-body"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-belt-config')">Cancel</button>
+      <button class="btn primary" onclick="saveBeltConfig()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <!-- CURRICULUM -->
 <div id="page-curriculum" class="page">
   <div class="page-header"><div class="page-title">Curriculum Cycles</div><div class="page-subtitle">BBC split into Level I (Purple→Blue) and Level II (Blue II→Green II) · Use ◀ ▶ to manually adjust · "Cycle Complete" advances one step</div></div>
@@ -1086,7 +1112,10 @@ tbody td{font-size:11px!important;}
 
 <!-- BELT PATHS -->
 <div id="page-belts" class="page">
-  <div class="page-header"><div class="page-title">Belt Paths</div><div class="page-subtitle">Full progression per group</div></div>
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div class="page-title">Belt Paths</div><div class="page-subtitle">Full progression per group</div></div>
+    <button class="btn" onclick="openBeltConfig()">⚙ Configure Belt Paths</button>
+  </div>
   <div id="belt-paths-content"></div>
 </div>
 
@@ -1898,6 +1927,7 @@ if(!DB.promotions)DB.promotions=[];
 if(!DB.monthHistory)DB.monthHistory=[];
 if(!DB.curriculumOverrides)DB.curriculumOverrides={};
 if(!DB.curriculumData)DB.curriculumData={};
+if(!DB.beltConfig)DB.beltConfig={groups:{},colors:{},crossGroup:{}};
 if(!DB.classDates)DB.classDates=[];
 if(!DB.commLog)DB.commLog=[];
 if(!DB.challengeOfMonth)DB.challengeOfMonth='';
@@ -2436,7 +2466,22 @@ function renderAttendance(){
     $('att-grid').innerHTML='<div style="text-align:center;padding:28px;color:var(--ink-muted);font-size:13px;">Select a class date above or add one to begin taking attendance.</div>';
     updateAttCount(students);return;
   }
-  $('att-grid').innerHTML=students.map(s=>{const st=attState[s.id]||'';return `<div class="att-card ${st==='present'?'present':st==='absent'?'absent':''}" id="att-${s.id}" onclick="toggleAtt(${s.id})"><div class="att-avatar">${initials(s)}</div><div><div class="att-name">${s.first} ${s.last}</div><div class="att-belt">${s.belt}</div></div><div class="att-check">${st==='present'?'✓':st==='absent'?'✗':'–'}</div></div>`;}).join('');
+  $('att-grid').innerHTML=students.map(s=>{
+    const st=attState[s.id]||'';
+    const stripeAward=_attStripeAwards[s.id]||0;
+    const stripeCtrl=_attStripeMode
+      ?('<div onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:4px;margin-left:auto;">'
+        +'<button onclick="attAdjStripe('+s.id+',-1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;">−</button>'
+        +'<span style="font-size:12px;font-weight:700;min-width:18px;text-align:center;color:var(--amber);">+'+stripeAward+'</span>'
+        +'<button onclick="attAdjStripe('+s.id+',1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;">+</button>'
+        +'</div>')
+      :'';
+    return '<div class="att-card '+(st==='present'?'present':st==='absent'?'absent':'')+'" id="att-'+s.id+'" onclick="toggleAtt('+s.id+')" style="'+(stripeAward>0?'border-color:var(--amber);':'')+'">'
+      +'<div class="att-avatar">'+initials(s)+'</div>'
+      +'<div style="flex:1"><div class="att-name">'+s.first+' '+s.last+'</div><div class="att-belt">'+s.belt+(s.stripes?' · '+'▮'.repeat(s.stripes):'')+'</div></div>'
+      +stripeCtrl
+      +'<div class="att-check">'+(st==='present'?'✓':st==='absent'?'✗':'–')+'</div></div>';
+  }).join('');
   updateAttCount(students);
   renderAttLeaders();
 }
@@ -2450,19 +2495,32 @@ function toggleAtt(sid){
 }
 function updateAttCount(students){const p=students.filter(s=>attState[s.id]==='present').length;$('att-count').textContent=`${p} / ${students.length}`;}
 
+
+var _attStripeMode = false;
+var _attStripeAwards = {}; // studentId -> stripes to add
+
+function toggleStripeMode() {
+  _attStripeMode = !!($('att-stripe-mode') && $('att-stripe-mode').checked);
+  _attStripeAwards = {};
+  renderAttendance();
+}
 function renderAttLeaders() {
   var section = $('att-leader-section');
   var list = $('att-leader-list');
   if(!section || !list) return;
+  var grpVal = ($('att-group') && $('att-group').value) || '';
   var leaders = DB.students.filter(function(s){
     return s.status==='Active' && (s.leader || s.ai);
   });
-  if(!leaders.length) { section.style.display='none'; return; }
+  if(!leaders.length || !grpVal) { section.style.display='none'; return; }
   section.style.display = 'block';
-  // Pre-fill from existing assistLog for this date
+  // Pre-fill from existing assistLog for this date+group
   var date = $('att-date-select') && $('att-date-select').value || '';
-  if(date && DB.assistLog && DB.assistLog[date]) {
-    DB.assistLog[date].forEach(function(id){ _attLeaderState[id]=true; });
+  var grpSel = ($('att-group') && $('att-group').value) || '';
+  var logKey = grpSel ? date+'|'+grpSel : date;
+  if(date && DB.assistLog) {
+    var existing = DB.assistLog[logKey] || DB.assistLog[date] || [];
+    existing.forEach(function(id){ _attLeaderState[id]=true; });
   }
   list.innerHTML = leaders.map(function(s){
     var checked = !!_attLeaderState[s.id];
@@ -2474,6 +2532,11 @@ function renderAttLeaders() {
   }).join('');
 }
 
+function attAdjStripe(id, delta) {
+  _attStripeAwards[id] = Math.max(0, Math.min(4, (_attStripeAwards[id]||0) + delta));
+  renderAttendance();
+}
+
 function attToggleLeader(id) {
   _attLeaderState[id] = !_attLeaderState[id];
   renderAttLeaders();
@@ -2483,14 +2546,31 @@ function saveAttendance(){
   DB.attendance[date]={...attState};
   DB.students.forEach(s=>{if(attState[s.id]==='present')addHistory(s,'class','Attended class',date);});
   // Log leader assists
+  var grpKey = ($('att-group') && $('att-group').value) || '';
+  var assistKey = grpKey ? date+'|'+grpKey : date;
   var assistIds = Object.keys(_attLeaderState).filter(function(k){return _attLeaderState[k];}).map(Number);
   if(assistIds.length) {
     if(!DB.assistLog) DB.assistLog = {};
-    DB.assistLog[date] = assistIds;
-  } else if(DB.assistLog && DB.assistLog[date]) {
+    DB.assistLog[assistKey] = assistIds;
+  } else if(DB.assistLog && DB.assistLog[assistKey]) {
     // If previously had assists but now none checked, clear them
     // (only if _attLeaderState was initialized for this date)
     // Keep existing if we never loaded this date's leaders
+  }
+  // Apply stripe awards if in stripe test mode
+  if(_attStripeMode) {
+    Object.keys(_attStripeAwards).forEach(function(sid){
+      const n=_attStripeAwards[parseInt(sid)];
+      if(!n) return;
+      const s=DB.students.find(function(x){return x.id===parseInt(sid);});
+      if(!s) return;
+      const maxStripes=(typeof TWO_CYCLE_BELTS!=='undefined'&&TWO_CYCLE_BELTS.has(s.belt))?5:4;
+      s.stripes=Math.min(maxStripes,(s.stripes||0)+n);
+      addHistory(s,'stripe','Awarded '+n+' stripe(s) at '+ev.name || 'stripe test',date);
+    });
+    _attStripeAwards={};
+    if($('att-stripe-mode'))$('att-stripe-mode').checked=false;
+    _attStripeMode=false;
   }
   _attLeaderState = {};
   save();renderClassDateChips();renderAttDateSelect();
@@ -2657,20 +2737,30 @@ function deleteTestEvent(id){if(!confirm('Delete this event?'))return;DB.testEve
 function logTestComplete(id){
   const ev=DB.testEvents.find(e=>e.id===id);if(!ev)return;
   if(ev.completed){toast('Already logged.');return;}
-  if(!confirm(`Log "${ev.name}" as complete?\n\nThis will advance ALL curriculum cycles by one step.`))return;
+  const isStripeTest = ev.type === 'Stripe Test';
+  const confirmMsg = isStripeTest
+    ? `Log "${ev.name}" as complete?\n\nThis will record stripe test participation only.`
+    : `Log "${ev.name}" as complete?\n\nThis will advance ALL curriculum cycles by one step.`;
+  if(!confirm(confirmMsg))return;
   ev.completed=true;
-  // Advance all curriculum cycles
-  Object.keys(CURRICULUM).forEach(key=>{
-    const prog=CURRICULUM[key];
-    prog.currentCycle=prog.currentCycle%prog.cycleCount+1;
-    DB.curriculumOverrides[key]=prog.currentCycle;
-  });
+  if(!isStripeTest){
+    // Only advance cycles for Belt Tests
+    Object.keys(CURRICULUM).forEach(key=>{
+      const prog=CURRICULUM[key];
+      prog.currentCycle=prog.currentCycle%prog.cycleCount+1;
+      DB.curriculumOverrides[key]=prog.currentCycle;
+      if(DB.curriculumData&&DB.curriculumData[key])DB.curriculumData[key]=null; // reset saved data so defaults reload
+    });
+  }
   // Log test participation
   const attOnDate=DB.attendance[ev.date]||{};
   DB.students.filter(s=>s.status==='Active').forEach(s=>{
-    if(attOnDate[s.id]==='present'||stripeEligible(s)){addHistory(s,'test',`Participated in ${ev.name}`,ev.date);}
+    if(attOnDate[s.id]==='present'||stripeEligible(s)){
+      addHistory(s,'test',`Participated in ${ev.name}${isStripeTest?' (Stripe Test)':''}`,ev.date);
+    }
   });
-  save();renderTesting();renderCurriculum();toast('Test logged! All curriculum cycles advanced.');
+  save();renderTesting();renderCurriculum();
+  toast(isStripeTest?'Stripe test logged!':'Belt test logged! Curriculum cycles advanced.');
 }
 
 // ══════════════════════════════════════════════════════
@@ -3602,6 +3692,8 @@ function importRealRoster(manual){
   if(loStatus)loStatus.textContent='Loading your data…';
   await load();
 
+  // Apply belt config customisations
+  if(typeof applyBeltConfig==='function')applyBeltConfig();
   // Re-apply overrides after load
   Object.entries(DB.curriculumOverrides||{}).forEach(([k,v])=>{if(CURRICULUM[k])CURRICULUM[k].currentCycle=v;});
   // Re-apply curriculum content edits
@@ -8158,6 +8250,171 @@ function cpUpdateTiming(){
     lbl.style.color=color;
   }
 }
+// ══════════════════════════════════════════════════════
+// BELT CONFIG
+// ══════════════════════════════════════════════════════
+var _bcActiveGroup = null;
+
+function openBeltConfig() {
+  if(!DB.beltConfig) DB.beltConfig = {groups:{}, colors:{}, crossGroup:{}};
+  // Seed beltConfig from current BELT_PATHS if empty
+  Object.keys(BELT_PATHS).forEach(function(g) {
+    if(!DB.beltConfig.groups[g]) {
+      DB.beltConfig.groups[g] = BELT_PATHS[g].map(function(b) {
+        return {name: b, color: BELT_COLORS[b]||'#888', stripes: 4};
+      });
+    }
+  });
+  if(!_bcActiveGroup || !DB.beltConfig.groups[_bcActiveGroup]) {
+    _bcActiveGroup = Object.keys(DB.beltConfig.groups)[0];
+  }
+  renderBeltConfigTabs();
+  renderBeltConfigBody();
+  $('modal-belt-config').classList.add('open');
+}
+
+function renderBeltConfigTabs() {
+  var el = $('belt-config-group-tabs'); if(!el) return;
+  var groups = Object.keys(DB.beltConfig.groups);
+  el.innerHTML = groups.map(function(g) {
+    var active = g === _bcActiveGroup;
+    return '<button onclick="bcSelectGroup(\''+g+'\')" style="padding:6px 14px;border-radius:20px;border:2px solid '+(active?'#6366f1':'var(--border)')+';background:'+(active?'var(--indigo-light)':'transparent')+';font-size:12px;font-weight:'+(active?'700':'400')+';cursor:pointer;">'+g+'</button>';
+  }).join('') +
+  '<button onclick="bcAddGroup()" style="padding:6px 12px;border-radius:20px;border:2px dashed var(--border);background:transparent;font-size:12px;color:var(--ink-muted);cursor:pointer;">+ Add Group</button>';
+}
+
+function bcSelectGroup(g) {
+  _bcActiveGroup = g;
+  renderBeltConfigTabs();
+  renderBeltConfigBody();
+}
+
+function renderBeltConfigBody() {
+  var el = $('belt-config-body'); if(!el) return;
+  if(!_bcActiveGroup || !DB.beltConfig.groups[_bcActiveGroup]) {
+    el.innerHTML = '<div style="color:var(--ink-muted);font-size:13px;">No group selected.</div>';
+    return;
+  }
+  var belts = DB.beltConfig.groups[_bcActiveGroup];
+  var h = '<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">';
+  h += '<div style="font-weight:700;font-size:14px;">'+_bcActiveGroup+'</div>';
+  h += '<div style="display:flex;gap:6px;">';
+  h += '<button class="btn small" onclick="bcRenameGroup()">Rename Group</button>';
+  h += '<button class="btn small" style="color:var(--red);" onclick="bcDeleteGroup()">Remove Group</button>';
+  h += '</div></div>';
+  h += '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;" id="bc-belt-list">';
+  belts.forEach(function(b, i) {
+    var light = ['#f0f0f0','#f5c842','#e6b800','#f5823a','#e06820'].includes(b.color);
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;">';
+    h += '<span style="cursor:grab;color:var(--ink-faint);">⠿</span>';
+    h += '<div style="width:28px;height:28px;border-radius:50%;background:'+b.color+';border:1px solid rgba(0,0,0,.1);flex-shrink:0;cursor:pointer;" onclick="bcPickColor('+i+')" title="Click to change color"></div>';
+    h += '<input class="form-input" value="'+b.name+'" id="bc-belt-name-'+i+'" style="flex:1;font-size:12px;" oninput="bcUpdateBelt('+i+',\'name\',this.value)">';
+    h += '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--ink-muted);">';
+    h += '<span>Stripes req.:</span><input type="number" min="0" max="9" value="'+b.stripes+'" id="bc-belt-stripes-'+i+'" style="width:44px;font-size:12px;text-align:center;" class="form-input" oninput="bcUpdateBelt('+i+',\'stripes\',parseInt(this.value)||0)">';
+    h += '</div>';
+    h += '<button onclick="bcMoveBelt('+i+',-1)" '+(i===0?'disabled':'')+' style="padding:2px 6px;font-size:11px;" class="btn ghost">↑</button>';
+    h += '<button onclick="bcMoveBelt('+i+',1)" '+(i===belts.length-1?'disabled':'')+' style="padding:2px 6px;font-size:11px;" class="btn ghost">↓</button>';
+    h += '<button onclick="bcRemoveBelt('+i+')" style="padding:2px 6px;font-size:11px;color:var(--red);" class="btn ghost">✕</button>';
+    h += '</div>';
+  });
+  h += '</div>';
+  h += '<button class="btn small" onclick="bcAddBelt()">+ Add Belt Rank</button>';
+  el.innerHTML = h;
+}
+
+function bcUpdateBelt(idx, field, val) {
+  if(!DB.beltConfig.groups[_bcActiveGroup]) return;
+  DB.beltConfig.groups[_bcActiveGroup][idx][field] = val;
+}
+
+function bcPickColor(idx) {
+  var b = DB.beltConfig.groups[_bcActiveGroup][idx];
+  var c = prompt('Enter hex color for ' + b.name + ' (e.g. #6366f1):', b.color||'#888');
+  if(!c) return;
+  if(!c.startsWith('#')) c = '#'+c;
+  bcUpdateBelt(idx, 'color', c);
+  renderBeltConfigBody();
+}
+
+function bcMoveBelt(idx, dir) {
+  var belts = DB.beltConfig.groups[_bcActiveGroup];
+  var newIdx = idx + dir;
+  if(newIdx < 0 || newIdx >= belts.length) return;
+  var tmp = belts[idx]; belts[idx] = belts[newIdx]; belts[newIdx] = tmp;
+  renderBeltConfigBody();
+}
+
+function bcRemoveBelt(idx) {
+  if(!confirm('Remove this belt rank?')) return;
+  DB.beltConfig.groups[_bcActiveGroup].splice(idx, 1);
+  renderBeltConfigBody();
+}
+
+function bcAddBelt() {
+  DB.beltConfig.groups[_bcActiveGroup].push({name:'New Belt', color:'#888888', stripes:4});
+  renderBeltConfigBody();
+}
+
+function bcAddGroup() {
+  var name = prompt('Name for the new group:', 'New Group');
+  if(!name) return;
+  DB.beltConfig.groups[name] = [{name:'White', color:'#f0f0f0', stripes:4}];
+  _bcActiveGroup = name;
+  renderBeltConfigTabs();
+  renderBeltConfigBody();
+}
+
+function bcRenameGroup() {
+  var name = prompt('Rename group:', _bcActiveGroup);
+  if(!name || name === _bcActiveGroup) return;
+  DB.beltConfig.groups[name] = DB.beltConfig.groups[_bcActiveGroup];
+  delete DB.beltConfig.groups[_bcActiveGroup];
+  _bcActiveGroup = name;
+  renderBeltConfigTabs();
+  renderBeltConfigBody();
+}
+
+function bcDeleteGroup() {
+  if(!confirm('Remove the "'+_bcActiveGroup+'" group configuration? The default will be restored.')) return;
+  delete DB.beltConfig.groups[_bcActiveGroup];
+  _bcActiveGroup = Object.keys(DB.beltConfig.groups)[0] || null;
+  renderBeltConfigTabs();
+  renderBeltConfigBody();
+}
+
+function saveBeltConfig() {
+  // Apply beltConfig to live BELT_PATHS and BELT_COLORS
+  applyBeltConfig();
+  save();
+  closeModal('modal-belt-config');
+  renderBeltPaths();
+  toast('Belt configuration saved!');
+}
+
+function applyBeltConfig() {
+  if(!DB.beltConfig||!DB.beltConfig.groups) return;
+  Object.entries(DB.beltConfig.groups).forEach(function(e) {
+    var group = e[0], belts = e[1];
+    // Override BELT_PATHS for this group
+    BELT_PATHS[group] = belts.map(function(b){return b.name;});
+    // Override BELT_COLORS
+    belts.forEach(function(b) {
+      if(b.color) BELT_COLORS[b.name] = b.color;
+    });
+  });
+  // Rebuild NEXT_BELT
+  Object.keys(BELT_PATHS).forEach(function(g) {
+    var bs = BELT_PATHS[g];
+    bs.forEach(function(b, i){ NEXT_BELT[g+':'+b] = bs[i+1]||null; });
+  });
+  // Keep Karate Kids exits intact
+  if(BELT_PATHS['Karate Kids']){
+    NEXT_BELT['Karate Kids:Orange'] = null;
+    NEXT_BELT['Karate Kids:Orange II'] = null;
+  }
+}
+
+
 // ══════════════════════════════════════════════════════
 // GEAR ORDERS
 // ══════════════════════════════════════════════════════
