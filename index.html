@@ -7208,9 +7208,18 @@ function gjUpdatePreview() {
 }
 
 function gjBuildMessage(fromS, toS, msg) {
-  var role = fromS.ai ? 'Assistant Instructor' : 'Student Leader';
+  var isSensei = fromS.id === 'sensei';
+  var rolePlural = isSensei ? null
+    : fromS.masterInstructor ? 'Master Instructors'
+    : fromS.instructor ? 'Instructors'
+    : fromS.ai ? 'Assistant Instructors'
+    : fromS.jrInstructor ? 'Jr. Instructors'
+    : 'Student Leaders';
+  var senderLine = isSensei
+    ? 'Sensei Brandon at Noble\'s Martial Arts wanted to send a personal message to '+toS.first+':'
+    : fromS.first+' '+fromS.last+', one of our '+rolePlural+' at Noble\'s Martial Arts, wanted to send a personal message to '+toS.first+':';
   return 'Dear '+(toS.parent||(toS.first+"'s family"))+',\n\n'
-    +fromS.first+' '+fromS.last+', one of our '+role+'s at Noble\'s Martial Arts, wanted to send a personal message to '+toS.first+':\n\n'
+    +senderLine+'\n\n'
     +'"'+msg.trim()+'"\n\n'
     +'We\'re proud of the hard work and dedication '+toS.first+' shows in class. '
     +'It\'s a pleasure to have them as part of our NMA family.\n\n'
@@ -7867,12 +7876,23 @@ function initLeaders(){
   let html='';
   // Assistant Instructors section
   const masterIs=DB.students.filter(s=>s.status==='Active'&&s.masterInstructor);
+  // Always show Brandon Noble as Master Instructor at the top
+  const brandonCard='<div style="background:var(--surface);border:2px solid #7c3aed;border-radius:12px;padding:16px;display:flex;gap:12px;align-items:flex-start;">'
+    +'<div style="width:42px;height:42px;border-radius:50%;background:#7c3aed;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#fff;flex-shrink:0;">BN</div>'
+    +'<div style="flex:1;min-width:0;">'
+    +'<div style="font-weight:700;font-size:14px;">Brandon Noble</div>'
+    +'<div style="font-size:12px;color:var(--ink-muted);">Sensei Brandon · Noble Martial Arts</div>'
+    +'</div>'
+    +'<span class="badge" style="background:#7c3aed22;color:#7c3aed;font-size:10px;flex-shrink:0;">Master Instructor</span>'
+    +'</div>';
   const instructors=DB.students.filter(s=>s.status==='Active'&&s.instructor&&!s.masterInstructor);
-  html+=`<div class="section-divider"><span>🏅 Master Instructors (${masterIs.length})</span></div>`;
-  if(!masterIs.length){html+='<div style="color:var(--ink-muted);font-size:13px;padding:8px 16px;">None flagged.</div>';}
-  else{html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px;">';
+  html+=`<div class="section-divider"><span>🏅 Master Instructors</span></div>`;
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px;">';
+  html+=brandonCard;
+  if(masterIs.length){
   for(const s of masterIs){html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;gap:12px;align-items:flex-start;"><div style="width:42px;height:42px;border-radius:50%;background:#7c3aed22;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#7c3aed;flex-shrink:0;">${s.first[0]}${s.last[0]}</div><div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:14px;cursor:pointer;color:var(--link);" onclick="viewStudent(${s.id})">${s.first} ${s.last}</div><div style="font-size:12px;color:var(--ink-muted);">${s.group} · ${s.belt}</div></div><span class="badge" style="background:#7c3aed22;color:#7c3aed;font-size:10px;flex-shrink:0;">Master Instructor</span></div>`;}
-  html+='</div>';}
+  }
+  html+='</div>';
   html+=`<div class="section-divider"><span>⭐ Instructors (${instructors.length})</span></div>`;
   if(!instructors.length){html+='<div style="color:var(--ink-muted);font-size:13px;padding:8px 16px;">None flagged.</div>';}
   else{html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px;">';
