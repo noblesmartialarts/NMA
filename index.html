@@ -432,36 +432,7 @@ tbody td{font-size:11px!important;}
 </div>
 
 <!-- GOOD JOB NOTES -->
-<div id="page-goodjob" class="page">
-  <div class="page-header">
-    <div><div class="page-title">Good Job Notes</div><div class="page-subtitle">Send a personal recognition message from a student leader to a student</div></div>
-  </div>
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:24px;">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px;">
-      <div class="form-group" style="margin:0;"><label class="form-label">From (Leader / Asst. Instructor)</label><select class="form-select" id="gj-from"><option value="">— Select sender —</option></select></div>
-      <div class="form-group" style="margin:0;"><label class="form-label">To (Student)</label><select class="form-select" id="gj-to"><option value="">— Select student —</option></select></div>
-    </div>
-    <div style="font-size:10px;color:var(--ink-faint);margin-bottom:12px;">✓ = received a note in the past 60 days — consider someone new</div>
-    <div style="margin-bottom:10px;">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:6px;">Quick Templates</div>
-      <div id="gj-templates" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-    </div>
-    <div class="form-group" style="margin-bottom:16px;">
-      <label class="form-label">Message</label>
-      <textarea class="form-input" id="gj-message" rows="4" placeholder="Write your message, or pick a template above…" oninput="gjUpdatePreview()"></textarea>
-    </div>
-    <div id="gj-preview" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;">
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:6px;">Email preview</div>
-      <div id="gj-preview-body" style="white-space:pre-wrap;line-height:1.6;color:var(--ink-muted);"></div>
-    </div>
-    <div style="display:flex;justify-content:flex-end;gap:8px;">
-      <button class="btn" onclick="gjClear()">Clear</button>
-      <button class="btn primary" onclick="sendGoodJobNote()">✉ Send Note</button>
-    </div>
-  </div>
-  <div class="section-divider"><span>Sent Notes</span></div>
-  <div id="gj-log"></div>
-</div>
+
 
 <!-- CLASS TIMER -->
 <div id="page-timer" class="page">
@@ -1131,6 +1102,26 @@ tbody td{font-size:11px!important;}
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-belt-config')">Cancel</button>
       <button class="btn primary" onclick="saveBeltConfig()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- WELCOME EMAIL PROMPT -->
+<div class="modal-backdrop" id="modal-welcome-prompt">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <div class="modal-title">🥋 Send Welcome Emails?</div>
+      <button class="btn ghost" onclick="closeModal('modal-welcome-prompt')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--ink-muted);margin-bottom:16px;">
+        The following new students attended class recently and haven't received a welcome email yet. Select who to send to:
+      </p>
+      <div id="welcome-prompt-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="skipWelcomeEmails()">Skip All</button>
+      <button class="btn primary" onclick="sendWelcomeEmails()">✉ Send Selected</button>
     </div>
   </div>
 </div>
@@ -2392,6 +2383,7 @@ function openProfile(id){
     </div>`:''}
     ${hist.length?`<div class="section-divider"><span>Event history</span></div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;">
+      ${(s.noteHistory&&s.noteHistory.length)?`<div style="margin-bottom:12px;"><div class="section-divider" style="margin:8px 0 6px;"><span>Notes</span></div>${s.noteHistory.slice(0,5).map(n=>`<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="font-size:11px;color:var(--ink-faint);margin-right:8px;">${fmtDate(n.date)}</span>${n.text}</div>`).join('')}${s.noteHistory.length>5?`<div style="font-size:11px;color:var(--link);padding:4px 0;">+${s.noteHistory.length-5} more (edit profile to view all)</div>`:''}</div>`:''}
       ${hist.map(h=>{const icons={class:'📅',stripe:'⭐',test:'🏆',promo:'🎖',reg:'💳',note:'📝',assist:'⭐',status:'🔄'};return `<div class="hist-row"><span class="hist-icon">${icons[h.type]||'•'}</span><span class="hist-date">${fmtDate(h.date)}</span><span>${h.note}</span></div>`;}).join('')}
       ${histMore?`<button onclick="showMoreHistory(${s.id})" id="hist-more-btn" style="font-size:12px;color:var(--link);background:none;border:none;cursor:pointer;padding:4px 0;">Show all history…</button>`:''}
     </div>`:''}
@@ -3141,7 +3133,11 @@ async function sendEmails(){
 async function sendGmailMessage(to,subject,body){
   try{
     const CRLF='\r\n';
-    const msg='To: '+to+CRLF+'Subject: '+subject+CRLF+'Content-Type: text/plain; charset=utf-8'+CRLF+CRLF+body;
+    // RFC 2047 encode subject to handle emojis/non-ASCII safely
+    const encSubject = /[^\x00-\x7F]/.test(subject)
+      ? '=?UTF-8?B?'+btoa(unescape(encodeURIComponent(subject)))+'?='
+      : subject;
+    const msg='To: '+to+CRLF+'Subject: '+encSubject+CRLF+'Content-Type: text/plain; charset=utf-8'+CRLF+CRLF+body;
     const encoded=btoa(unescape(encodeURIComponent(msg))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
     const res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{
       method:'POST',
@@ -3884,7 +3880,8 @@ if(!DB.classSchedule||!Array.isArray(DB.classSchedule)||!DB.classSchedule.length
   // Init complete — safe to save now
   _initComplete=true;
   setTimeout(checkMonthlyBackup,4000);
-  setTimeout(checkWelcomeSequence,6000);
+  // Welcome emails — check for eligible students and prompt (no auto-send)
+  setTimeout(checkWelcomeSequence, 6000);
   setTimeout(checkWeeklyDigest,8000);
 
   // Hide loading overlay
@@ -6374,23 +6371,63 @@ async function sendWeeklyDigest(){
 // ══════════════════════════════════════════════════════
 // WELCOME EMAIL SEQUENCE
 // ══════════════════════════════════════════════════════
-async function checkWelcomeSequence(){
-  if(!gmailToken)return;
+function checkWelcomeSequence(){
+  if(!gmailToken) return;
   const today=new Date().toISOString().slice(0,10);
-  for(const s of DB.students){
-    if(s.status!=='Active'||!s.email||s._welcomeSent)continue;
-    // Check if they attended their first class yesterday or today
-    const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
-    const yStr=yesterday.toISOString().slice(0,10);
+  const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
+  const yStr=yesterday.toISOString().slice(0,10);
+  const eligible=DB.students.filter(s=>{
+    if(s.status!=='Active'||!s.email||s._welcomeSent) return false;
     const attendedRecently=Object.keys(DB.attendance).some(d=>(d===today||d===yStr)&&DB.attendance[d]?.[s.id]==='present');
-    const isNewish=s.firstDate&&(new Date()-new Date(s.firstDate+'\T00:00:00'))/(86400000)<7;
-    if(attendedRecently&&isNewish){
-      const subject='Welcome to Noble\'s Martial Arts, '+s.first+'! 🥋';
-      const body='Hi '+(s.parent||'there')+',\n\nWe are so glad '+s.first+' joined us! Watching them on the mat today was awesome.\n\n'+s.first+' is starting as a '+s.belt+' belt in our '+s.group+' program. The journey ahead is going to be incredible!\n\nA few things to know:\n• Arrive 5 minutes early to get settled\n• Bring water — class gets moving!\n• Practice at home makes a huge difference\n• Check out our Parent Hub for curriculum videos and announcements: '+LINKTREE+'\n\nAny questions at all, just reply to this email. My door is always open.\n\n— Master Noble\nNoble\'s Martial Arts';
-      const ok=await sendGmailMessage(s.email,subject,body);
-      if(ok){s._welcomeSent=true;addHistory(s,'reg','Welcome email sent after first class');save();}
-    }
+    const isNewish=s.firstDate&&(new Date()-new Date(s.firstDate+'T00:00:00'))/(86400000)<3;
+    return attendedRecently&&isNewish;
+  });
+  if(!eligible.length) return;
+  // Show a prompt toast — no auto-send
+  showWelcomePrompt(eligible);
+}
+
+function showWelcomePrompt(eligible){
+  const modal=$('modal-welcome-prompt');
+  const list=$('welcome-prompt-list');
+  if(!modal||!list) return;
+  list.innerHTML=eligible.map(s=>
+    `<label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+      <input type="checkbox" value="${s.id}" checked style="accent-color:#6366f1;width:16px;height:16px;">
+      <div>
+        <div style="font-weight:600;">${s.first} ${s.last}</div>
+        <div style="font-size:12px;color:var(--ink-muted);">${s.group} · ${s.belt} · ${s.email}</div>
+      </div>
+    </label>`
+  ).join('');
+  modal.classList.add('open');
+}
+
+async function sendWelcomeEmails(){
+  const checkboxes=document.querySelectorAll('#welcome-prompt-list input[type="checkbox"]:checked');
+  const ids=[...checkboxes].map(c=>parseInt(c.value));
+  if(!ids.length){closeModal('modal-welcome-prompt');return;}
+  let sent=0;
+  for(const id of ids){
+    const s=DB.students.find(x=>x.id===id);if(!s)continue;
+    const subject="Welcome to Noble's Martial Arts, "+s.first+"!";
+    const body='Hi '+(s.parent||'there')+',\n\nWe are so glad '+s.first+' joined us! Watching them in class today was awesome.\n\n'+s.first+' is starting as a '+s.belt+' belt in our '+s.group+' program. The journey ahead is going to be incredible!\n\nA few things to know:\n• Arrive 5 minutes early to get settled\n• Bring water — class gets moving!\n• Practice at home makes a huge difference\n• Check out our Parent Hub for curriculum videos: '+LINKTREE+'\n\nAny questions at all, just reply. My door is always open.\n\n— Master Noble\nNoble\'s Martial Arts';
+    const ok=await sendGmailMessage(s.email,subject,body);
+    if(ok){s._welcomeSent=true;addHistory(s,'reg','Welcome email sent');sent++;}
   }
+  save();closeModal('modal-welcome-prompt');
+  toast('Welcome email'+(sent!==1?'s':'')+' sent to '+sent+' student'+(sent!==1?'s':'')+' ✓');
+}
+
+function skipWelcomeEmails(){
+  // Mark all currently shown students as _welcomeSent to suppress future prompts
+  const checkboxes=document.querySelectorAll('#welcome-prompt-list input[type="checkbox"]');
+  [...checkboxes].forEach(c=>{
+    const s=DB.students.find(x=>x.id===parseInt(c.value));
+    if(s) s._welcomeSent=true;
+  });
+  save();closeModal('modal-welcome-prompt');
+  toast('Welcome emails skipped.');
 }
 
 // ══════════════════════════════════════════════════════
