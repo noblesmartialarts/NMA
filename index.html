@@ -7932,52 +7932,69 @@ async function syncApparelOrders() {
       // Student names: collect ALL fields with "student" in label (API reuses same label for all 3)
       const studentKeys = Object.keys(ans).filter(k => (ans[k].text||'').toLowerCase().includes('student'));
       const students = studentKeys.map(k => extractVal(ans[k].answer)).filter(Boolean).join(', ');
-      // Products: dual-strategy Jotform parser
+      // Products: parse Jotform space-separated JSON blobs
+      // The answer field contains multiple JSON objects in sequence.
+      // The summary object has: {"product":["Name (Amount: X, Quantity: N, Color: C, Size: S)"],"total":"X","order":{"status":"PAID"}}
+      // The product detail object has: {"cid":"...","name":"...","price":12,"options":[{"name":"Color","selected":"Blue"},...],"paymentType":"product"}
       let products = [], paid = false, orderTotal = 0;
       const pk = Object.keys(ans).find(k => (ans[k].text||'').toLowerCase().includes('product'));
       if (pk && ans[pk].answer) {
         try {
           const raw = typeof ans[pk].answer === 'string' ? ans[pk].answer : JSON.stringify(ans[pk].answer);
-          paid = raw.includes('PAID');
-          const totM = raw.match(/"total"\s*:\s*"?([\d.]+)"?/); if(totM) orderTotal = parseFloat(totM[1]);
-          // Strategy 1: "product":["Name (Amount: X, Quantity: N, Color: C, Size: S)"] array
-          const prodArrMatch = raw.match(/"product"\s*:\s*\[([\s\S]*?)\]/);
-          if (prodArrMatch) {
-            const strs = [...prodArrMatch[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(m=>m[1]);
-            strs.forEach(function(line) {
-              const nm = line.match(/^([^(]+?)(?:\s*\(|$)/);
-              const amtM = line.match(/Amount[:\s]*([\d.]+)/i);
-              const qtyM = line.match(/Quantity[:\s]*(\d+)/i);
-              const optsM = [...line.matchAll(/,\s*([A-Za-z ]+):\s*([^,)]+)/g)]
-                .filter(function(m){ return !/amount|quantity/i.test(m[1]); })
-                .map(function(m){ return m[1].trim()+': '+m[2].trim(); });
-              if (nm && nm[1].trim().length > 2) {
-                products.push({name:nm[1].trim(), price:amtM?parseFloat(amtM[1]):0, qty:qtyM?parseInt(qtyM[1]):1, options:optsM});
-              }
-            });
+          // Extract all balanced JSON objects from the string
+          var chunks = [], depth = 0, start = -1;
+          for (var ci = 0; ci < raw.length; ci++) {
+            if (raw[ci] === '{') { if (depth === 0) start = ci; depth++; }
+            else if (raw[ci] === '}') { depth--; if (depth === 0 && start >= 0) { chunks.push(raw.slice(start, ci+1)); start = -1; } }
           }
-          // Strategy 2: find {cid... paymentType:"product"} config block
-          if (!products.length) {
-            const bigBlock = raw.match(/\{"cid"[\s\S]*?"paymentType"\s*:\s*"product"\}/);
-            if (bigBlock) {
-              const block = bigBlock[0];
-              const nm = block.match(/"name"\s*:\s*"([^"]{5,60})"/);
-              const pr = block.match(/"price"\s*:\s*([\d.]+)/);
-              const qt = block.match(/"quantity"\s*:\s*(\d+)/);
-              const col = block.match(/"name"\s*:\s*"Color"[\s\S]*?"selected"\s*:\s*"([^"]+)"/);
-              const sz  = block.match(/"name"\s*:\s*"Size"[\s\S]*?"selected"\s*:\s*"([^"]+)"/);
-              if (nm && pr) {
-                const opts = [];
-                if (col) opts.push('Color: '+col[1]);
-                if (sz)  opts.push('Size: '+sz[1]);
-                products.push({name:nm[1], price:parseFloat(pr[1])||0, qty:parseInt(qt?qt[1]:'1')||1, options:opts});
-                if (!orderTotal) orderTotal = products[0].price * products[0].qty;
+          chunks.forEach(function(chunk) {
+            try {
+              var obj = JSON.parse(chunk);
+              // Summary object: has "product" array and "total"
+              if (obj.product && Array.isArray(obj.product) && obj.total) {
+                orderTotal = parseFloat(obj.total) || 0;
+                if (obj.order && obj.order.status === 'PAID') paid = true;
+                obj.product.forEach(function(line) {
+                  // "NMA Lion Head T-Shirt (Amount: 12.00 USD, Quantity: 1, Color: Blue, Size: Youth Medium)"
+                  var nm = line.match(/^([^(]+?)(?:\s*\(|$)/);
+                  var amtM = line.match(/Amount[:\s]*([\d.]+)/i);
+                  var qtyM = line.match(/Quantity[:\s]*(\d+)/i);
+                  var opts = [];
+                  var rest = line.replace(/^[^(]*\(/, '').replace(/\)$/, '');
+                  rest.split(',').forEach(function(part) {
+                    var kv = part.trim().split(':');
+                    if (kv.length >= 2) {
+                      var key = kv[0].trim();
+                      var val = kv.slice(1).join(':').replace(/ USD$/,'').trim();
+                      if (!/amount|quantity/i.test(key) && key && val) opts.push(key+': '+val);
+                    }
+                  });
+                  if (nm && nm[1].trim()) {
+                    products.push({name:nm[1].trim(), price:amtM?parseFloat(amtM[1]):0, qty:qtyM?parseInt(qtyM[1]):1, options:opts});
+                  }
+                });
               }
-            }
+            } catch(e) {}
+          });
+          // Fallback: use product detail object if summary parse gave no results
+          if (!products.length) {
+            chunks.forEach(function(chunk) {
+              try {
+                var obj = JSON.parse(chunk);
+                if (obj.paymentType === 'product' && obj.name && obj.price !== undefined) {
+                  var opts = [];
+                  (obj.options || []).forEach(function(o) {
+                    if (o.name && o.selected && !/quantity/i.test(o.name)) opts.push(o.name+': '+o.selected);
+                  });
+                  products.push({name:obj.name, price:parseFloat(obj.price)||0, qty:obj.quantity||1, options:opts});
+                  if (!orderTotal) orderTotal = products[0].price * products[0].qty;
+                }
+              } catch(e) {}
+            });
           }
         } catch(e) { console.warn('Product parse error:', e.message); }
       }
-      if (!paid) paid = JSON.stringify(sub).includes('PAID');
+      if (!paid) paid = JSON.stringify(sub).includes('"PAID"');
       const total = orderTotal || products.reduce((s,p)=>s+(p.price*p.qty),0);
       return {id:sub.id,date:(sub.created_at||'').slice(0,10),parentName:get('full name'),email:get('e-mail','email'),phone:get('contact number','phone'),students,products,total: orderTotal || products.reduce((s,p)=>s+(p.price*p.qty),0),invoiceId:get('invoice'),notes:get('special instruction','note','comment'),paid,jotformUrl:'https://www.jotform.com/inbox/261055009001137?sid='+sub.id};
     });
