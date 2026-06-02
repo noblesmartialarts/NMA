@@ -7932,67 +7932,55 @@ async function syncApparelOrders() {
       // Student names: collect ALL fields with "student" in label (API reuses same label for all 3)
       const studentKeys = Object.keys(ans).filter(k => (ans[k].text||'').toLowerCase().includes('student'));
       const students = studentKeys.map(k => extractVal(ans[k].answer)).filter(Boolean).join(', ');
-      // Products: parse Jotform space-separated JSON blobs
-      // The answer field contains multiple JSON objects in sequence.
-      // The summary object has: {"product":["Name (Amount: X, Quantity: N, Color: C, Size: S)"],"total":"X","order":{"status":"PAID"}}
-      // The product detail object has: {"cid":"...","name":"...","price":12,"options":[{"name":"Color","selected":"Blue"},...],"paymentType":"product"}
+      // Products: Jotform payment field
+      // answer is an object; answer.paymentArray is a JSON string with the summary
+      // answer[248] (or similar high key) is the selected product detail object string
       let products = [], paid = false, orderTotal = 0;
       const pk = Object.keys(ans).find(k => (ans[k].text||'').toLowerCase().includes('product'));
-      if (pk && ans[pk].answer) {
+      if (pk && ans[pk].answer && typeof ans[pk].answer === 'object') {
         try {
-          const raw = typeof ans[pk].answer === 'string' ? ans[pk].answer : JSON.stringify(ans[pk].answer);
-          // Extract all balanced JSON objects from the string
-          var chunks = [], depth = 0, start = -1;
-          for (var ci = 0; ci < raw.length; ci++) {
-            if (raw[ci] === '{') { if (depth === 0) start = ci; depth++; }
-            else if (raw[ci] === '}') { depth--; if (depth === 0 && start >= 0) { chunks.push(raw.slice(start, ci+1)); start = -1; } }
+          const ansObj = ans[pk].answer;
+          // Primary: paymentArray key contains the clean summary
+          if (ansObj.paymentArray) {
+            const pa = typeof ansObj.paymentArray === 'string' ? JSON.parse(ansObj.paymentArray) : ansObj.paymentArray;
+            orderTotal = parseFloat(pa.total) || 0;
+            if (pa.order && pa.order.status === 'PAID') paid = true;
+            (pa.product || []).forEach(function(line) {
+              // "NMA Lion Head T-Shirt (Amount: 12.00 USD, Quantity: 1, Color: Blue, Size: Youth Medium)"
+              var nm = line.match(/^([^(]+?)(?:\s*\(|$)/);
+              var amtM = line.match(/Amount[:\s]*([\d.]+)/i);
+              var qtyM = line.match(/Quantity[:\s]*(\d+)/i);
+              var opts = [];
+              var rest = line.replace(/^[^(]*\(/, '').replace(/\)$/, '');
+              rest.split(',').forEach(function(part) {
+                var kv = part.trim().split(':');
+                if (kv.length >= 2) {
+                  var key = kv[0].trim(), val = kv.slice(1).join(':').replace(/ USD$/i,'').trim();
+                  if (!/amount|quantity/i.test(key) && key && val) opts.push(key+': '+val);
+                }
+              });
+              if (nm && nm[1].trim()) products.push({name:nm[1].trim(), price:amtM?parseFloat(amtM[1]):0, qty:qtyM?parseInt(qtyM[1]):1, options:opts});
+            });
           }
-          chunks.forEach(function(chunk) {
-            try {
-              var obj = JSON.parse(chunk);
-              // Summary object: has "product" array and "total"
-              if (obj.product && Array.isArray(obj.product) && obj.total) {
-                orderTotal = parseFloat(obj.total) || 0;
-                if (obj.order && obj.order.status === 'PAID') paid = true;
-                obj.product.forEach(function(line) {
-                  // "NMA Lion Head T-Shirt (Amount: 12.00 USD, Quantity: 1, Color: Blue, Size: Youth Medium)"
-                  var nm = line.match(/^([^(]+?)(?:\s*\(|$)/);
-                  var amtM = line.match(/Amount[:\s]*([\d.]+)/i);
-                  var qtyM = line.match(/Quantity[:\s]*(\d+)/i);
-                  var opts = [];
-                  var rest = line.replace(/^[^(]*\(/, '').replace(/\)$/, '');
-                  rest.split(',').forEach(function(part) {
-                    var kv = part.trim().split(':');
-                    if (kv.length >= 2) {
-                      var key = kv[0].trim();
-                      var val = kv.slice(1).join(':').replace(/ USD$/,'').trim();
-                      if (!/amount|quantity/i.test(key) && key && val) opts.push(key+': '+val);
-                    }
-                  });
-                  if (nm && nm[1].trim()) {
-                    products.push({name:nm[1].trim(), price:amtM?parseFloat(amtM[1]):0, qty:qtyM?parseInt(qtyM[1]):1, options:opts});
-                  }
-                });
-              }
-            } catch(e) {}
-          });
-          // Fallback: use product detail object if summary parse gave no results
+          // Fallback: scan numeric keys for the product detail object (has paymentType:"product" and options[].selected)
           if (!products.length) {
-            chunks.forEach(function(chunk) {
+            Object.values(ansObj).forEach(function(val) {
               try {
-                var obj = JSON.parse(chunk);
-                if (obj.paymentType === 'product' && obj.name && obj.price !== undefined) {
+                var obj = typeof val === 'string' ? JSON.parse(val) : val;
+                if (obj && obj.paymentType === 'product' && obj.name && obj.price !== undefined) {
                   var opts = [];
                   (obj.options || []).forEach(function(o) {
                     if (o.name && o.selected && !/quantity/i.test(o.name)) opts.push(o.name+': '+o.selected);
                   });
-                  products.push({name:obj.name, price:parseFloat(obj.price)||0, qty:obj.quantity||1, options:opts});
-                  if (!orderTotal) orderTotal = products[0].price * products[0].qty;
+                  var qty = obj.quantity || 1;
+                  products.push({name:obj.name, price:parseFloat(obj.price)||0, qty:qty, options:opts});
+                  if (!orderTotal) orderTotal = (parseFloat(obj.price)||0) * qty;
+                  if (obj.order && obj.order.status === 'PAID') paid = true;
                 }
               } catch(e) {}
             });
           }
-        } catch(e) { console.warn('Product parse error:', e.message); }
+        } catch(e) { console.warn('Jotform product parse error:', e.message); }
       }
       if (!paid) paid = JSON.stringify(sub).includes('"PAID"');
       const total = orderTotal || products.reduce((s,p)=>s+(p.price*p.qty),0);
