@@ -7176,7 +7176,7 @@ function gjUseTemplate(text) {
 function renderGoodJobSelects() {
   var fromSel = $('gj-from'), toSel = $('gj-to');
   if(!fromSel || !toSel) return;
-  var leaders = DB.students.filter(function(s){ return s.status==='Active' && (s.leader||s.ai); });
+  var leaders = DB.students.filter(function(s){ return s.status==='Active' && (s.leader||s.ai||s.jrInstructor||s.instructor||s.masterInstructor); });
   fromSel.innerHTML = '<option value="sensei">Sensei Brandon (Instructor)</option>' +
     leaders.map(function(s){
       return '<option value="'+s.id+'">' + s.first+' '+s.last+' ('+getLeaderRole(s)+')</option>';
@@ -7223,7 +7223,7 @@ function gjBuildMessage(fromS, toS, msg) {
     +'"'+msg.trim()+'"\n\n'
     +'We\'re proud of the hard work and dedication '+toS.first+' shows in class. '
     +'It\'s a pleasure to have them as part of our NMA family.\n\n'
-    +'Warm regards,\n'+fromS.first+' '+fromS.last+'\n'+role+', Noble\'s Martial Arts';
+    +'Warm regards,\n'+(isSensei?'Sensei Brandon':fromS.first+' '+fromS.last)+'\n'+(isSensei?'Instructor':rolePlural)+', Noble\'s Martial Arts';
 }
 
 async function sendGoodJobNote() {
@@ -7277,12 +7277,17 @@ function renderGoodJobLog() {
     return;
   }
   el.innerHTML = DB.goodJobNotes.slice(0,50).map(function(n){
-    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:8px;">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
-        +'<div style="font-size:13px;"><strong>To:</strong> '+n.toName+' &nbsp;·&nbsp; <strong>From:</strong> '+n.fromName+'</div>'
-        +'<div style="font-size:11px;color:var(--ink-faint);">'+fmtDate(n.date)+(n.emailed?' · ✉ Emailed':' · Not emailed')+'</div>'
+    var initials = n.toName.split(' ').map(function(w){return w[0]||'';}).slice(0,2).join('');
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">'
+      +'<div style="width:38px;height:38px;border-radius:50%;background:var(--indigo-light);color:var(--indigo);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">'+initials+'</div>'
+      +'<div style="flex:1;min-width:0;">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-bottom:4px;">'
+          +'<div style="font-size:13px;font-weight:600;">'+n.toName+'</div>'
+          +'<div style="font-size:11px;color:var(--ink-faint);">'+fmtDate(n.date)+'</div>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--ink-muted);margin-bottom:6px;">From: '+n.fromName+(n.emailed?' · <span style="color:var(--green);">✉ Emailed</span>':' · <span style="color:var(--amber);">Not emailed</span>')+'</div>'
+        +'<div style="font-size:13px;color:var(--ink);background:var(--bg);border-radius:8px;padding:8px 10px;border-left:3px solid var(--indigo);font-style:italic;">"'+n.message+'"</div>'
       +'</div>'
-      +'<div style="font-size:13px;color:var(--ink-muted);font-style:italic;">"'+n.message+'"</div>'
     +'</div>';
   }).join('');
 }
