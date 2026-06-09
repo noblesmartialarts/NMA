@@ -8,7 +8,8 @@
 <style>
 :root{--ink:#1a1a1a;--ink-muted:#6b6b6b;--ink-faint:#b0b0b0;--paper:#fafaf8;--surface:#fff;--border:#e8e6e0;--border-strong:#c8c4bc;--red:#c8392b;--red-light:#fdf1f0;--amber:#c97a10;--amber-light:#fdf6ec;--green:#2e7d4f;--green-light:#eef7f2;--blue:#1e5fa8;--blue-light:#edf3fc;--purple:#6d3fa8;--purple-light:#f3eefe;--accent:#c8392b;--font-display:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:var(--font-body);background:var(--paper);color:var(--ink);font-size:14px;line-height:1.5;min-height:100vh;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.3);}}
+    body{font-family:var(--font-body);background:var(--paper);color:var(--ink);font-size:14px;line-height:1.5;min-height:100vh;}
 .app{display:flex;min-height:100vh;}
 .sidebar{width:222px;min-width:222px;background:var(--ink);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;}
 .sidebar-logo{padding:22px 20px 18px;border-bottom:1px solid rgba(255,255,255,.1);}
@@ -452,6 +453,9 @@ tbody td{font-size:11px!important;}
     </div>
     <button class="btn small" id="timer-cancel-btn" style="margin-left:auto;display:none;" onclick="toggleCancelDay()"></button>
   </div>
+
+  <!-- Now / Next bar -->
+  <div id="timer-now-next" style="margin-bottom:20px;"></div>
 
   <!-- Today's schedule cards -->
   <div id="timer-schedule-row" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;"></div>
@@ -7487,6 +7491,8 @@ function updateClock() {
   var ampm = h >= 12 ? 'PM' : 'AM';
   h = h % 12 || 12;
   el.textContent = h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0') + ' ' + ampm;
+  // Update Now/Next bar every 30 seconds
+  if(s === 0 || s === 30) renderNowNext();
   // Update schedule row highlighting every minute
   if(s === 0) renderScheduleRow();
 }
@@ -7533,6 +7539,67 @@ function renderTimerPage() {
   }
 
   renderScheduleRow();
+  renderNowNext();
+}
+
+function renderNowNext() {
+  var el = $('timer-now-next'); if(!el) return;
+  if(isCancelled()){el.innerHTML='';return;}
+  var now = new Date();
+  var nowMins = now.getHours()*60 + now.getMinutes();
+  var dow = now.getDay();
+  if(!DB.classSchedule) { el.innerHTML=''; return; }
+  var todaySlots = DB.classSchedule.filter(function(s){return s.day===dow;}).sort(function(a,b){return a.time.localeCompare(b.time);});
+  if(!todaySlots.length) { el.innerHTML=''; return; }
+
+  // Find current or next class
+  var current = null, next = null;
+  for(var i=0;i<todaySlots.length;i++) {
+    var slot = todaySlots[i];
+    var parts = slot.time.split(':');
+    var startMins = parseInt(parts[0])*60+parseInt(parts[1]);
+    var endMins = startMins + slot.dur;
+    if(nowMins >= startMins && nowMins < endMins) { current = {slot:slot, startMins:startMins, endMins:endMins}; break; }
+    if(nowMins < startMins && !next) { next = {slot:slot, startMins:startMins}; }
+  }
+
+  if(current) {
+    var elapsed = nowMins - current.startMins;
+    var remaining = current.endMins - nowMins;
+    var pct = Math.round(elapsed / current.slot.dur * 100);
+    var rmText = remaining === 1 ? '1 min' : remaining + ' min';
+    el.innerHTML = '<div style="background:var(--surface);border:1px solid var(--indigo);border-radius:12px;padding:14px 18px;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+        +'<div style="display:flex;align-items:center;gap:8px;">'
+          +'<span style="width:10px;height:10px;border-radius:50%;background:#6366f1;display:inline-block;animation:pulse 1.5s infinite;"></span>'
+          +'<span style="font-weight:700;font-size:14px;color:var(--indigo);">'+current.slot.group+'</span>'
+          +'<span style="font-size:12px;color:var(--ink-muted);">in progress</span>'
+        +'</div>'
+        +'<span style="font-size:15px;font-weight:700;color:var(--indigo);">ends in '+rmText+'</span>'
+      +'</div>'
+      +'<div style="background:var(--border);border-radius:6px;height:8px;overflow:hidden;">'
+        +'<div style="height:100%;width:'+pct+'%;background:linear-gradient(90deg,#6366f1,#818cf8);border-radius:6px;transition:width .5s;"></div>'
+      +'</div>'
+    +'</div>';
+  } else if(next) {
+    var minsUntil = next.startMins - nowMins;
+    var untilText = minsUntil === 1 ? '1 min' : minsUntil + ' min';
+    var urgent = minsUntil <= 10;
+    el.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:12px;">'
+      +'<span style="font-size:18px;">'+(urgent?'⏰':'▶')+'</span>'
+      +'<div>'
+        +'<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);">Next class</span><br>'
+        +'<span style="font-weight:700;font-size:15px;">'+next.slot.group+'</span>'
+        +'<span style="font-size:13px;color:var(--ink-muted);margin-left:8px);">starts at '+fmt12(next.slot.time)+'</span>'
+      +'</div>'
+      +'<div style="margin-left:auto;text-align:right;">'
+        +'<div style="font-size:22px;font-weight:800;color:'+(urgent?'var(--amber)':'var(--ink)') + ';">'+untilText+'</div>'
+        +'<div style="font-size:10px;color:var(--ink-faint);">until start</div>'
+      +'</div>'
+    +'</div>';
+  } else {
+    el.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 18px;font-size:13px;color:var(--ink-muted);">No more classes scheduled today.</div>';
+  }
 }
 
 function renderScheduleRow() {
