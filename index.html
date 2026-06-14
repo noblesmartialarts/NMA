@@ -723,7 +723,7 @@ tbody td{font-size:11px!important;}
       <button class="btn success" onclick="openMassPromoModal()">🎖 Run Promotions</button>
     </div>
     <div style="overflow-x:auto;"><table>
-      <thead><tr><th style="width:28px;"></th><th>Student</th><th>Group</th><th>Current Belt</th><th>Next Belt</th><th>Stripes</th><th>Eligible</th><th>Fee Paid</th><th>Amount</th></tr></thead>
+      <thead><tr><th>Student</th><th>Group</th><th>Current Belt</th><th>Next Belt</th><th>Stripes</th><th>Intent Letter</th><th>Belt Test</th><th>Fee Paid</th><th>Amount</th></tr></thead>
       <tbody id="test-eligibility-tbody"></tbody>
     </table></div>
   </div>
@@ -1159,7 +1159,7 @@ tbody td{font-size:11px!important;}
 <!-- PROMOTE LETTERS -->
 <div id="page-letters" class="page">
   <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-    <div><div class="page-title">Intent to Promote Letters</div><div class="page-subtitle">Ready-to-print for all belt-test-eligible students</div></div>
+    <div><div class="page-title">Intent to Promote Letters</div><div class="page-subtitle">Ready-to-print for students with 1+ stripe. Full belt-test readiness still requires full stripes.</div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;" class="no-print">
       <select id="letter-event-sel" class="form-select" style="width:240px;" onchange="generateLetters()"><option value="">— Select test event —</option></select>
       <button class="btn primary" onclick="printLettersOnly()">🖨 Print Letters</button>
@@ -2067,11 +2067,33 @@ function totalClassesAttended(sid){
     return sum+(dayRec[sid]==='present'?1:0);
   },0);
 }
-function stripeEligible(s){
+function stripeCount(s){return parseInt(s?.stripes,10)||0;}
+function beltTestAutoEligible(s){
+  if(!s||s.status!=='Active')return false;
+  if(!getPromotion(s))return false;
+  // Standard ranks need 2 stripes. Two-cycle red ranks still use their configured 5-stripe requirement.
+  return stripeCount(s)>=maxStripes(s);
+}
+function beltTestEligible(s){
   if(s.testEligibleOverride===true)return true;
   if(s.testEligibleOverride===false)return false;
-  if(s.stripes<maxStripes(s))return false;
-  return totalClassesAttended(s.id)>=5;
+  return beltTestAutoEligible(s);
+}
+// Backward-compatible name used throughout the CRM for true belt-test/promotion readiness.
+function stripeEligible(s){return beltTestEligible(s);}
+function intentLetterAutoEligible(s){
+  if(!s||s.status!=='Active')return false;
+  if(s.testEligibleOverride===true)return true;
+  if(s.testEligibleOverride===false)return false;
+  if(!getPromotion(s))return false;
+  // Intent to Promote letters are prepared before the 2nd stripe test.
+  // 1 stripe = letter candidate; full stripes = actual belt-test candidate.
+  return stripeCount(s)>=1;
+}
+function intentToPromoteEligible(s){
+  if(s.intentLetterOverride===true)return true;
+  if(s.intentLetterOverride===false)return false;
+  return intentLetterAutoEligible(s);
 }
 function isBBC2(s){return s.group==='Black Belt Club'&&['Blue II','Green','Green II'].includes(s.belt);}
 function missedRecent(sid){
@@ -2370,7 +2392,7 @@ function openProfile(id){
         <div class="pf"><label>Current belt</label><p><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></p></div>
         <div class="pf"><label>Stripes</label><p>${stripeDots(s.stripes,maxStripes(s),TWO_CYCLE_BELTS.has(s.belt))} ${s.stripes}/${maxStripes(s)}</p></div>
         <div class="pf"><label>Next belt</label><p>${promo?('<span class="belt-pill" style="'+beltStyle(promo.belt)+';font-size:11px;">'+promo.belt+'</span>'+(promo.group!==s.group?' <span style="font-size:11px;color:var(--ink-muted);">(→ '+promo.group+')</span>':'')):'Max rank'}</p></div>
-        <div class="pf"><label>Test eligible</label><p><span class="badge ${stripeEligible(s)?'badge-green':'badge-gray'}">${stripeEligible(s)?'Yes — ready':s.testEligibleOverride===false?'Blocked':'No'}</span><span style="font-size:11px;color:var(--ink-muted);margin-left:8px;">${s.stripes}/${maxStripes(s)} stripes · ${totalClassesAttended(s.id)} classes</span> <button class="btn small" style="margin-left:6px;font-size:11px;" onclick="toggleEligibilityOverride(${s.id})">${s.testEligibleOverride===true?'✓ Forced':''}${s.testEligibleOverride===false?'✗ Blocked':''}${s.testEligibleOverride===undefined||s.testEligibleOverride===null?'Override':'Clear override'}</button></p></div>
+        <div class="pf"><label>Belt test eligible</label><p><span class="badge ${stripeEligible(s)?'badge-green':'badge-gray'}">${stripeEligible(s)?'Yes — ready':s.testEligibleOverride===false?'Blocked':'No'}</span><span style="font-size:11px;color:var(--ink-muted);margin-left:8px;">${stripeCount(s)}/${maxStripes(s)} stripes · ${totalClassesAttended(s.id)} classes attended</span> <button class="btn small" style="margin-left:6px;font-size:11px;" onclick="toggleEligibilityOverride(${s.id})">${s.testEligibleOverride===true?'✓ Forced':''}${s.testEligibleOverride===false?'✗ Blocked':''}${s.testEligibleOverride===undefined||s.testEligibleOverride===null?'Override':'Clear override'}</button></p></div>
         <div class="pf"><label>Belt size</label><p>${s.beltSize||'—'}</p></div>
         <div class="pf"><label>Uniform size</label><p>${s.uniformSize||'—'}</p></div>
         <div class="pf"><label>Registered</label><p><span class="badge ${s.registered==='Yes'?'badge-green':'badge-gray'}">${s.registered==='Yes'?(s.paidVenmo?'Yes (Venmo)':'Yes'):(s.omitFromReg?'Omitted':'No')}</span></p></div>
@@ -2807,19 +2829,46 @@ function renderTestSelect(){
 }
 function renderTestEligibility(){
   const evId=parseInt($('test-event-select').value);const ev=DB.testEvents.find(e=>e.id===evId);const tbody=$('test-eligibility-tbody');
-  if(!ev){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:16px;color:var(--ink-muted);">Select an event above</td></tr>';return;}
+  if(!ev){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:16px;color:var(--ink-muted);">Select an event above</td></tr>';return;}
   const active=DB.students.filter(s=>s.status==='Active');
   tbody.innerHTML=active.map(s=>{
-    const eligible=stripeEligible(s);const feeRec=DB.testFees.find(f=>f.eventId===evId&&f.studentId===s.id);const paid=feeRec?.paid||false;const promo=getPromotion(s);
+    const intent=intentToPromoteEligible(s);
+    const eligible=beltTestEligible(s);
+    const autoEligible=beltTestAutoEligible(s);
+    const feeRec=DB.testFees.find(f=>f.eventId===evId&&f.studentId===s.id);const paid=feeRec?.paid||false;const promo=getPromotion(s);
+    const overrideLabel=s.testEligibleOverride===true?'Manual yes':s.testEligibleOverride===false?'Manual no':(autoEligible?'Auto':'Needs stripes');
     return `<tr><td><strong>${s.first} ${s.last}</strong></td><td style="font-size:12px;color:var(--ink-muted);">${s.group}</td>
       <td><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></td>
       <td>${promo?`<span class="belt-pill" style="${beltStyle(promo.belt)};font-size:11px;">${promo.belt}</span>${promo.group!==s.group?` <span class="badge badge-blue" style="font-size:10px;">${promo.group}</span>`:''}`:'—'}</td>
-      <td>${stripeDots(s.stripes,maxStripes(s),TWO_CYCLE_BELTS.has(s.belt))}</td>
-      <td><span class="badge ${eligible?'badge-green':'badge-gray'}">${eligible?'Yes':'No'}</span></td>
+      <td>${stripeDots(stripeCount(s),maxStripes(s),TWO_CYCLE_BELTS.has(s.belt))}<div style="font-size:10px;color:var(--ink-faint);margin-top:2px;">${stripeCount(s)}/${maxStripes(s)}</div></td>
+      <td><label class="checkbox-row" title="1+ stripe is auto-selected for Intent to Promote letters"><input type="checkbox" ${intent?'checked':''} onchange="setIntentLetterSelected(${s.id},this.checked)"><span class="badge ${intent?'badge-blue':'badge-gray'}">${intent?'Letter':'No letter'}</span></label></td>
+      <td><label class="checkbox-row" title="Full stripes are auto-selected for belt testing. Uncheck/check to override."><input type="checkbox" ${eligible?'checked':''} onchange="setBeltTestEligible(${s.id},this.checked)"><span class="badge ${eligible?'badge-green':'badge-gray'}">${eligible?'Test':'No test'}</span></label><div style="font-size:10px;color:var(--ink-faint);margin-top:2px;">${overrideLabel}</div></td>
       <td><label class="checkbox-row"><input type="checkbox" ${paid?'checked':''} onchange="toggleFee(${evId},${s.id},this.checked)"><span>${paid?'Paid':'Unpaid'}</span></label></td>
       <td>${ev.fee>0?fmt$(ev.fee):'—'}</td></tr>`;
   }).join('');
 }
+
+function setBeltTestEligible(sid,checked){
+  const s=DB.students.find(x=>x.id===sid);if(!s)return;
+  const auto=beltTestAutoEligible(s);
+  s.testEligibleOverride=(checked===auto)?null:!!checked;
+  save();renderTestEligibility();renderDashboard();toast(`${s.first} ${checked?'selected for belt testing':'removed from belt testing'}.`);
+}
+function setIntentLetterSelected(sid,checked){
+  const s=DB.students.find(x=>x.id===sid);if(!s)return;
+  const auto=intentLetterAutoEligible(s);
+  s.intentLetterOverride=(checked===auto)?null:!!checked;
+  save();
+  if($('test-eligibility-tbody'))renderTestEligibility();
+  if($('letters-content'))generateLetters();
+  toast(`${s.first} ${checked?'selected for an Intent letter':'removed from Intent letters'}.`);
+}
+function clearIntentLetterOverrides(){
+  if(!confirm('Clear all manual Intent letter selections/deselections and return to the automatic 1-stripe rule?'))return;
+  DB.students.forEach(s=>{s.intentLetterOverride=null;});
+  save();generateLetters();toast('Intent letter selections reset to automatic.');
+}
+
 function toggleFee(evId,sid,paid){
   const idx=DB.testFees.findIndex(f=>f.eventId===evId&&f.studentId===sid);
   if(idx>=0){DB.testFees[idx].paid=paid;DB.testFees[idx].datePaid=paid?new Date().toISOString().slice(0,10):null;}
@@ -3532,8 +3581,8 @@ function renderLetters(){
   const evId=parseInt(lsel?.value)||null;const ev=evId?DB.testEvents.find(e=>e.id===evId):null;
   const container=$('letters-content');
   if(!ev){container.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:34px;text-align:center;color:var(--ink-muted);">Select a test event above to generate letters.</div>';return;}
-  const eligible=DB.students.filter(s=>s.status==='Active'&&stripeEligible(s));
-  if(!eligible.length){container.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:34px;text-align:center;color:var(--ink-muted);">No students currently eligible for promotion.</div>';return;}
+  const eligible=DB.students.filter(s=>s.status==='Active'&&intentToPromoteEligible(s));
+  if(!eligible.length){container.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:34px;text-align:center;color:var(--ink-muted);">No students currently selected for Intent to Promote letters.</div>';return;}
   container.innerHTML=eligible.map(s=>{
     const promo=getPromotion(s);const nextBelt=promo?promo.belt:'Next Rank';
     return `<div class="letter-page">
@@ -3931,12 +3980,36 @@ function generateLetters(){
     container.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:34px;text-align:center;color:var(--ink-muted);">Select a test event above.</div>';
     return;
   }
-  const eligible=DB.students.filter(s=>s.status==='Active'&&stripeEligible(s));
+  const candidates=DB.students.filter(s=>s.status==='Active'&&getPromotion(s));
+  const eligible=candidates.filter(intentToPromoteEligible);
+  const selector=`<div class="no-print" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:18px;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+      <div>
+        <div style="font-family:var(--font-display);font-size:14px;font-weight:700;">Intent Letter List</div>
+        <div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">Auto-selected: active students with at least <strong>1 stripe</strong>. Belt testing/promotions still require full stripes (${candidates.length?'usually 2; red ranks use 5':'2'}).</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span class="badge badge-blue">${eligible.length} selected</span>
+        <button class="btn small" onclick="clearIntentLetterOverrides()">Reset manual selections</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:7px;">
+      ${candidates.map(s=>{
+        const selected=intentToPromoteEligible(s);
+        const auto=intentLetterAutoEligible(s);
+        const manual=s.intentLetterOverride===true?'Manual yes':s.intentLetterOverride===false?'Manual no':(auto?'Auto 1+ stripe':'Needs 1 stripe');
+        return `<label class="checkbox-row" style="background:var(--paper);border:1px solid var(--border);border-radius:8px;padding:8px 10px;align-items:flex-start;">
+          <input type="checkbox" ${selected?'checked':''} onchange="setIntentLetterSelected(${s.id},this.checked)" style="margin-top:2px;">
+          <span><span style="font-weight:600;">${s.first} ${s.last}</span><br><span style="font-size:11px;color:var(--ink-muted);">${s.group} · ${stripeCount(s)}/${maxStripes(s)} stripes · ${manual}</span></span>
+        </label>`;
+      }).join('')||'<div style="color:var(--ink-muted);font-size:13px;">No active students with a next rank available.</div>'}
+    </div>
+  </div>`;
   if(!eligible.length){
-    container.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:34px;text-align:center;color:var(--ink-muted);">No students currently eligible for promotion.</div>';
+    container.innerHTML=selector+'<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:34px;text-align:center;color:var(--ink-muted);">No students are currently selected for Intent to Promote letters.</div>';
     return;
   }
-  container.innerHTML=eligible.map(s=>{
+  container.innerHTML=selector+eligible.map(s=>{
     const promo=getPromotion(s);
     const nextBelt=promo?promo.belt:'Next Rank';
     return `<div class="letter-page" id="letter-student-${s.id}">
@@ -4990,8 +5063,8 @@ async function emailLetters() {
   const ev = evId ? DB.testEvents.find(e => e.id === evId) : null;
   if (!ev) { alert('Select a test event first.'); return; }
   if (!gmailToken) { alert('Connect Gmail first on the Emails tab.'); return; }
-  const eligible = DB.students.filter(s => s.status === 'Active' && stripeEligible(s) && s.email);
-  const noEmail = DB.students.filter(s => s.status === 'Active' && stripeEligible(s) && !s.email);
+  const eligible = DB.students.filter(s => s.status === 'Active' && intentToPromoteEligible(s) && s.email);
+  const noEmail = DB.students.filter(s => s.status === 'Active' && intentToPromoteEligible(s) && !s.email);
   if (!eligible.length) { alert('No eligible students with email addresses on file.'); return; }
   const msg = 'Send Intent to Promote letters to ' + eligible.length + ' parent' + (eligible.length!==1?'s':'') + '?' +
     (noEmail.length ? '\n\n' + noEmail.length + ' eligible student(s) have no email and will be skipped: ' + noEmail.map(s=>s.first+' '+s.last).join(', ') : '');
