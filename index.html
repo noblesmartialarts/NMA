@@ -378,6 +378,11 @@ tbody td{font-size:11px!important;}
   <div class="section-divider"><span>Upcoming events</span></div>
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;" id="upcoming-events"></div>
 
+
+  <div id="pending-absences-section" style="display:none;margin-top:24px;">
+    <div class="section-divider"><span>📋 Pending Absence Requests</span></div>
+    <div id="pending-absences-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+  </div>
   <div class="section-divider" style="margin-top:24px;"><span>📌 Reminders</span></div>
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;">
     <div style="display:flex;gap:10px;margin-bottom:14px;">
@@ -676,6 +681,23 @@ tbody td{font-size:11px!important;}
   <div id="att-leader-section" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
     <div style="font-weight:700;font-size:13px;margin-bottom:10px;">⭐ Who assisted today?</div>
     <div id="att-leader-list" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+  </div>
+
+  <!-- Absence History -->
+  <div style="margin-top:28px;">
+    <div class="section-divider" style="margin-bottom:0;">
+      <span>📋 Absence Request History</span>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+        <select id="abs-hist-filter" class="form-select" style="font-size:11px;padding:3px 8px;height:auto;" onchange="renderAbsenceHistory()">
+          <option value="all">All</option>
+          <option value="pending">Pending</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="dismissed">Dismissed</option>
+        </select>
+        <button class="btn small" onclick="cleanOldAbsences()" style="font-size:11px;">🗑 Clear Resolved 30d+</button>
+      </div>
+    </div>
+    <div id="abs-history-list" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
   </div>
 </div>
 
@@ -2004,6 +2026,7 @@ if(!DB.monthHistory)DB.monthHistory=[];
 if(!DB.curriculumOverrides)DB.curriculumOverrides={};
 if(!DB.curriculumData)DB.curriculumData={};
 if(!DB.beltConfig)DB.beltConfig={groups:{},colors:{},crossGroup:{}};
+if(!DB.pendingAbsences)DB.pendingAbsences=[];
 if(!DB.goodJobNotes)DB.goodJobNotes=[];
 if(!DB.classDates)DB.classDates=[];
 if(!DB.commLog)DB.commLog=[];
@@ -2575,6 +2598,7 @@ function initAttendance(){
   renderClassDateChips();
   renderAttDateSelect();
   renderAttendance();
+  renderAbsenceHistory();
 }
 function renderAttendance(){
   const date=$('att-date-select')?.value||'';
@@ -2591,9 +2615,9 @@ function renderAttendance(){
     const stripeAward=_attStripeAwards[s.id]||0;
     const stripeCtrl=_attStripeMode
       ?('<div onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:4px;margin-left:auto;">'
-        +'<button onclick="attAdjStripe('+s.id+',-1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;">−</button>'
-        +'<span style="font-size:12px;font-weight:700;min-width:18px;text-align:center;color:var(--amber);">+'+stripeAward+'</span>'
-        +'<button onclick="attAdjStripe('+s.id+',1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;">+</button>'
+        +'<button class="att-stripe-minus" onclick="attAdjStripe('+s.id+',-1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;"'+(stripeAward<=0?' disabled':'')+'>−</button>'
+        +'<span class="att-stripe-badge" style="font-size:12px;font-weight:700;min-width:18px;text-align:center;color:var(--amber);">+'+stripeAward+'</span>'
+        +'<button class="att-stripe-plus" onclick="attAdjStripe('+s.id+',1)" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:13px;">+</button>'
         +'</div>')
       :'';
     return '<div class="att-card '+(st==='present'?'present':st==='absent'?'absent':'')+'" id="att-'+s.id+'" onclick="toggleAtt('+s.id+')" style="'+(stripeAward>0?'border-color:var(--amber);':'')+'">'
@@ -2654,7 +2678,43 @@ function renderAttLeaders() {
 
 function attAdjStripe(id, delta) {
   _attStripeAwards[id] = Math.max(0, Math.min(4, (_attStripeAwards[id]||0) + delta));
-  renderAttendance();
+  const newCount = _attStripeAwards[id];
+
+  // Auto-mark present when adding a stripe — if they earned one, they were here
+  if (delta > 0 && attState[id] !== 'present') {
+    attState[id] = 'present';
+    // Update the card DOM directly so renderAttendance() doesn't wipe attState
+    const card = $('att-' + id);
+    if (card) {
+      card.className = 'att-card present';
+      const chk = card.querySelector('.att-check');
+      if (chk) chk.textContent = '✓';
+      const grp = $('att-group').value;
+      const students = DB.students.filter(s => s.status === 'Active' && (!grp || s.group === grp));
+      updateAttCount(students);
+    }
+  }
+
+  // Update the stripe count badge in-place without re-rendering the whole grid
+  const card = $('att-' + id);
+  if (card) {
+    card.style.borderColor = newCount > 0 ? 'var(--amber)' : '';
+    const badge = card.querySelector('.att-stripe-badge');
+    if (badge) badge.textContent = '+' + newCount;
+    // Update minus button disabled state
+    const minusBtn = card.querySelector('.att-stripe-minus');
+    if (minusBtn) minusBtn.disabled = newCount <= 0;
+    // Update plus button disabled state
+    const s = DB.students.find(x => x.id === id);
+    if (s) {
+      const max = (typeof TWO_CYCLE_BELTS !== 'undefined' && TWO_CYCLE_BELTS.has(s.belt)) ? 5 : 4;
+      const plusBtn = card.querySelector('.att-stripe-plus');
+      if (plusBtn) plusBtn.disabled = newCount >= max;
+    }
+  } else {
+    // Fallback: full re-render (shouldn't normally hit this)
+    renderAttendance();
+  }
 }
 
 function attToggleLeader(id) {
@@ -9398,3 +9458,164 @@ if (typeof _origApplyMassPromotion === 'function') {
 </script>
 </body>
 </html>
+<script>
+// ══════════════════════════════════════════════════════
+// PENDING ABSENCE REQUESTS
+// ══════════════════════════════════════════════════════
+
+function renderPendingAbsences() {
+  var section = document.getElementById('pending-absences-section');
+  var list = document.getElementById('pending-absences-list');
+  if (!section || !list) return;
+  if (!DB.pendingAbsences) DB.pendingAbsences = [];
+  var pending = DB.pendingAbsences.filter(function(r){ return r.status === 'pending'; });
+  if (!pending.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  list.innerHTML = pending.map(function(req) {
+    var matchedStudent = findStudentByName(req.studentName);
+    var matchLabel = matchedStudent
+      ? '<span style="font-size:11px;color:var(--green);margin-left:6px;">✓ Matched: ' + matchedStudent.first + ' ' + matchedStudent.last + ' (' + matchedStudent.group + ')</span>'
+      : '<span style="font-size:11px;color:var(--amber);margin-left:6px;">⚠ No roster match — review before confirming</span>';
+    var dateFormatted = typeof fmtFull === 'function' ? fmtFull(req.date) : req.date;
+    var submittedFormatted = new Date(req.submittedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    var alreadyMarked = matchedStudent && DB.attendance[req.date] && DB.attendance[req.date][matchedStudent.id];
+    var alreadyLabel = alreadyMarked ? '<span style="font-size:11px;background:var(--surface-2);padding:2px 7px;border-radius:20px;color:var(--ink-muted);">Already marked: ' + alreadyMarked + '</span>' : '';
+    return '<div style="background:var(--surface);border:1px solid var(--amber);border-radius:12px;padding:16px 18px;display:flex;align-items:flex-start;gap:14px;">'
+      + '<div style="font-size:26px;line-height:1;">📬</div>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:4px;">'
+      + '<span style="font-weight:600;font-size:15px;">' + req.studentName + '</span>'
+      + matchLabel + alreadyLabel + '</div>'
+      + '<div style="font-size:13px;margin-bottom:3px;"><strong>Absent:</strong> ' + dateFormatted + (req.reason ? ' · <em style="color:var(--ink-muted);">"' + req.reason + '"</em>' : '') + '</div>'
+      + '<div style="font-size:11px;color:var(--ink-muted);">From: ' + (req.parentName||'Unknown') + (req.parentEmail?' ('+req.parentEmail+')':'') + ' · Submitted ' + submittedFormatted + '</div>'
+      + '</div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">'
+      + '<button class="btn primary" style="font-size:12px;padding:5px 12px;" onclick="confirmAbsence(\'' + req.id + '\')">✓ Confirm Absent</button>'
+      + '<button class="btn" style="font-size:12px;padding:5px 12px;" onclick="dismissAbsence(\'' + req.id + '\')">✕ Dismiss</button>'
+      + '</div></div>';
+  }).join('');
+}
+
+function findStudentByName(name) {
+  if (!name) return null;
+  var norm = function(n){ return n.toLowerCase().replace(/[^a-z]/g,''); };
+  var target = norm(name);
+  var match = DB.students.find(function(s){ return norm(s.first+' '+s.last)===target && s.status==='Active'; });
+  if (match) return match;
+  var lastName = name.split(' ').pop();
+  return DB.students.find(function(s){ return norm(s.last)===norm(lastName) && s.status==='Active'; }) || null;
+}
+
+function confirmAbsence(reqId) {
+  if (!DB.pendingAbsences) return;
+  var req = DB.pendingAbsences.find(function(r){ return r.id===reqId; });
+  if (!req) return;
+  var student = findStudentByName(req.studentName);
+  if (!student) { toast('⚠ No roster match — check student name and try again.'); return; }
+  pushUndo('Confirm absence: ' + req.studentName);
+  if (!DB.attendance[req.date]) DB.attendance[req.date] = {};
+  DB.attendance[req.date][student.id] = 'absent';
+  if (!student.history) student.history = [];
+  student.history.push({type:'note',date:new Date().toISOString().slice(0,10),note:'Parent-reported absence for '+req.date+(req.reason?': "'+req.reason+'"':'')+'. Confirmed via absence form.'});
+  req.status = 'confirmed';
+  save(); renderPendingAbsences(); renderDashboard();
+  toast('✓ ' + student.first + ' ' + student.last + ' marked absent on ' + req.date + '.');
+}
+
+function dismissAbsence(reqId) {
+  if (!DB.pendingAbsences) return;
+  var req = DB.pendingAbsences.find(function(r){ return r.id===reqId; });
+  if (!req) return;
+  req.status = 'dismissed';
+  save(); renderPendingAbsences();
+  toast('Absence request dismissed.');
+}
+
+// Patch renderDashboard to always show pending absences
+var _origRenderDashFinal = renderDashboard;
+renderDashboard = function() {
+  _origRenderDashFinal.apply(this, arguments);
+  renderPendingAbsences();
+};
+
+// ══════════════════════════════════════════════════════
+// ABSENCE HISTORY LOG (Attendance page)
+// ══════════════════════════════════════════════════════
+function renderAbsenceHistory() {
+  var el = $('abs-history-list');
+  if (!el) return;
+  if (!DB.pendingAbsences) DB.pendingAbsences = [];
+
+  var filterVal = ($('abs-hist-filter') && $('abs-hist-filter').value) || 'all';
+  var list = DB.pendingAbsences.filter(function(r) {
+    if (filterVal === 'all') return true;
+    return r.status === filterVal;
+  }).slice().sort(function(a, b) {
+    return (b.submittedAt || '').localeCompare(a.submittedAt || '');
+  });
+
+  if (!list.length) {
+    el.innerHTML = '<div style="text-align:center;padding:18px;color:var(--ink-muted);font-size:13px;">No absence requests' + (filterVal !== 'all' ? ' with status: ' + filterVal : '') + '.</div>';
+    return;
+  }
+
+  var statusColor = { pending:'var(--amber)', confirmed:'var(--green)', dismissed:'var(--ink-muted)' };
+  var statusIcon  = { pending:'⏳', confirmed:'✓', dismissed:'✕' };
+
+  el.innerHTML = list.map(function(req) {
+    var student = findStudentByName(req.studentName);
+    var matchNote = student
+      ? '<span style="font-size:11px;color:var(--green);margin-left:6px;">✓ '+student.first+' '+student.last+' ('+student.group+')</span>'
+      : '<span style="font-size:11px;color:var(--amber);margin-left:6px;">⚠ No roster match</span>';
+
+    var submitted = req.submittedAt ? new Date(req.submittedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+    var status = req.status || 'pending';
+    var col = statusColor[status] || 'var(--ink-muted)';
+
+    var actionBtns = '';
+    if (status === 'pending') {
+      actionBtns = '<div style="display:flex;gap:6px;margin-top:8px;">'
+        + '<button class="btn small primary" style="font-size:11px;" onclick="confirmAbsence(\''+req.id+'\');renderAbsenceHistory()">✓ Confirm</button>'
+        + '<button class="btn small" style="font-size:11px;" onclick="dismissAbsence(\''+req.id+'\');renderAbsenceHistory()">✕ Dismiss</button>'
+        + '</div>';
+    } else if (status === 'confirmed') {
+      var alreadyMarked = student && DB.attendance[req.date] && DB.attendance[req.date][student.id];
+      actionBtns = alreadyMarked
+        ? '<div style="font-size:11px;color:var(--green);margin-top:4px;">Marked '+alreadyMarked+' on '+req.date+'</div>'
+        : '';
+    }
+
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">'
+      + '<div style="display:flex;align-items:flex-start;gap:10px;">'
+      +   '<div style="flex:1;min-width:0;">'
+      +     '<div style="font-weight:600;font-size:13px;">'+req.studentName+matchNote+'</div>'
+      +     '<div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">'
+      +       '<strong>Date:</strong> '+req.date
+      +       (req.reason ? ' · <em>'+req.reason+'</em>' : '')
+      +       ' · From: '+(req.parentName||'Unknown')
+      +       (submitted ? ' · '+submitted : '')
+      +     '</div>'
+      +     actionBtns
+      +   '</div>'
+      +   '<span style="font-size:11px;font-weight:700;color:'+col+';white-space:nowrap;">'+statusIcon[status]+' '+status+'</span>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function cleanOldAbsences() {
+  if (!DB.pendingAbsences) return;
+  var cutoff = new Date(Date.now() - 30*24*60*60*1000).toISOString();
+  var before = DB.pendingAbsences.length;
+  DB.pendingAbsences = DB.pendingAbsences.filter(function(r) {
+    if (r.status === 'pending') return true;
+    return (r.submittedAt || '') > cutoff;
+  });
+  var removed = before - DB.pendingAbsences.length;
+  if (!removed) { toast('Nothing to clean up yet.'); return; }
+  save();
+  renderAbsenceHistory();
+  renderPendingAbsences();
+  toast('Removed ' + removed + ' resolved request' + (removed !== 1 ? 's' : '') + ' older than 30 days.');
+}
+</script>
