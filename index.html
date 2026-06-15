@@ -2752,7 +2752,7 @@ function saveAttendance(){
       if(!s) return;
       const maxStripes=(typeof TWO_CYCLE_BELTS!=='undefined'&&TWO_CYCLE_BELTS.has(s.belt))?5:4;
       s.stripes=Math.min(maxStripes,(s.stripes||0)+n);
-      addHistory(s,'stripe','Awarded '+n+' stripe(s) at '+ev.name || 'stripe test',date);
+      addHistory(s,'stripe','Awarded '+n+' stripe(s) at stripe test',date);
     });
     _attStripeAwards={};
     if($('att-stripe-mode'))$('att-stripe-mode').checked=false;
