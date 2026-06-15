@@ -2013,6 +2013,8 @@ supa.channel('crm_realtime')
       // Refresh whatever page is currently open
       const active=document.querySelector('.nav-item.active');
       if(active){const page=active.getAttribute('data-page');if(page)nav(page);}
+      // Always refresh pending absences
+      if(typeof renderPendingAbsences==='function') renderPendingAbsences();
     }
   )
   .subscribe();
@@ -3987,6 +3989,8 @@ if(!DB.classSchedule||!Array.isArray(DB.classSchedule)||!DB.classSchedule.length
 
   // Render
   renderDashboard();updateBeltOptions();renderTestSelect();
+  // Explicitly render pending absences on init (patch runs later in script)
+  setTimeout(function(){ if(typeof renderPendingAbsences==='function') renderPendingAbsences(); }, 100);
 
   // Restore Gmail token at startup so Inbox works without visiting Emails first
   if(DB.gmailToken&&DB.gmailToken.expires>(Date.now()+300000)){
