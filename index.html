@@ -320,6 +320,7 @@ tbody td{font-size:11px!important;}
     <div class="nav-item" data-page="leaders" onclick="nav('leaders')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Leaders</span></div>
     <div class="nav-item" data-page="assistlog" onclick="nav('assistlog')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assist Log</span></div>
     <div class="nav-item" data-page="goodjob" onclick="nav('goodjob')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg><span>Good Job</span></div>
+    <div class="nav-item" data-page="events" onclick="nav('events')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="16" r="2"/></svg><span>Events</span></div>
     <div class="nav-item" data-page="classplans" onclick="nav('classplans')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="16" y2="18"/></svg><span>Class Plans</span></div>
     <div class="nav-item" data-page="timer" onclick="nav('timer')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 14.5 15.5"/><path d="M5 3l4 2M19 3l-4 2"/></svg><span>Class Timer</span></div>
     <div class="nav-item" data-page="attendance" onclick="nav('attendance')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Attendance</span></div>
@@ -618,7 +619,12 @@ tbody td{font-size:11px!important;}
           <option>Little Dragons</option><option>Karate Kids</option>
           <option>Black Belt Club</option><option>Master's Club</option><option>Legends Club</option>
         </select>
-        <select id="roster-status" onchange="renderRoster()"><option value="">All</option><option>Active</option><option>Inactive</option></select>
+        <div style="display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:12px;">
+          <button id="rst-btn-active" onclick="setRosterStatus('Active')" style="padding:5px 12px;background:var(--ink);color:#fff;border:none;cursor:pointer;font-size:12px;font-family:var(--font-body);">Active</button>
+          <button id="rst-btn-all" onclick="setRosterStatus('')" style="padding:5px 12px;background:var(--surface);color:var(--ink);border:none;border-left:1px solid var(--border);cursor:pointer;font-size:12px;font-family:var(--font-body);">All</button>
+          <button id="rst-btn-inactive" onclick="setRosterStatus('Inactive')" style="padding:5px 12px;background:var(--surface);color:var(--ink);border:none;border-left:1px solid var(--border);cursor:pointer;font-size:12px;font-family:var(--font-body);">Inactive</button>
+        </div>
+        <input type="hidden" id="roster-status" value="Active">
         <label class="checkbox-row" style="font-size:12px;"><input type="checkbox" id="roster-reg-toggle" onchange="renderRoster()"> &nbsp;Registered this month</label>
         <div class="spacer"></div>
         <button class="btn small" onclick="exportCSV()">Export CSV</button>
@@ -1483,6 +1489,141 @@ tbody td{font-size:11px!important;}
   </div>
 </div>
 
+<div id="page-events" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div class="page-title">Events</div><div class="page-subtitle">Manage school events, RSVPs, and payments</div></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn primary" onclick="openNewEventModal()">+ New Event</button>
+    </div>
+  </div>
+
+  <!-- Event list -->
+  <div id="ev-list-view">
+    <div id="ev-cards" style="display:grid;gap:14px;"></div>
+    <div id="ev-empty" style="display:none;text-align:center;padding:48px;color:var(--ink-muted);font-size:14px;">
+      No events yet. Create one to get started.
+    </div>
+  </div>
+
+  <!-- Event detail view -->
+  <div id="ev-detail-view" style="display:none;">
+    <button onclick="showEvList()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;margin-bottom:14px;padding:0;">← Back to events</button>
+    <div id="ev-detail-content"></div>
+  </div>
+</div>
+
+<!-- Modal: New/Edit Event -->
+<div class="modal-backdrop" id="modal-event">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-event-title">New Event</div>
+      <button class="btn ghost" onclick="closeModal('modal-event')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ev-edit-id" value="">
+      <div class="form-grid">
+        <div class="form-group full"><label class="form-label">Event name</label><input class="form-input" id="ev-name" placeholder="e.g. Movie Night at Alamo Drafthouse"></div>
+        <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="ev-date" type="date"></div>
+        <div class="form-group"><label class="form-label">Event type</label>
+          <select class="form-select" id="ev-type" onchange="renderEvTypeFields()">
+            <option value="package">Package Event (e.g. movie, seminar)</option>
+            <option value="agetier">Age-Tiered Event (e.g. aquatic center)</option>
+          </select>
+        </div>
+        <div class="form-group full"><label class="form-label">Description / notes</label><textarea class="form-input" id="ev-desc" rows="2" style="resize:vertical;" placeholder="Optional details shown to parents"></textarea></div>
+      </div>
+
+      <!-- Package event fields -->
+      <div id="ev-pkg-fields">
+        <div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin:14px 0 8px;">Packages</div>
+        <div id="ev-pkg-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>
+        <button class="btn small" onclick="addEvPackage()">+ Add Package</button>
+      </div>
+
+      <!-- Age-tier event fields -->
+      <div id="ev-tier-fields" style="display:none;">
+        <div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin:14px 0 8px;">Age Brackets & Pricing</div>
+        <div id="ev-tier-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>
+        <button class="btn small" onclick="addEvTier()">+ Add Age Bracket</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-event')">Cancel</button>
+      <button class="btn primary" onclick="saveEvent()">Save Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Add/Edit RSVP -->
+<div class="modal-backdrop" id="modal-rsvp">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-rsvp-title">Add RSVP</div>
+      <button class="btn ghost" onclick="closeModal('modal-rsvp')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="rsvp-edit-id" value="">
+      <input type="hidden" id="rsvp-event-id" value="">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label class="form-label">Student (household anchor)</label>
+          <select class="form-select" id="rsvp-student-id" onchange="fillRsvpFromStudent()">
+            <option value="">— Select student —</option>
+          </select>
+        </div>
+        <div class="form-group full"><label class="form-label">Or enter name (if not on roster)</label><input class="form-input" id="rsvp-name" placeholder="Parent / family name"></div>
+        <div class="form-group"><label class="form-label">Contact phone</label><input class="form-input" id="rsvp-phone" type="tel"></div>
+        <div class="form-group"><label class="form-label">Contact email</label><input class="form-input" id="rsvp-email" type="email"></div>
+      </div>
+      <!-- Package/Tier selections rendered dynamically -->
+      <div id="rsvp-selections" style="margin-top:14px;"></div>
+      <div class="form-grid" style="margin-top:14px;">
+        <div class="form-group"><label class="form-label">Status</label>
+          <select class="form-select" id="rsvp-status">
+            <option value="committed">Committed</option>
+            <option value="paid">Paid</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Amount paid ($)</label><input class="form-input" id="rsvp-paid" type="number" step="0.01" value="0"></div>
+        <div class="form-group full"><label class="form-label">Notes</label><input class="form-input" id="rsvp-notes" placeholder="Optional"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div id="rsvp-total-display" style="font-size:13px;color:var(--ink-muted);flex:1;"></div>
+      <button class="btn" onclick="closeModal('modal-rsvp')">Cancel</button>
+      <button class="btn primary" onclick="saveRsvp()">Save RSVP</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Generate Jotform -->
+<div class="modal-backdrop" id="modal-jotform-gen">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <div class="modal-title">Generate RSVP Form</div>
+      <button class="btn ghost" onclick="closeModal('modal-jotform-gen')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--ink-muted);margin-bottom:14px;">This will create a Jotform for this event with your packages/tiers as fields. Parents can fill it out and you can sync responses back here.</p>
+      <div id="jotform-gen-status" style="font-size:13px;"></div>
+      <div id="jotform-gen-link" style="display:none;margin-top:14px;">
+        <div style="font-size:12px;color:var(--ink-muted);margin-bottom:4px;">Form link — share with families:</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input class="form-input" id="jotform-gen-url" readonly style="font-size:12px;">
+          <button class="btn small" onclick="copyJotformLink()">Copy</button>
+        </div>
+        <div style="margin-top:12px;">
+          <a id="jotform-gen-open" href="#" target="_blank" class="btn small primary">Open in Jotform ↗</a>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-jotform-gen')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="modal-test">
   <div class="modal" style="max-width:460px;">
     <div class="modal-header"><div class="modal-title">Schedule Test Event</div><button class="btn ghost" onclick="closeModal('modal-test')">✕</button></div>
@@ -2053,6 +2194,8 @@ if(!DB.classSchedule||!Array.isArray(DB.classSchedule)||!DB.classSchedule.length
 if(!DB.cancelledDays)DB.cancelledDays=[];
 if(!DB.trials)DB.trials=[];
 if(!DB.smsLog)DB.smsLog=[];
+if(!DB.events)DB.events=[];
+if(!DB.eventRsvps)DB.eventRsvps=[];
 if(!DB.twilioConfig)DB.twilioConfig={sid:'',token:'',from:''};
 if(!DB.curriculumData)DB.curriculumData={};
 
@@ -2172,7 +2315,7 @@ function nav(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+page).classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,trials:initTrials,goodjob:initGoodJob};
+  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,trials:initTrials,goodjob:initGoodJob,events:initEvents};
   fns[page]?.();
 }
 
@@ -2341,10 +2484,19 @@ function renderBBTestAlert(){
 // ROSTER
 // ══════════════════════════════════════════════════════
 function renderRoster(){
+  // Sync toggle button styles on every render
+  const curSt = (document.getElementById('roster-status')||{}).value||'Active';
+  ['active','all','inactive'].forEach(k=>{
+    const btn = document.getElementById('rst-btn-'+k);
+    if(!btn) return;
+    const isActive = (k==='active'&&curSt==='Active')||(k==='all'&&curSt==='')||(k==='inactive'&&curSt==='Inactive');
+    btn.style.background = isActive ? 'var(--ink)' : 'var(--surface)';
+    btn.style.color = isActive ? '#fff' : 'var(--ink)';
+  });
   $('roster-list-view').style.display='block';$('profile-view').style.display='none';
   const q=($('roster-search').value||'').toLowerCase();
   const grp=$('roster-group').value;
-  const st=$('roster-status').value;
+  const st=($('roster-status')?document.getElementById('roster-status').value:'Active');
   const regOnly=$('roster-reg-toggle').checked;
   let list=DB.students.filter(s=>{
     if(q&&!`${s.first} ${s.last}`.toLowerCase().includes(q))return false;
@@ -2382,7 +2534,7 @@ function renderRoster(){
       <td><div style="display:flex;align-items:center;gap:4px;">${stripeDots(s.stripes,maxStripes(s),TWO_CYCLE_BELTS.has(s.belt))}<button class="btn ghost" style="font-size:11px;padding:2px 4px;" onclick="adjustStripe(${s.id},-1)">−</button><button class="btn ghost" style="font-size:11px;padding:2px 4px;" onclick="adjustStripe(${s.id},1)">+</button></div></td>
       <td><div class="flags">${flags.join('')}</div></td>
       <td>${regBadge}</td>
-      <td style="white-space:nowrap;">${promo?`<button class="btn small success" onclick="promoteBelt(${s.id})" title="→ ${promo.belt}">→ ${promo.belt}</button> `:''}  <button class="btn small" onclick="toggleStudentActive(${s.id})" style="font-size:10px;">${s.status==='Active'?'⊘ Inactive':'↺ Active'}</button> <button class="btn small" onclick="openEditStudent(${s.id})">Edit</button> <button class="btn small" onclick="openMergeStudent(${s.id})" title="Merge">⇔</button> <button class="btn small" onclick="deleteStudent(${s.id})">✕</button></td>
+      <td style="white-space:nowrap;">${promo?`<button class="btn small success" onclick="promoteBelt(${s.id})" title="→ ${promo.belt}">→ ${promo.belt}</button> `:''}  <button class="btn small" onclick="toggleStudentActive(${s.id})" style="font-size:10px;">${s.status==='Active'?'⊘ Inactive':'↺ Reactivate'}</button> <button class="btn small" onclick="openEditStudent(${s.id})">Edit</button> <button class="btn small" onclick="openMergeStudent(${s.id})" title="Merge">⇔</button> <button class="btn small" onclick="deleteStudent(${s.id})">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -3710,7 +3862,7 @@ function importJSONFile(input){
       const data=JSON.parse(e.target.result);
       if(!data.students||!Array.isArray(data.students)){alert('Invalid backup file.');return;}
       if(!confirm(`Replace ALL current data with backup from ${data._exportedAt||'unknown date'}?\n\nThis cannot be undone.`))return;
-      ['students','attendance','testEvents','testFees','inventory','orders','invoices','customEmailTemplates','promotions','monthHistory','scoreboard','curriculumOverrides','nextId'].forEach(k=>{if(data[k]!==undefined)DB[k]=data[k];});
+      ['students','attendance','testEvents','testFees','inventory','orders','invoices','customEmailTemplates','promotions','monthHistory','scoreboard','curriculumOverrides','nextId','events','eventRsvps'].forEach(k=>{if(data[k]!==undefined)DB[k]=data[k];});
       Object.entries(DB.curriculumOverrides||{}).forEach(([k,v])=>{if(CURRICULUM[k])CURRICULUM[k].currentCycle=v;});
       save();renderDashboard();renderBackup();toast('Backup restored!');
     }catch(err){alert('Failed to parse file: '+err.message);}
@@ -9647,4 +9799,658 @@ function cleanOldAbsences() {
   renderPendingAbsences();
   toast('Removed ' + removed + ' resolved request' + (removed !== 1 ? 's' : '') + ' older than 30 days.');
 }
+// ══════════════════════════════════════════════════════
+// ROSTER STATUS TOGGLE
+// ══════════════════════════════════════════════════════
+function setRosterStatus(val){
+  document.getElementById('roster-status').value = val;
+  ['active','all','inactive'].forEach(k=>{
+    const btn = document.getElementById('rst-btn-'+k);
+    if(!btn) return;
+    const isActive = (k==='active'&&val==='Active')||(k==='all'&&val==='')||(k==='inactive'&&val==='Inactive');
+    btn.style.background = isActive ? 'var(--ink)' : 'var(--surface)';
+    btn.style.color = isActive ? '#fff' : 'var(--ink)';
+  });
+  renderRoster();
+}
+
+// ══════════════════════════════════════════════════════
+// EVENTS
+// ══════════════════════════════════════════════════════
+
+function initEvents(){
+  renderEvCards();
+}
+
+function showEvList(){
+  document.getElementById('ev-list-view').style.display='';
+  document.getElementById('ev-detail-view').style.display='none';
+  renderEvCards();
+}
+
+function renderEvCards(){
+  const cards = document.getElementById('ev-cards');
+  const empty = document.getElementById('ev-empty');
+  const evs = (DB.events||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  if(!evs.length){ cards.innerHTML=''; empty.style.display=''; return; }
+  empty.style.display='none';
+  const today = new Date().toISOString().slice(0,10);
+  cards.innerHTML = evs.map(ev=>{
+    const rsvps = (DB.eventRsvps||[]).filter(r=>r.eventId===ev.id);
+    const committed = rsvps.filter(r=>r.status!=='cancelled').length;
+    const paid = rsvps.filter(r=>r.status==='paid').length;
+    const totalOwed = rsvps.filter(r=>r.status!=='cancelled').reduce((s,r)=>s+evRsvpTotal(ev,r),0);
+    const totalPaid = rsvps.filter(r=>r.status!=='cancelled').reduce((s,r)=>s+(parseFloat(r.amountPaid)||0),0);
+    const isPast = ev.date < today;
+    const typeLabel = ev.type==='agetier' ? 'Age-Tiered' : 'Package';
+    return \`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-family:var(--font-display);font-size:16px;font-weight:700;">\${ev.name}</span>
+          <span class="badge \${isPast?'badge-gray':'badge-green'}">\${isPast?'Past':'Upcoming'}</span>
+          <span class="badge badge-amber">\${typeLabel}</span>
+        </div>
+        <div style="font-size:12px;color:var(--ink-muted);margin-top:3px;">\${fmtFull(ev.date)}\${ev.desc?' · '+ev.desc:''}</div>
+        <div style="font-size:12px;margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;">
+          <span>👥 \${committed} committed · \${paid} paid</span>
+          <span>💰 \${fmt$(totalPaid)} / \${fmt$(totalOwed)} collected</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn small" onclick="openEvDetail(\${ev.id})">Manage →</button>
+        <button class="btn small" onclick="openEditEvent(\${ev.id})">Edit</button>
+        <button class="btn small" onclick="deleteEvent(\${ev.id})">✕</button>
+      </div>
+    </div>\`;
+  }).join('');
+}
+
+function openEvDetail(evId){
+  const ev = DB.events.find(e=>e.id===evId);
+  if(!ev) return;
+  document.getElementById('ev-list-view').style.display='none';
+  document.getElementById('ev-detail-view').style.display='';
+  renderEvDetail(evId);
+}
+
+function renderEvDetail(evId){
+  const ev = DB.events.find(e=>e.id===evId);
+  if(!ev) return;
+  const rsvps = (DB.eventRsvps||[]).filter(r=>r.eventId===evId);
+  const active = rsvps.filter(r=>r.status!=='cancelled');
+  const totalOwed = active.reduce((s,r)=>s+evRsvpTotal(ev,r),0);
+  const totalPaid = active.reduce((s,r)=>s+(parseFloat(r.amountPaid)||0),0);
+  const typeLabel = ev.type==='agetier' ? 'Age-Tiered' : 'Package';
+
+  // Build package/tier summary
+  let summaryHtml = '';
+  if(ev.type==='package'){
+    const pkgs = ev.packages||[];
+    pkgs.forEach(pkg=>{
+      let qty = 0;
+      active.forEach(r=>{ qty += parseInt((r.selections||{})[pkg.id])||0; });
+      summaryHtml += \`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>\${pkg.name} (\${fmt$(pkg.price)} ea)</span><strong>\${qty} tickets</strong></div>\`;
+    });
+  } else {
+    const tiers = ev.tiers||[];
+    tiers.forEach(tier=>{
+      let qty = 0;
+      active.forEach(r=>{ qty += parseInt((r.selections||{})[tier.id])||0; });
+      summaryHtml += \`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>\${tier.label} (\${fmt$(tier.price)} ea)</span><strong>\${qty} wristbands</strong></div>\`;
+    });
+  }
+
+  // Build RSVP rows
+  const rsvpRows = rsvps.length ? rsvps.map(r=>{
+    const owed = evRsvpTotal(ev,r);
+    const paid = parseFloat(r.amountPaid)||0;
+    const balance = owed - paid;
+    const statusColor = r.status==='paid'?'badge-green':r.status==='cancelled'?'badge-gray':'badge-amber';
+    let selSummary = '';
+    if(ev.type==='package'){
+      selSummary = (ev.packages||[]).map(p=>{ const q=parseInt((r.selections||{})[p.id])||0; return q>0?\`\${q}× \${p.name}\`:''; }).filter(Boolean).join(', ');
+    } else {
+      selSummary = (ev.tiers||[]).map(t=>{ const q=parseInt((r.selections||{})[t.id])||0; return q>0?\`\${q}× \${t.label}\`:''; }).filter(Boolean).join(', ');
+    }
+    return \`<tr>
+      <td style="font-weight:500;">\${r.name}</td>
+      <td style="font-size:12px;color:var(--ink-muted);">\${selSummary||'—'}</td>
+      <td><span class="badge \${statusColor}">\${r.status}</span></td>
+      <td style="font-size:13px;">\${fmt$(owed)}</td>
+      <td style="font-size:13px;">\${fmt$(paid)}</td>
+      <td style="font-size:13px;color:\${balance>0?'var(--red)':balance<0?'var(--green)':'var(--ink-muted)'};">\${balance>0?'+':''}\${fmt$(balance)}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn small" onclick="openEditRsvp(\${evId},\${r.id})">Edit</button>
+        <button class="btn small success" onclick="markRsvpPaid(\${r.id})" \${r.status==='paid'?'disabled':''}>✓ Paid</button>
+        <button class="btn small" onclick="deleteRsvp(\${r.id})" style="color:var(--red);">✕</button>
+      </td>
+    </tr>\`;
+  }).join('') : \`<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--ink-muted);font-size:13px;">No RSVPs yet. Add one below.</td></tr>\`;
+
+  const jotformBtn = ev.jotformId
+    ? \`<button class="btn small" onclick="copyEvJotformLink('\${ev.jotformId}')">📋 Copy Form Link</button>
+       <button class="btn small" onclick="syncJotformRsvps(\${ev.id})">⟳ Sync Jotform</button>\`
+    : \`<button class="btn small primary" onclick="generateJotform(\${ev.id})">🔗 Generate RSVP Form</button>\`;
+
+  document.getElementById('ev-detail-content').innerHTML = \`
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px;">
+      <div>
+        <div style="font-family:var(--font-display);font-size:22px;font-weight:800;">\${ev.name}</div>
+        <div style="font-size:13px;color:var(--ink-muted);">\${fmtFull(ev.date)} · \${typeLabel}\${ev.desc?' · '+ev.desc:''}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        \${jotformBtn}
+        <button class="btn small primary" onclick="openAddRsvp(\${ev.id})">+ Add RSVP</button>
+        <button class="btn small" onclick="printEvReport(\${ev.id})">🖨 Print</button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+      <div class="stat-card"><div class="stat-label">Committed</div><div class="stat-value">\${active.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Paid</div><div class="stat-value">\${rsvps.filter(r=>r.status==='paid').length}</div></div>
+      <div class="stat-card"><div class="stat-label">Collected</div><div class="stat-value">\${fmt$(totalPaid)}</div></div>
+      <div class="stat-card"><div class="stat-label">Outstanding</div><div class="stat-value" style="color:\${totalOwed-totalPaid>0?'var(--red)':'var(--green)'};">\${fmt$(totalOwed-totalPaid)}</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:16px;margin-bottom:20px;">
+      <div class="table-wrap">
+        <div style="font-family:var(--font-display);font-size:13px;font-weight:600;padding:11px 15px;border-bottom:1px solid var(--border);background:var(--paper);">
+          \${ev.type==='package'?'Package Summary':'Wristband Summary'}
+        </div>
+        <div style="padding:0 14px;">\${summaryHtml||'<div style="padding:14px;color:var(--ink-muted);font-size:13px;">No packages defined.</div>'}</div>
+      </div>
+      <div></div>
+    </div>
+
+    <div class="table-wrap">
+      <div style="font-family:var(--font-display);font-size:13px;font-weight:600;padding:11px 15px;border-bottom:1px solid var(--border);background:var(--paper);">RSVPs</div>
+      <div style="overflow-x:auto;"><table>
+        <thead><tr>
+          <th>Name</th><th>Selection</th><th>Status</th>
+          <th>Owed</th><th>Paid</th><th>Balance</th><th>Actions</th>
+        </tr></thead>
+        <tbody>\${rsvpRows}</tbody>
+      </table></div>
+    </div>
+  \`;
+}
+
+function evRsvpTotal(ev, r){
+  let total = 0;
+  if(ev.type==='package'){
+    (ev.packages||[]).forEach(p=>{ total += (parseInt((r.selections||{})[p.id])||0) * (parseFloat(p.price)||0); });
+  } else {
+    (ev.tiers||[]).forEach(t=>{ total += (parseInt((r.selections||{})[t.id])||0) * (parseFloat(t.price)||0); });
+  }
+  return total;
+}
+
+// ── Event CRUD ──────────────────────────────────────
+
+function openNewEventModal(){
+  document.getElementById('ev-edit-id').value='';
+  document.getElementById('modal-event-title').textContent='New Event';
+  document.getElementById('ev-name').value='';
+  document.getElementById('ev-date').value='';
+  document.getElementById('ev-type').value='package';
+  document.getElementById('ev-desc').value='';
+  document.getElementById('ev-pkg-list').innerHTML='';
+  document.getElementById('ev-tier-list').innerHTML='';
+  renderEvTypeFields();
+  addEvPackage(); // default one package row
+  document.getElementById('modal-event').classList.add('open');
+}
+
+function openEditEvent(evId){
+  const ev = DB.events.find(e=>e.id===evId);
+  if(!ev) return;
+  document.getElementById('ev-edit-id').value=evId;
+  document.getElementById('modal-event-title').textContent='Edit Event';
+  document.getElementById('ev-name').value=ev.name||'';
+  document.getElementById('ev-date').value=ev.date||'';
+  document.getElementById('ev-type').value=ev.type||'package';
+  document.getElementById('ev-desc').value=ev.desc||'';
+  renderEvTypeFields();
+  // Restore packages or tiers
+  document.getElementById('ev-pkg-list').innerHTML='';
+  document.getElementById('ev-tier-list').innerHTML='';
+  if(ev.type==='package'){
+    (ev.packages||[]).forEach(p=>addEvPackage(p.name,p.price,p._uid));
+  } else {
+    (ev.tiers||[]).forEach(t=>addEvTier(t.label,t.price,t._uid));
+  }
+  document.getElementById('modal-event').classList.add('open');
+}
+
+function renderEvTypeFields(){
+  const t = document.getElementById('ev-type').value;
+  document.getElementById('ev-pkg-fields').style.display = t==='package'?'':'none';
+  document.getElementById('ev-tier-fields').style.display = t==='agetier'?'':'none';
+}
+
+let _evUid=1;
+function addEvPackage(name='',price='',uid=null){
+  const id = uid||(++_evUid);
+  const row = document.createElement('div');
+  row.style.cssText='display:flex;gap:8px;align-items:center;';
+  row.dataset.uid=id;
+  row.innerHTML=\`<input class="form-input" placeholder="Package name (e.g. Movie Only)" value="\${name}" style="flex:2;" data-pkg-name>
+    <input class="form-input" placeholder="Price $" type="number" step="0.01" value="\${price}" style="flex:1;" data-pkg-price>
+    <button class="btn ghost" onclick="this.closest('[data-uid]').remove()" style="padding:4px 8px;">✕</button>\`;
+  document.getElementById('ev-pkg-list').appendChild(row);
+}
+
+function addEvTier(label='',price='',uid=null){
+  const id = uid||(++_evUid);
+  const row = document.createElement('div');
+  row.style.cssText='display:flex;gap:8px;align-items:center;';
+  row.dataset.uid=id;
+  row.innerHTML=\`<input class="form-input" placeholder="Age bracket (e.g. Ages 3–12)" value="\${label}" style="flex:2;" data-tier-label>
+    <input class="form-input" placeholder="Price $" type="number" step="0.01" value="\${price}" style="flex:1;" data-tier-price>
+    <button class="btn ghost" onclick="this.closest('[data-uid]').remove()" style="padding:4px 8px;">✕</button>\`;
+  document.getElementById('ev-tier-list').appendChild(row);
+}
+
+function saveEvent(){
+  const name = document.getElementById('ev-name').value.trim();
+  const date = document.getElementById('ev-date').value;
+  if(!name||!date){ alert('Name and date are required.'); return; }
+  const type = document.getElementById('ev-type').value;
+  const desc = document.getElementById('ev-desc').value.trim();
+
+  let packages=[], tiers=[];
+  if(type==='package'){
+    document.querySelectorAll('#ev-pkg-list [data-uid]').forEach(row=>{
+      const n=row.querySelector('[data-pkg-name]').value.trim();
+      const p=row.querySelector('[data-pkg-price]').value;
+      if(n){ packages.push({id:DB.nextId++,_uid:row.dataset.uid,name:n,price:parseFloat(p)||0}); }
+    });
+  } else {
+    document.querySelectorAll('#ev-tier-list [data-uid]').forEach(row=>{
+      const l=row.querySelector('[data-tier-label]').value.trim();
+      const p=row.querySelector('[data-tier-price]').value;
+      if(l){ tiers.push({id:DB.nextId++,_uid:row.dataset.uid,label:l,price:parseFloat(p)||0}); }
+    });
+  }
+
+  const editId = parseInt(document.getElementById('ev-edit-id').value)||null;
+  if(editId){
+    const ev = DB.events.find(e=>e.id===editId);
+    if(ev){ Object.assign(ev,{name,date,type,desc,packages,tiers}); }
+  } else {
+    if(!DB.events) DB.events=[];
+    DB.events.push({id:DB.nextId++,name,date,type,desc,packages,tiers,jotformId:null});
+  }
+  save(); closeModal('modal-event'); renderEvCards();
+  toast('Event saved!');
+}
+
+function deleteEvent(evId){
+  if(!confirm('Delete this event and all its RSVPs?')) return;
+  DB.events = (DB.events||[]).filter(e=>e.id!==evId);
+  DB.eventRsvps = (DB.eventRsvps||[]).filter(r=>r.eventId!==evId);
+  save(); renderEvCards();
+  toast('Event deleted.');
+}
+
+// ── RSVP CRUD ───────────────────────────────────────
+
+function openAddRsvp(evId){
+  const ev = DB.events.find(e=>e.id===evId);
+  if(!ev) return;
+  document.getElementById('rsvp-edit-id').value='';
+  document.getElementById('rsvp-event-id').value=evId;
+  document.getElementById('modal-rsvp-title').textContent='Add RSVP — '+ev.name;
+  document.getElementById('rsvp-student-id').innerHTML='<option value="">— Select student —</option>'+
+    DB.students.filter(s=>s.status==='Active').map(s=>\`<option value="\${s.id}">\${s.first} \${s.last}</option>\`).join('');
+  document.getElementById('rsvp-name').value='';
+  document.getElementById('rsvp-phone').value='';
+  document.getElementById('rsvp-email').value='';
+  document.getElementById('rsvp-status').value='committed';
+  document.getElementById('rsvp-paid').value='0';
+  document.getElementById('rsvp-notes').value='';
+  renderRsvpSelections(ev, {});
+  document.getElementById('modal-rsvp').classList.add('open');
+}
+
+function openEditRsvp(evId, rsvpId){
+  const ev = DB.events.find(e=>e.id===evId);
+  const r = (DB.eventRsvps||[]).find(x=>x.id===rsvpId);
+  if(!ev||!r) return;
+  document.getElementById('rsvp-edit-id').value=rsvpId;
+  document.getElementById('rsvp-event-id').value=evId;
+  document.getElementById('modal-rsvp-title').textContent='Edit RSVP — '+ev.name;
+  document.getElementById('rsvp-student-id').innerHTML='<option value="">— Select student —</option>'+
+    DB.students.filter(s=>s.status==='Active').map(s=>\`<option value="\${s.id}" \${s.id===r.studentId?'selected':''}>\${s.first} \${s.last}</option>\`).join('');
+  document.getElementById('rsvp-name').value=r.name||'';
+  document.getElementById('rsvp-phone').value=r.phone||'';
+  document.getElementById('rsvp-email').value=r.email||'';
+  document.getElementById('rsvp-status').value=r.status||'committed';
+  document.getElementById('rsvp-paid').value=r.amountPaid||'0';
+  document.getElementById('rsvp-notes').value=r.notes||'';
+  renderRsvpSelections(ev, r.selections||{});
+  document.getElementById('modal-rsvp').classList.add('open');
+}
+
+function fillRsvpFromStudent(){
+  const sid = parseInt(document.getElementById('rsvp-student-id').value)||null;
+  if(!sid) return;
+  const s = DB.students.find(x=>x.id===sid);
+  if(!s) return;
+  if(s.parent) document.getElementById('rsvp-name').value=s.parent;
+  if(s.email) document.getElementById('rsvp-email').value=s.email;
+  if(s.phone) document.getElementById('rsvp-phone').value=s.phone;
+}
+
+function renderRsvpSelections(ev, existing){
+  const container = document.getElementById('rsvp-selections');
+  if(ev.type==='package'){
+    const pkgs = ev.packages||[];
+    if(!pkgs.length){ container.innerHTML='<div style="color:var(--ink-muted);font-size:13px;">No packages defined for this event.</div>'; return; }
+    container.innerHTML = '<div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:10px;">Package Quantities</div>'+
+      pkgs.map(p=>\`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+        <div><div style="font-size:13px;font-weight:500;">\${p.name}</div><div style="font-size:11px;color:var(--ink-muted);">\${fmt$(p.price)} each</div></div>
+        <input type="number" min="0" value="\${existing[p.id]||0}" class="form-input" style="width:70px;text-align:center;" data-sel-id="\${p.id}" oninput="updateRsvpTotal()">
+      </div>\`).join('');
+  } else {
+    const tiers = ev.tiers||[];
+    if(!tiers.length){ container.innerHTML='<div style="color:var(--ink-muted);font-size:13px;">No age brackets defined for this event.</div>'; return; }
+    container.innerHTML = '<div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:10px;">Wristband Counts by Age</div>'+
+      tiers.map(t=>\`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+        <div><div style="font-size:13px;font-weight:500;">\${t.label}</div><div style="font-size:11px;color:var(--ink-muted);">\${fmt$(t.price)} each</div></div>
+        <input type="number" min="0" value="\${existing[t.id]||0}" class="form-input" style="width:70px;text-align:center;" data-sel-id="\${t.id}" oninput="updateRsvpTotal()">
+      </div>\`).join('');
+  }
+  updateRsvpTotal();
+}
+
+function updateRsvpTotal(){
+  const evId = parseInt(document.getElementById('rsvp-event-id').value)||null;
+  const ev = evId ? DB.events.find(e=>e.id===evId) : null;
+  if(!ev){ document.getElementById('rsvp-total-display').textContent=''; return; }
+  let total=0;
+  document.querySelectorAll('#rsvp-selections [data-sel-id]').forEach(inp=>{
+    const selId = parseInt(inp.dataset.selId);
+    const qty = parseInt(inp.value)||0;
+    const item = ev.type==='package'
+      ? (ev.packages||[]).find(p=>p.id===selId)
+      : (ev.tiers||[]).find(t=>t.id===selId);
+    if(item) total += qty*(parseFloat(item.price)||0);
+  });
+  document.getElementById('rsvp-total-display').textContent='Total owed: '+fmt$(total);
+}
+
+function saveRsvp(){
+  const evId = parseInt(document.getElementById('rsvp-event-id').value)||null;
+  const ev = evId ? DB.events.find(e=>e.id===evId) : null;
+  if(!ev){ alert('Event not found.'); return; }
+
+  const studentId = parseInt(document.getElementById('rsvp-student-id').value)||null;
+  let name = document.getElementById('rsvp-name').value.trim();
+  if(!name && studentId){
+    const s=DB.students.find(x=>x.id===studentId);
+    name = s ? (s.parent||s.first+' '+s.last) : '';
+  }
+  if(!name){ alert('Please enter a name or select a student.'); return; }
+
+  const selections={};
+  document.querySelectorAll('#rsvp-selections [data-sel-id]').forEach(inp=>{
+    selections[parseInt(inp.dataset.selId)] = parseInt(inp.value)||0;
+  });
+
+  const data = {
+    eventId: evId,
+    studentId,
+    name,
+    phone: document.getElementById('rsvp-phone').value.trim(),
+    email: document.getElementById('rsvp-email').value.trim(),
+    status: document.getElementById('rsvp-status').value,
+    amountPaid: parseFloat(document.getElementById('rsvp-paid').value)||0,
+    notes: document.getElementById('rsvp-notes').value.trim(),
+    selections
+  };
+
+  const editId = parseInt(document.getElementById('rsvp-edit-id').value)||null;
+  if(editId){
+    const r = (DB.eventRsvps||[]).find(x=>x.id===editId);
+    if(r) Object.assign(r, data);
+  } else {
+    if(!DB.eventRsvps) DB.eventRsvps=[];
+    DB.eventRsvps.push({id:DB.nextId++, ...data});
+  }
+  save(); closeModal('modal-rsvp'); renderEvDetail(evId);
+  toast('RSVP saved!');
+}
+
+function markRsvpPaid(rsvpId){
+  const r = (DB.eventRsvps||[]).find(x=>x.id===rsvpId);
+  if(!r) return;
+  const ev = DB.events.find(e=>e.id===r.eventId);
+  if(!ev) return;
+  r.status='paid';
+  r.amountPaid = evRsvpTotal(ev,r);
+  save(); renderEvDetail(r.eventId);
+  toast('Marked as paid!');
+}
+
+function deleteRsvp(rsvpId){
+  const r = (DB.eventRsvps||[]).find(x=>x.id===rsvpId);
+  if(!r||!confirm('Remove this RSVP?')) return;
+  const evId = r.eventId;
+  DB.eventRsvps = (DB.eventRsvps||[]).filter(x=>x.id!==rsvpId);
+  save(); renderEvDetail(evId);
+  toast('RSVP removed.');
+}
+
+// ── Print ────────────────────────────────────────────
+
+function printEvReport(evId){
+  const ev = DB.events.find(e=>e.id===evId);
+  if(!ev) return;
+  const rsvps = (DB.eventRsvps||[]).filter(r=>r.eventId===evId&&r.status!=='cancelled');
+  const today = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+
+  let summaryTable='', detailTable='';
+
+  if(ev.type==='package'){
+    const pkgs=ev.packages||[];
+    // Grand totals per package
+    const pkgTotals={};
+    pkgs.forEach(p=>{ pkgTotals[p.id]=0; });
+    rsvps.forEach(r=>{ pkgs.forEach(p=>{ pkgTotals[p.id]+=(parseInt((r.selections||{})[p.id])||0); }); });
+    summaryTable=\`<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+      <thead><tr style="border-bottom:2px solid #1a1a1a;">
+        <th style="text-align:left;padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Package</th>
+        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Price</th>
+        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:center;">Qty</th>
+        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:right;">Subtotal</th>
+      </tr></thead><tbody>
+      \${pkgs.map(p=>\`<tr style="border-bottom:1px solid #eee;"><td style="padding:6px;">\${p.name}</td><td style="padding:6px;">\${fmt$(p.price)}</td><td style="padding:6px;text-align:center;font-weight:700;">\${pkgTotals[p.id]}</td><td style="padding:6px;text-align:right;">\${fmt$(pkgTotals[p.id]*(parseFloat(p.price)||0))}</td></tr>\`).join('')}
+      </tbody></table>\`;
+    detailTable=\`<table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="border-bottom:2px solid #1a1a1a;">
+        <th style="text-align:left;padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Family</th>
+        \${pkgs.map(p=>\`<th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:center;">\${p.name}</th>\`).join('')}
+        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:right;">Total</th>
+        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Status</th>
+      </tr></thead><tbody>
+      \${rsvps.map(r=>\`<tr style="border-bottom:1px solid #eee;"><td style="padding:6px;font-weight:500;">\${r.name}</td>\${pkgs.map(p=>\`<td style="padding:6px;text-align:center;">\${(r.selections||{})[p.id]||0}</td>\`).join('')}<td style="padding:6px;text-align:right;">\${fmt$(evRsvpTotal(ev,r))}</td><td style="padding:6px;">\${r.status}</td></tr>\`).join('')}
+      </tbody></table>\`;
+  } else {
+    const tiers=ev.tiers||[];
+    const tierTotals={};
+    tiers.forEach(t=>{ tierTotals[t.id]=0; });
+    rsvps.forEach(r=>{ tiers.forEach(t=>{ tierTotals[t.id]+=(parseInt((r.selections||{})[t.id])||0); }); });
+    summaryTable=\`<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+      <thead><tr style="border-bottom:2px solid #1a1a1a;">
+        <th style="text-align:left;padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Age Bracket</th>
+        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Price</th>
+        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:center;">Wristbands</th>
+        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:right;">Subtotal</th>
+      </tr></thead><tbody>
+      \${tiers.map(t=>\`<tr style="border-bottom:1px solid #eee;"><td style="padding:6px;">\${t.label}</td><td style="padding:6px;">\${fmt$(t.price)}</td><td style="padding:6px;text-align:center;font-weight:700;">\${tierTotals[t.id]}</td><td style="padding:6px;text-align:right;">\${fmt$(tierTotals[t.id]*(parseFloat(t.price)||0))}</td></tr>\`).join('')}
+      </tbody></table>\`;
+    detailTable=\`<table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="border-bottom:2px solid #1a1a1a;">
+        <th style="text-align:left;padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Family</th>
+        \${tiers.map(t=>\`<th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:center;">\${t.label}</th>\`).join('')}
+        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:right;">Total</th>
+        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Status</th>
+      </tr></thead><tbody>
+      \${rsvps.map(r=>\`<tr style="border-bottom:1px solid #eee;"><td style="padding:6px;font-weight:500;">\${r.name}</td>\${tiers.map(t=>\`<td style="padding:6px;text-align:center;">\${(r.selections||{})[t.id]||0}</td>\`).join('')}<td style="padding:6px;text-align:right;">\${fmt$(evRsvpTotal(ev,r))}</td><td style="padding:6px;">\${r.status}</td></tr>\`).join('')}
+      </tbody></table>\`;
+  }
+
+  const w=window.open('','_blank');
+  w.document.write(\`<!DOCTYPE html><html><head><title>\${ev.name}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <style>body{font-family:'DM Sans',sans-serif;padding:36px;max-width:800px;margin:0 auto;}h2{font-family:'Syne',sans-serif;margin:0 0 4px;}h3{font-family:'Syne',sans-serif;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:#888;margin:20px 0 10px;}</style>
+    </head><body>
+    <div style="display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #1a1a1a;">
+      <div><div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:2px;">Noble's Martial Arts</div>
+      <h2>\${ev.name}</h2>
+      <div style="font-size:12px;color:#888;">\${fmtFull(ev.date)}</div></div>
+      <div style="text-align:right;font-size:12px;color:#888;">Generated \${today}<br>\${rsvps.length} attendees</div>
+    </div>
+    <h3>\${ev.type==='package'?'Package Summary':'Wristband Summary'}</h3>
+    \${summaryTable}
+    <h3>Per-Family Breakdown</h3>
+    \${detailTable}
+    </body></html>\`);
+  w.document.close(); w.print();
+}
+
+// ── Jotform Integration ──────────────────────────────
+
+async function generateJotform(evId){
+  const ev = DB.events.find(e=>e.id===evId);
+  if(!ev){ toast('Event not found.'); return; }
+
+  const statusEl = document.getElementById('jotform-gen-status');
+  const linkEl = document.getElementById('jotform-gen-link');
+  statusEl.textContent='Creating form…'; linkEl.style.display='none';
+  document.getElementById('modal-jotform-gen').classList.add('open');
+
+  // Build description for Jotform create_form tool
+  const items = ev.type==='package'
+    ? (ev.packages||[]).map(p=>\`\${p.name} (quantity, price \${fmt$(p.price)} each)\`).join(', ')
+    : (ev.tiers||[]).map(t=>\`\${t.label} (quantity, price \${fmt$(t.price)} each)\`).join(', ');
+
+  const description = \`Noble's Martial Arts RSVP form for \${ev.name} on \${fmtFull(ev.date)}.
+Fields needed:
+- Student Name (dropdown with names: \${DB.students.filter(s=>s.status==='Active').map(s=>s.first+' '+s.last).join(', ')}, plus an "Other" option)
+- Parent/Guardian Name (text, required)
+- Contact Phone (phone field, required)  
+- Contact Email (email field, required)
+- \${ev.type==='package'?'Package selections':'Age bracket counts'}: \${items}
+- Special notes or questions (long text, optional)
+- Submit button\`;
+
+  try {
+    // Call Jotform MCP create_form
+    const response = await fetch('https://mcp.jotform.com/mcp-app', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({tool:'create_form', params:{description}})
+    });
+
+    if(!response.ok) throw new Error('Jotform API error: '+response.status);
+    const result = await response.json();
+    const formId = result.form_id || result.id || (result.content&&result.content.form_id);
+
+    if(!formId) throw new Error('No form ID returned');
+
+    ev.jotformId = formId;
+    save();
+    const url = \`https://form.jotform.com/\${formId}\`;
+    document.getElementById('jotform-gen-url').value = url;
+    document.getElementById('jotform-gen-open').href = url;
+    linkEl.style.display='';
+    statusEl.textContent='✓ Form created successfully!';
+    renderEvDetail(evId);
+    toast('Jotform created!');
+  } catch(err){
+    console.error(err);
+    statusEl.innerHTML='<span style="color:var(--red);">Error: '+err.message+'</span><br><small>Check the Jotform MCP connection in settings, then try again.</small>';
+  }
+}
+
+function copyEvJotformLink(formId){
+  const url = \`https://form.jotform.com/\${formId}\`;
+  navigator.clipboard.writeText(url).then(()=>toast('Link copied!')).catch(()=>toast('URL: '+url));
+}
+
+async function syncJotformRsvps(evId){
+  const ev = DB.events.find(e=>e.id===evId);
+  if(!ev||!ev.jotformId){ toast('No Jotform linked to this event.'); return; }
+  toast('Syncing Jotform submissions…');
+
+  try {
+    const apiKey = DB.jotformApiKey||'';
+    if(!apiKey){ toast('No Jotform API key set. Add it in Settings.'); return; }
+    const r = await fetch(\`https://api.jotform.com/form/\${ev.jotformId}/submissions?apiKey=\${apiKey}&limit=100\`);
+    const data = await r.json();
+    if(!data.content){ toast('No submissions found.'); return; }
+
+    let added=0, updated=0;
+    data.content.forEach(sub=>{
+      const answers = sub.answers;
+      // Extract fields by label matching
+      let parentName='', phone='', email='', studentName='', notes='';
+      const selections={};
+      Object.values(answers).forEach(a=>{
+        const lbl=(a.text||'').toLowerCase();
+        const val=a.answer||'';
+        if(lbl.includes('parent')||lbl.includes('guardian')) parentName=val;
+        else if(lbl.includes('phone')) phone=val;
+        else if(lbl.includes('email')) email=val;
+        else if(lbl.includes('student')) studentName=typeof val==='string'?val:(val.first||'');
+        else if(lbl.includes('note')||lbl.includes('question')) notes=typeof val==='string'?val:'';
+        else {
+          // Try to match package/tier names
+          if(ev.type==='package'){
+            (ev.packages||[]).forEach(p=>{
+              if(lbl.includes(p.name.toLowerCase())){ selections[p.id]=parseInt(val)||0; }
+            });
+          } else {
+            (ev.tiers||[]).forEach(t=>{
+              if(lbl.includes(t.label.toLowerCase())){ selections[t.id]=parseInt(val)||0; }
+            });
+          }
+        }
+      });
+
+      const name = parentName||(studentName+' family');
+      if(!name) return;
+
+      // Check if already imported
+      const existing = (DB.eventRsvps||[]).find(r=>r.eventId===evId&&r.jotformSubId===sub.id);
+      if(existing){
+        Object.assign(existing,{name,phone,email,notes,selections}); updated++;
+      } else {
+        if(!DB.eventRsvps) DB.eventRsvps=[];
+        // Match to student
+        const student = DB.students.find(s=>
+          (s.first+' '+s.last).toLowerCase()===studentName.toLowerCase()||(s.parent||'').toLowerCase()===parentName.toLowerCase()
+        );
+        DB.eventRsvps.push({id:DB.nextId++,eventId:evId,jotformSubId:sub.id,studentId:student?student.id:null,name,phone,email,status:'committed',amountPaid:0,notes,selections});
+        added++;
+      }
+    });
+
+    save(); renderEvDetail(evId);
+    toast(\`Synced: +\${added} new, \${updated} updated.\`);
+  } catch(err){
+    console.error(err);
+    toast('Sync error: '+err.message);
+  }
+}
+
+function copyJotformLink(){
+  const url=document.getElementById('jotform-gen-url').value;
+  if(!url) return;
+  navigator.clipboard.writeText(url).then(()=>toast('Copied!')).catch(()=>alert(url));
+}
+
 </script>
+</html>
