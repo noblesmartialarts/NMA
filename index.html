@@ -421,6 +421,29 @@ tbody td{font-size:11px!important;}
   </div>
 </div>
 
+<div id="page-events" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div class="page-title">Events</div><div class="page-subtitle">Manage school events, RSVPs, and payments</div></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn primary" onclick="openNewEventModal()">+ New Event</button>
+    </div>
+  </div>
+
+  <!-- Event list -->
+  <div id="ev-list-view">
+    <div id="ev-cards" style="display:grid;gap:14px;"></div>
+    <div id="ev-empty" style="display:none;text-align:center;padding:48px;color:var(--ink-muted);font-size:14px;">
+      No events yet. Create one to get started.
+    </div>
+  </div>
+
+  <!-- Event detail view -->
+  <div id="ev-detail-view" style="display:none;">
+    <button onclick="showEvList()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;margin-bottom:14px;padding:0;">← Back to events</button>
+    <div id="ev-detail-content"></div>
+  </div>
+</div>
+
 <!-- LOG ASSIST MODAL -->
 <div class="modal-backdrop" id="modal-assist-log">
   <div class="modal" style="max-width:480px;">
@@ -1489,30 +1512,6 @@ tbody td{font-size:11px!important;}
   </div>
 </div>
 
-<div id="page-events" class="page">
-  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-    <div><div class="page-title">Events</div><div class="page-subtitle">Manage school events, RSVPs, and payments</div></div>
-    <div style="display:flex;gap:8px;">
-      <button class="btn primary" onclick="openNewEventModal()">+ New Event</button>
-    </div>
-  </div>
-
-  <!-- Event list -->
-  <div id="ev-list-view">
-    <div id="ev-cards" style="display:grid;gap:14px;"></div>
-    <div id="ev-empty" style="display:none;text-align:center;padding:48px;color:var(--ink-muted);font-size:14px;">
-      No events yet. Create one to get started.
-    </div>
-  </div>
-
-  <!-- Event detail view -->
-  <div id="ev-detail-view" style="display:none;">
-    <button onclick="showEvList()" style="background:none;border:none;cursor:pointer;color:var(--blue);font-size:13px;margin-bottom:14px;padding:0;">← Back to events</button>
-    <div id="ev-detail-content"></div>
-  </div>
-</div>
-
-<!-- Modal: New/Edit Event -->
 <div class="modal-backdrop" id="modal-event">
   <div class="modal" style="max-width:560px;">
     <div class="modal-header">
