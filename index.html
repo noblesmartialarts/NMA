@@ -9798,25 +9798,25 @@ function cleanOldAbsences() {
   renderPendingAbsences();
   toast('Removed ' + removed + ' resolved request' + (removed !== 1 ? 's' : '') + ' older than 30 days.');
 }
-// ══════════════════════════════════════════════════════
+
+// ══════════════════════════════════════
 // ROSTER STATUS TOGGLE
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════
 function setRosterStatus(val){
   document.getElementById('roster-status').value = val;
-  ['active','all','inactive'].forEach(k=>{
-    const btn = document.getElementById('rst-btn-'+k);
+  ['active','all','inactive'].forEach(function(k){
+    var btn = document.getElementById('rst-btn-'+k);
     if(!btn) return;
-    const isActive = (k==='active'&&val==='Active')||(k==='all'&&val==='')||(k==='inactive'&&val==='Inactive');
+    var isActive = (k==='active'&&val==='Active')||(k==='all'&&val==='')||(k==='inactive'&&val==='Inactive');
     btn.style.background = isActive ? 'var(--ink)' : 'var(--surface)';
     btn.style.color = isActive ? '#fff' : 'var(--ink)';
   });
   renderRoster();
 }
 
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════
 // EVENTS
-// ══════════════════════════════════════════════════════
-
+// ══════════════════════════════════════
 function initEvents(){
   renderEvCards();
 }
@@ -9827,45 +9827,58 @@ function showEvList(){
   renderEvCards();
 }
 
+function fmtDollar(n){
+  return '$'+(parseFloat(n)||0).toFixed(2);
+}
+
 function renderEvCards(){
-  const cards = document.getElementById('ev-cards');
-  const empty = document.getElementById('ev-empty');
-  const evs = (DB.events||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
-  if(!evs.length){ cards.innerHTML=''; empty.style.display=''; return; }
+  var cards = document.getElementById('ev-cards');
+  var empty = document.getElementById('ev-empty');
+  if(!DB.events||!DB.events.length){ cards.innerHTML=''; empty.style.display=''; return; }
   empty.style.display='none';
-  const today = new Date().toISOString().slice(0,10);
-  cards.innerHTML = evs.map(ev=>{
-    const rsvps = (DB.eventRsvps||[]).filter(r=>r.eventId===ev.id);
-    const committed = rsvps.filter(r=>r.status!=='cancelled').length;
-    const paid = rsvps.filter(r=>r.status==='paid').length;
-    const totalOwed = rsvps.filter(r=>r.status!=='cancelled').reduce((s,r)=>s+evRsvpTotal(ev,r),0);
-    const totalPaid = rsvps.filter(r=>r.status!=='cancelled').reduce((s,r)=>s+(parseFloat(r.amountPaid)||0),0);
-    const isPast = ev.date < today;
-    const typeLabel = ev.type==='agetier' ? 'Age-Tiered' : 'Package';
-    return \`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-      <div style="flex:1;min-width:200px;">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span style="font-family:var(--font-display);font-size:16px;font-weight:700;">\${ev.name}</span>
-          <span class="badge \${isPast?'badge-gray':'badge-green'}">\${isPast?'Past':'Upcoming'}</span>
-          <span class="badge badge-amber">\${typeLabel}</span>
-        </div>
-        <div style="font-size:12px;color:var(--ink-muted);margin-top:3px;">\${fmtFull(ev.date)}\${ev.desc?' · '+ev.desc:''}</div>
-        <div style="font-size:12px;margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;">
-          <span>👥 \${committed} committed · \${paid} paid</span>
-          <span>💰 \${fmt$(totalPaid)} / \${fmt$(totalOwed)} collected</span>
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn small" onclick="openEvDetail(\${ev.id})">Manage →</button>
-        <button class="btn small" onclick="openEditEvent(\${ev.id})">Edit</button>
-        <button class="btn small" onclick="deleteEvent(\${ev.id})">✕</button>
-      </div>
-    </div>\`;
+  var today = new Date().toISOString().slice(0,10);
+  var evs = DB.events.slice().sort(function(a,b){return a.date.localeCompare(b.date);});
+  cards.innerHTML = evs.map(function(ev){
+    var rsvps = (DB.eventRsvps||[]).filter(function(r){return r.eventId===ev.id;});
+    var active = rsvps.filter(function(r){return r.status!=='cancelled';});
+    var paid = rsvps.filter(function(r){return r.status==='paid';}).length;
+    var totalOwed = active.reduce(function(s,r){return s+evRsvpTotal(ev,r);},0);
+    var totalPaid = active.reduce(function(s,r){return s+(parseFloat(r.amountPaid)||0);},0);
+    var isPast = ev.date < today;
+    var typeLabel = ev.type==='agetier' ? 'Age-Tiered' : 'Package';
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">'
+      +'<div style="flex:1;min-width:200px;">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+      +'<span style="font-family:var(--font-display);font-size:16px;font-weight:700;">'+ev.name+'</span>'
+      +'<span class="badge '+(isPast?'badge-gray':'badge-green')+'">'+(isPast?'Past':'Upcoming')+'</span>'
+      +'<span class="badge badge-amber">'+typeLabel+'</span>'
+      +'</div>'
+      +'<div style="font-size:12px;color:var(--ink-muted);margin-top:3px;">'+fmtFull(ev.date)+(ev.desc?' · '+ev.desc:'')+'</div>'
+      +'<div style="font-size:12px;margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;">'
+      +'<span>'+active.length+' committed &middot; '+paid+' paid</span>'
+      +'<span>'+fmtDollar(totalPaid)+' / '+fmtDollar(totalOwed)+' collected</span>'
+      +'</div></div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+      +'<button class="btn small" onclick="openEvDetail('+ev.id+')">Manage &rarr;</button>'
+      +'<button class="btn small" onclick="openEditEvent('+ev.id+')">Edit</button>'
+      +'<button class="btn small" onclick="deleteEvent('+ev.id+')" style="color:var(--red);">&times;</button>'
+      +'</div></div>';
   }).join('');
 }
 
+function evRsvpTotal(ev, r){
+  var total = 0;
+  var sel = r.selections||{};
+  if(ev.type==='package'){
+    (ev.packages||[]).forEach(function(p){ total += (parseInt(sel[p.id])||0)*(parseFloat(p.price)||0); });
+  } else {
+    (ev.tiers||[]).forEach(function(t){ total += (parseInt(sel[t.id])||0)*(parseFloat(t.price)||0); });
+  }
+  return total;
+}
+
 function openEvDetail(evId){
-  const ev = DB.events.find(e=>e.id===evId);
+  var ev = (DB.events||[]).find(function(e){return e.id===evId;});
   if(!ev) return;
   document.getElementById('ev-list-view').style.display='none';
   document.getElementById('ev-detail-view').style.display='';
@@ -9873,118 +9886,86 @@ function openEvDetail(evId){
 }
 
 function renderEvDetail(evId){
-  const ev = DB.events.find(e=>e.id===evId);
+  var ev = (DB.events||[]).find(function(e){return e.id===evId;});
   if(!ev) return;
-  const rsvps = (DB.eventRsvps||[]).filter(r=>r.eventId===evId);
-  const active = rsvps.filter(r=>r.status!=='cancelled');
-  const totalOwed = active.reduce((s,r)=>s+evRsvpTotal(ev,r),0);
-  const totalPaid = active.reduce((s,r)=>s+(parseFloat(r.amountPaid)||0),0);
-  const typeLabel = ev.type==='agetier' ? 'Age-Tiered' : 'Package';
+  var rsvps = (DB.eventRsvps||[]).filter(function(r){return r.eventId===evId;});
+  var active = rsvps.filter(function(r){return r.status!=='cancelled';});
+  var totalOwed = active.reduce(function(s,r){return s+evRsvpTotal(ev,r);},0);
+  var totalPaid = active.reduce(function(s,r){return s+(parseFloat(r.amountPaid)||0);},0);
+  var typeLabel = ev.type==='agetier' ? 'Age-Tiered' : 'Package';
 
-  // Build package/tier summary
-  let summaryHtml = '';
+  var summaryRows = '';
   if(ev.type==='package'){
-    const pkgs = ev.packages||[];
-    pkgs.forEach(pkg=>{
-      let qty = 0;
-      active.forEach(r=>{ qty += parseInt((r.selections||{})[pkg.id])||0; });
-      summaryHtml += \`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>\${pkg.name} (\${fmt$(pkg.price)} ea)</span><strong>\${qty} tickets</strong></div>\`;
+    (ev.packages||[]).forEach(function(p){
+      var qty = active.reduce(function(s,r){return s+(parseInt((r.selections||{})[p.id])||0);},0);
+      summaryRows += '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>'+p.name+' ('+fmtDollar(p.price)+' ea)</span><strong>'+qty+'</strong></div>';
     });
   } else {
-    const tiers = ev.tiers||[];
-    tiers.forEach(tier=>{
-      let qty = 0;
-      active.forEach(r=>{ qty += parseInt((r.selections||{})[tier.id])||0; });
-      summaryHtml += \`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>\${tier.label} (\${fmt$(tier.price)} ea)</span><strong>\${qty} wristbands</strong></div>\`;
+    (ev.tiers||[]).forEach(function(t){
+      var qty = active.reduce(function(s,r){return s+(parseInt((r.selections||{})[t.id])||0);},0);
+      summaryRows += '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>'+t.label+' ('+fmtDollar(t.price)+' ea)</span><strong>'+qty+'</strong></div>';
     });
   }
 
-  // Build RSVP rows
-  const rsvpRows = rsvps.length ? rsvps.map(r=>{
-    const owed = evRsvpTotal(ev,r);
-    const paid = parseFloat(r.amountPaid)||0;
-    const balance = owed - paid;
-    const statusColor = r.status==='paid'?'badge-green':r.status==='cancelled'?'badge-gray':'badge-amber';
-    let selSummary = '';
+  var rsvpRows = rsvps.length ? rsvps.map(function(r){
+    var owed = evRsvpTotal(ev,r);
+    var paid = parseFloat(r.amountPaid)||0;
+    var balance = owed-paid;
+    var statusColor = r.status==='paid'?'badge-green':r.status==='cancelled'?'badge-gray':'badge-amber';
+    var selSummary = '';
     if(ev.type==='package'){
-      selSummary = (ev.packages||[]).map(p=>{ const q=parseInt((r.selections||{})[p.id])||0; return q>0?\`\${q}× \${p.name}\`:''; }).filter(Boolean).join(', ');
+      selSummary = (ev.packages||[]).map(function(p){var q=parseInt((r.selections||{})[p.id])||0;return q>0?q+'x '+p.name:'';}).filter(Boolean).join(', ');
     } else {
-      selSummary = (ev.tiers||[]).map(t=>{ const q=parseInt((r.selections||{})[t.id])||0; return q>0?\`\${q}× \${t.label}\`:''; }).filter(Boolean).join(', ');
+      selSummary = (ev.tiers||[]).map(function(t){var q=parseInt((r.selections||{})[t.id])||0;return q>0?q+'x '+t.label:'';}).filter(Boolean).join(', ');
     }
-    return \`<tr>
-      <td style="font-weight:500;">\${r.name}</td>
-      <td style="font-size:12px;color:var(--ink-muted);">\${selSummary||'—'}</td>
-      <td><span class="badge \${statusColor}">\${r.status}</span></td>
-      <td style="font-size:13px;">\${fmt$(owed)}</td>
-      <td style="font-size:13px;">\${fmt$(paid)}</td>
-      <td style="font-size:13px;color:\${balance>0?'var(--red)':balance<0?'var(--green)':'var(--ink-muted)'};">\${balance>0?'+':''}\${fmt$(balance)}</td>
-      <td style="white-space:nowrap;">
-        <button class="btn small" onclick="openEditRsvp(\${evId},\${r.id})">Edit</button>
-        <button class="btn small success" onclick="markRsvpPaid(\${r.id})" \${r.status==='paid'?'disabled':''}>✓ Paid</button>
-        <button class="btn small" onclick="deleteRsvp(\${r.id})" style="color:var(--red);">✕</button>
-      </td>
-    </tr>\`;
-  }).join('') : \`<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--ink-muted);font-size:13px;">No RSVPs yet. Add one below.</td></tr>\`;
+    return '<tr>'
+      +'<td style="font-weight:500;">'+r.name+'</td>'
+      +'<td style="font-size:12px;color:var(--ink-muted);">'+(selSummary||'&mdash;')+'</td>'
+      +'<td><span class="badge '+statusColor+'">'+r.status+'</span></td>'
+      +'<td>'+fmtDollar(owed)+'</td>'
+      +'<td>'+fmtDollar(paid)+'</td>'
+      +'<td style="color:'+(balance>0?'var(--red)':balance<0?'var(--green)':'var(--ink-muted)')+';">'+(balance>0?'+':'')+fmtDollar(balance)+'</td>'
+      +'<td style="white-space:nowrap;">'
+      +'<button class="btn small" onclick="openEditRsvp('+evId+','+r.id+')">Edit</button> '
+      +'<button class="btn small success" onclick="markRsvpPaid('+r.id+')" '+(r.status==='paid'?'disabled':'')+'>Paid</button> '
+      +'<button class="btn small" onclick="deleteRsvp('+r.id+')" style="color:var(--red);">&times;</button>'
+      +'</td></tr>';
+  }).join('') : '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--ink-muted);font-size:13px;">No RSVPs yet.</td></tr>';
 
-  const jotformBtn = ev.jotformId
-    ? \`<button class="btn small" onclick="copyEvJotformLink('\${ev.jotformId}')">📋 Copy Form Link</button>
-       <button class="btn small" onclick="syncJotformRsvps(\${ev.id})">⟳ Sync Jotform</button>\`
-    : \`<button class="btn small primary" onclick="generateJotform(\${ev.id})">🔗 Generate RSVP Form</button>\`;
+  var jotformBtn = ev.jotformId
+    ? '<button class="btn small" onclick="copyEvJotformLink(\''+ev.jotformId+'\')">Copy Form Link</button> '
+      +'<button class="btn small" onclick="syncJotformRsvps('+ev.id+')">Sync Jotform</button>'
+    : '<button class="btn small primary" onclick="generateJotform('+ev.id+')">Generate RSVP Form</button>';
 
-  document.getElementById('ev-detail-content').innerHTML = \`
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px;">
-      <div>
-        <div style="font-family:var(--font-display);font-size:22px;font-weight:800;">\${ev.name}</div>
-        <div style="font-size:13px;color:var(--ink-muted);">\${fmtFull(ev.date)} · \${typeLabel}\${ev.desc?' · '+ev.desc:''}</div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        \${jotformBtn}
-        <button class="btn small primary" onclick="openAddRsvp(\${ev.id})">+ Add RSVP</button>
-        <button class="btn small" onclick="printEvReport(\${ev.id})">🖨 Print</button>
-      </div>
-    </div>
+  document.getElementById('ev-detail-content').innerHTML =
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px;">'
+    +'<div><div style="font-family:var(--font-display);font-size:22px;font-weight:800;">'+ev.name+'</div>'
+    +'<div style="font-size:13px;color:var(--ink-muted);">'+fmtFull(ev.date)+' &middot; '+typeLabel+(ev.desc?' &middot; '+ev.desc:'')+'</div></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'+jotformBtn
+    +' <button class="btn small primary" onclick="openAddRsvp('+evId+')">+ Add RSVP</button>'
+    +' <button class="btn small" onclick="printEvReport('+evId+')">Print</button></div></div>'
 
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
-      <div class="stat-card"><div class="stat-label">Committed</div><div class="stat-value">\${active.length}</div></div>
-      <div class="stat-card"><div class="stat-label">Paid</div><div class="stat-value">\${rsvps.filter(r=>r.status==='paid').length}</div></div>
-      <div class="stat-card"><div class="stat-label">Collected</div><div class="stat-value">\${fmt$(totalPaid)}</div></div>
-      <div class="stat-card"><div class="stat-label">Outstanding</div><div class="stat-value" style="color:\${totalOwed-totalPaid>0?'var(--red)':'var(--green)'};">\${fmt$(totalOwed-totalPaid)}</div></div>
-    </div>
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">'
+    +'<div class="stat-card"><div class="stat-label">Committed</div><div class="stat-value">'+active.length+'</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Paid</div><div class="stat-value">'+rsvps.filter(function(r){return r.status==='paid';}).length+'</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Collected</div><div class="stat-value">'+fmtDollar(totalPaid)+'</div></div>'
+    +'<div class="stat-card"><div class="stat-label">Outstanding</div><div class="stat-value" style="color:'+(totalOwed-totalPaid>0?'var(--red)':'var(--green)')+';">'+fmtDollar(totalOwed-totalPaid)+'</div></div>'
+    +'</div>'
 
-    <div style="display:grid;grid-template-columns:1fr 2fr;gap:16px;margin-bottom:20px;">
-      <div class="table-wrap">
-        <div style="font-family:var(--font-display);font-size:13px;font-weight:600;padding:11px 15px;border-bottom:1px solid var(--border);background:var(--paper);">
-          \${ev.type==='package'?'Package Summary':'Wristband Summary'}
-        </div>
-        <div style="padding:0 14px;">\${summaryHtml||'<div style="padding:14px;color:var(--ink-muted);font-size:13px;">No packages defined.</div>'}</div>
-      </div>
-      <div></div>
-    </div>
+    +'<div style="display:grid;grid-template-columns:280px 1fr;gap:16px;margin-bottom:20px;">'
+    +'<div class="table-wrap"><div style="font-weight:600;font-size:13px;padding:11px 15px;border-bottom:1px solid var(--border);">'
+    +(ev.type==='package'?'Package Summary':'Wristband Summary')+'</div>'
+    +'<div style="padding:0 14px;">'+(summaryRows||'<div style="padding:14px;color:var(--ink-muted);font-size:13px;">None defined.</div>')+'</div></div>'
+    +'<div></div></div>'
 
-    <div class="table-wrap">
-      <div style="font-family:var(--font-display);font-size:13px;font-weight:600;padding:11px 15px;border-bottom:1px solid var(--border);background:var(--paper);">RSVPs</div>
-      <div style="overflow-x:auto;"><table>
-        <thead><tr>
-          <th>Name</th><th>Selection</th><th>Status</th>
-          <th>Owed</th><th>Paid</th><th>Balance</th><th>Actions</th>
-        </tr></thead>
-        <tbody>\${rsvpRows}</tbody>
-      </table></div>
-    </div>
-  \`;
-}
-
-function evRsvpTotal(ev, r){
-  let total = 0;
-  if(ev.type==='package'){
-    (ev.packages||[]).forEach(p=>{ total += (parseInt((r.selections||{})[p.id])||0) * (parseFloat(p.price)||0); });
-  } else {
-    (ev.tiers||[]).forEach(t=>{ total += (parseInt((r.selections||{})[t.id])||0) * (parseFloat(t.price)||0); });
-  }
-  return total;
+    +'<div class="table-wrap"><div style="font-weight:600;font-size:13px;padding:11px 15px;border-bottom:1px solid var(--border);">RSVPs</div>'
+    +'<div style="overflow-x:auto;"><table><thead><tr>'
+    +'<th>Name</th><th>Selection</th><th>Status</th><th>Owed</th><th>Paid</th><th>Balance</th><th>Actions</th>'
+    +'</tr></thead><tbody>'+rsvpRows+'</tbody></table></div></div>';
 }
 
 // ── Event CRUD ──────────────────────────────────────
+var _evUid = 100;
 
 function openNewEventModal(){
   document.getElementById('ev-edit-id').value='';
@@ -9996,12 +9977,12 @@ function openNewEventModal(){
   document.getElementById('ev-pkg-list').innerHTML='';
   document.getElementById('ev-tier-list').innerHTML='';
   renderEvTypeFields();
-  addEvPackage(); // default one package row
+  addEvPackage();
   document.getElementById('modal-event').classList.add('open');
 }
 
 function openEditEvent(evId){
-  const ev = DB.events.find(e=>e.id===evId);
+  var ev = (DB.events||[]).find(function(e){return e.id===evId;});
   if(!ev) return;
   document.getElementById('ev-edit-id').value=evId;
   document.getElementById('modal-event-title').textContent='Edit Event';
@@ -10010,75 +9991,73 @@ function openEditEvent(evId){
   document.getElementById('ev-type').value=ev.type||'package';
   document.getElementById('ev-desc').value=ev.desc||'';
   renderEvTypeFields();
-  // Restore packages or tiers
   document.getElementById('ev-pkg-list').innerHTML='';
   document.getElementById('ev-tier-list').innerHTML='';
   if(ev.type==='package'){
-    (ev.packages||[]).forEach(p=>addEvPackage(p.name,p.price,p._uid));
+    (ev.packages||[]).forEach(function(p){addEvPackage(p.name,p.price);});
   } else {
-    (ev.tiers||[]).forEach(t=>addEvTier(t.label,t.price,t._uid));
+    (ev.tiers||[]).forEach(function(t){addEvTier(t.label,t.price);});
   }
   document.getElementById('modal-event').classList.add('open');
 }
 
 function renderEvTypeFields(){
-  const t = document.getElementById('ev-type').value;
-  document.getElementById('ev-pkg-fields').style.display = t==='package'?'':'none';
-  document.getElementById('ev-tier-fields').style.display = t==='agetier'?'':'none';
+  var t = document.getElementById('ev-type').value;
+  document.getElementById('ev-pkg-fields').style.display = t==='package' ? '' : 'none';
+  document.getElementById('ev-tier-fields').style.display = t==='agetier' ? '' : 'none';
 }
 
-let _evUid=1;
-function addEvPackage(name='',price='',uid=null){
-  const id = uid||(++_evUid);
-  const row = document.createElement('div');
-  row.style.cssText='display:flex;gap:8px;align-items:center;';
-  row.dataset.uid=id;
-  row.innerHTML=\`<input class="form-input" placeholder="Package name (e.g. Movie Only)" value="\${name}" style="flex:2;" data-pkg-name>
-    <input class="form-input" placeholder="Price $" type="number" step="0.01" value="\${price}" style="flex:1;" data-pkg-price>
-    <button class="btn ghost" onclick="this.closest('[data-uid]').remove()" style="padding:4px 8px;">✕</button>\`;
+function addEvPackage(name, price){
+  name = name||''; price = price||'';
+  var uid = ++_evUid;
+  var row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+  row.dataset.uid = uid;
+  row.innerHTML = '<input class="form-input" placeholder="Package name" value="'+name+'" style="flex:2;" data-pkg-name>'
+    +'<input class="form-input" placeholder="Price $" type="number" step="0.01" value="'+price+'" style="flex:1;" data-pkg-price>'
+    +'<button class="btn ghost" onclick="this.closest(\'[data-uid]\').remove()" style="padding:4px 8px;">&times;</button>';
   document.getElementById('ev-pkg-list').appendChild(row);
 }
 
-function addEvTier(label='',price='',uid=null){
-  const id = uid||(++_evUid);
-  const row = document.createElement('div');
-  row.style.cssText='display:flex;gap:8px;align-items:center;';
-  row.dataset.uid=id;
-  row.innerHTML=\`<input class="form-input" placeholder="Age bracket (e.g. Ages 3–12)" value="\${label}" style="flex:2;" data-tier-label>
-    <input class="form-input" placeholder="Price $" type="number" step="0.01" value="\${price}" style="flex:1;" data-tier-price>
-    <button class="btn ghost" onclick="this.closest('[data-uid]').remove()" style="padding:4px 8px;">✕</button>\`;
+function addEvTier(label, price){
+  label = label||''; price = price||'';
+  var uid = ++_evUid;
+  var row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+  row.dataset.uid = uid;
+  row.innerHTML = '<input class="form-input" placeholder="Age bracket (e.g. Ages 3-12)" value="'+label+'" style="flex:2;" data-tier-label>'
+    +'<input class="form-input" placeholder="Price $" type="number" step="0.01" value="'+price+'" style="flex:1;" data-tier-price>'
+    +'<button class="btn ghost" onclick="this.closest(\'[data-uid]\').remove()" style="padding:4px 8px;">&times;</button>';
   document.getElementById('ev-tier-list').appendChild(row);
 }
 
 function saveEvent(){
-  const name = document.getElementById('ev-name').value.trim();
-  const date = document.getElementById('ev-date').value;
+  var name = document.getElementById('ev-name').value.trim();
+  var date = document.getElementById('ev-date').value;
   if(!name||!date){ alert('Name and date are required.'); return; }
-  const type = document.getElementById('ev-type').value;
-  const desc = document.getElementById('ev-desc').value.trim();
-
-  let packages=[], tiers=[];
+  var type = document.getElementById('ev-type').value;
+  var desc = document.getElementById('ev-desc').value.trim();
+  var packages=[], tiers=[];
   if(type==='package'){
-    document.querySelectorAll('#ev-pkg-list [data-uid]').forEach(row=>{
-      const n=row.querySelector('[data-pkg-name]').value.trim();
-      const p=row.querySelector('[data-pkg-price]').value;
-      if(n){ packages.push({id:DB.nextId++,_uid:row.dataset.uid,name:n,price:parseFloat(p)||0}); }
+    document.querySelectorAll('#ev-pkg-list [data-uid]').forEach(function(row){
+      var n=row.querySelector('[data-pkg-name]').value.trim();
+      var p=row.querySelector('[data-pkg-price]').value;
+      if(n) packages.push({id:DB.nextId++,name:n,price:parseFloat(p)||0});
     });
   } else {
-    document.querySelectorAll('#ev-tier-list [data-uid]').forEach(row=>{
-      const l=row.querySelector('[data-tier-label]').value.trim();
-      const p=row.querySelector('[data-tier-price]').value;
-      if(l){ tiers.push({id:DB.nextId++,_uid:row.dataset.uid,label:l,price:parseFloat(p)||0}); }
+    document.querySelectorAll('#ev-tier-list [data-uid]').forEach(function(row){
+      var l=row.querySelector('[data-tier-label]').value.trim();
+      var p=row.querySelector('[data-tier-price]').value;
+      if(l) tiers.push({id:DB.nextId++,label:l,price:parseFloat(p)||0});
     });
   }
-
-  const editId = parseInt(document.getElementById('ev-edit-id').value)||null;
+  var editId = parseInt(document.getElementById('ev-edit-id').value)||null;
   if(editId){
-    const ev = DB.events.find(e=>e.id===editId);
-    if(ev){ Object.assign(ev,{name,date,type,desc,packages,tiers}); }
+    var ev = (DB.events||[]).find(function(e){return e.id===editId;});
+    if(ev){ ev.name=name; ev.date=date; ev.type=type; ev.desc=desc; ev.packages=packages; ev.tiers=tiers; }
   } else {
     if(!DB.events) DB.events=[];
-    DB.events.push({id:DB.nextId++,name,date,type,desc,packages,tiers,jotformId:null});
+    DB.events.push({id:DB.nextId++,name:name,date:date,type:type,desc:desc,packages:packages,tiers:tiers,jotformId:null});
   }
   save(); closeModal('modal-event'); renderEvCards();
   toast('Event saved!');
@@ -10086,55 +10065,60 @@ function saveEvent(){
 
 function deleteEvent(evId){
   if(!confirm('Delete this event and all its RSVPs?')) return;
-  DB.events = (DB.events||[]).filter(e=>e.id!==evId);
-  DB.eventRsvps = (DB.eventRsvps||[]).filter(r=>r.eventId!==evId);
+  DB.events = (DB.events||[]).filter(function(e){return e.id!==evId;});
+  DB.eventRsvps = (DB.eventRsvps||[]).filter(function(r){return r.eventId!==evId;});
   save(); renderEvCards();
   toast('Event deleted.');
 }
 
 // ── RSVP CRUD ───────────────────────────────────────
-
 function openAddRsvp(evId){
-  const ev = DB.events.find(e=>e.id===evId);
+  var ev = (DB.events||[]).find(function(e){return e.id===evId;});
   if(!ev) return;
   document.getElementById('rsvp-edit-id').value='';
   document.getElementById('rsvp-event-id').value=evId;
-  document.getElementById('modal-rsvp-title').textContent='Add RSVP — '+ev.name;
-  document.getElementById('rsvp-student-id').innerHTML='<option value="">— Select student —</option>'+
-    DB.students.filter(s=>s.status==='Active').map(s=>\`<option value="\${s.id}">\${s.first} \${s.last}</option>\`).join('');
+  document.getElementById('modal-rsvp-title').textContent='Add RSVP - '+ev.name;
+  var opts = '<option value="">- Select student -</option>'
+    + DB.students.filter(function(s){return s.status==='Active';}).map(function(s){
+        return '<option value="'+s.id+'">'+s.first+' '+s.last+'</option>';
+      }).join('');
+  document.getElementById('rsvp-student-id').innerHTML=opts;
   document.getElementById('rsvp-name').value='';
   document.getElementById('rsvp-phone').value='';
   document.getElementById('rsvp-email').value='';
   document.getElementById('rsvp-status').value='committed';
   document.getElementById('rsvp-paid').value='0';
   document.getElementById('rsvp-notes').value='';
-  renderRsvpSelections(ev, {});
+  renderRsvpSelections(ev,{});
   document.getElementById('modal-rsvp').classList.add('open');
 }
 
-function openEditRsvp(evId, rsvpId){
-  const ev = DB.events.find(e=>e.id===evId);
-  const r = (DB.eventRsvps||[]).find(x=>x.id===rsvpId);
+function openEditRsvp(evId,rsvpId){
+  var ev = (DB.events||[]).find(function(e){return e.id===evId;});
+  var r = (DB.eventRsvps||[]).find(function(x){return x.id===rsvpId;});
   if(!ev||!r) return;
   document.getElementById('rsvp-edit-id').value=rsvpId;
   document.getElementById('rsvp-event-id').value=evId;
-  document.getElementById('modal-rsvp-title').textContent='Edit RSVP — '+ev.name;
-  document.getElementById('rsvp-student-id').innerHTML='<option value="">— Select student —</option>'+
-    DB.students.filter(s=>s.status==='Active').map(s=>\`<option value="\${s.id}" \${s.id===r.studentId?'selected':''}>\${s.first} \${s.last}</option>\`).join('');
+  document.getElementById('modal-rsvp-title').textContent='Edit RSVP - '+ev.name;
+  var opts = '<option value="">- Select student -</option>'
+    + DB.students.filter(function(s){return s.status==='Active';}).map(function(s){
+        return '<option value="'+s.id+'"'+(s.id===r.studentId?' selected':'')+'>'+s.first+' '+s.last+'</option>';
+      }).join('');
+  document.getElementById('rsvp-student-id').innerHTML=opts;
   document.getElementById('rsvp-name').value=r.name||'';
   document.getElementById('rsvp-phone').value=r.phone||'';
   document.getElementById('rsvp-email').value=r.email||'';
   document.getElementById('rsvp-status').value=r.status||'committed';
   document.getElementById('rsvp-paid').value=r.amountPaid||'0';
   document.getElementById('rsvp-notes').value=r.notes||'';
-  renderRsvpSelections(ev, r.selections||{});
+  renderRsvpSelections(ev,r.selections||{});
   document.getElementById('modal-rsvp').classList.add('open');
 }
 
 function fillRsvpFromStudent(){
-  const sid = parseInt(document.getElementById('rsvp-student-id').value)||null;
+  var sid = parseInt(document.getElementById('rsvp-student-id').value)||null;
   if(!sid) return;
-  const s = DB.students.find(x=>x.id===sid);
+  var s = DB.students.find(function(x){return x.id===sid;});
   if(!s) return;
   if(s.parent) document.getElementById('rsvp-name').value=s.parent;
   if(s.email) document.getElementById('rsvp-email').value=s.email;
@@ -10142,313 +10126,214 @@ function fillRsvpFromStudent(){
 }
 
 function renderRsvpSelections(ev, existing){
-  const container = document.getElementById('rsvp-selections');
-  if(ev.type==='package'){
-    const pkgs = ev.packages||[];
-    if(!pkgs.length){ container.innerHTML='<div style="color:var(--ink-muted);font-size:13px;">No packages defined for this event.</div>'; return; }
-    container.innerHTML = '<div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:10px;">Package Quantities</div>'+
-      pkgs.map(p=>\`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
-        <div><div style="font-size:13px;font-weight:500;">\${p.name}</div><div style="font-size:11px;color:var(--ink-muted);">\${fmt$(p.price)} each</div></div>
-        <input type="number" min="0" value="\${existing[p.id]||0}" class="form-input" style="width:70px;text-align:center;" data-sel-id="\${p.id}" oninput="updateRsvpTotal()">
-      </div>\`).join('');
-  } else {
-    const tiers = ev.tiers||[];
-    if(!tiers.length){ container.innerHTML='<div style="color:var(--ink-muted);font-size:13px;">No age brackets defined for this event.</div>'; return; }
-    container.innerHTML = '<div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:10px;">Wristband Counts by Age</div>'+
-      tiers.map(t=>\`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
-        <div><div style="font-size:13px;font-weight:500;">\${t.label}</div><div style="font-size:11px;color:var(--ink-muted);">\${fmt$(t.price)} each</div></div>
-        <input type="number" min="0" value="\${existing[t.id]||0}" class="form-input" style="width:70px;text-align:center;" data-sel-id="\${t.id}" oninput="updateRsvpTotal()">
-      </div>\`).join('');
-  }
+  var container = document.getElementById('rsvp-selections');
+  var items = ev.type==='package' ? (ev.packages||[]) : (ev.tiers||[]);
+  if(!items.length){ container.innerHTML='<div style="color:var(--ink-muted);font-size:13px;">No options defined.</div>'; return; }
+  var label = ev.type==='package' ? 'Package Quantities' : 'Wristband Counts by Age';
+  container.innerHTML = '<div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted);margin-bottom:10px;">'+label+'</div>'
+    + items.map(function(item){
+      var key = ev.type==='package' ? item.id : item.id;
+      var itemLabel = ev.type==='package' ? item.name : item.label;
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">'
+        +'<div><div style="font-size:13px;font-weight:500;">'+itemLabel+'</div>'
+        +'<div style="font-size:11px;color:var(--ink-muted);">'+fmtDollar(item.price)+' each</div></div>'
+        +'<input type="number" min="0" value="'+(existing[key]||0)+'" class="form-input" style="width:70px;text-align:center;" data-sel-id="'+key+'" oninput="updateRsvpTotal()">'
+        +'</div>';
+    }).join('');
   updateRsvpTotal();
 }
 
 function updateRsvpTotal(){
-  const evId = parseInt(document.getElementById('rsvp-event-id').value)||null;
-  const ev = evId ? DB.events.find(e=>e.id===evId) : null;
+  var evId = parseInt(document.getElementById('rsvp-event-id').value)||null;
+  var ev = evId ? (DB.events||[]).find(function(e){return e.id===evId;}) : null;
   if(!ev){ document.getElementById('rsvp-total-display').textContent=''; return; }
-  let total=0;
-  document.querySelectorAll('#rsvp-selections [data-sel-id]').forEach(inp=>{
-    const selId = parseInt(inp.dataset.selId);
-    const qty = parseInt(inp.value)||0;
-    const item = ev.type==='package'
-      ? (ev.packages||[]).find(p=>p.id===selId)
-      : (ev.tiers||[]).find(t=>t.id===selId);
+  var total=0;
+  document.querySelectorAll('#rsvp-selections [data-sel-id]').forEach(function(inp){
+    var selId = parseInt(inp.dataset.selId);
+    var qty = parseInt(inp.value)||0;
+    var items = ev.type==='package' ? (ev.packages||[]) : (ev.tiers||[]);
+    var item = items.find(function(x){return x.id===selId;});
     if(item) total += qty*(parseFloat(item.price)||0);
   });
-  document.getElementById('rsvp-total-display').textContent='Total owed: '+fmt$(total);
+  document.getElementById('rsvp-total-display').textContent='Total owed: '+fmtDollar(total);
 }
 
 function saveRsvp(){
-  const evId = parseInt(document.getElementById('rsvp-event-id').value)||null;
-  const ev = evId ? DB.events.find(e=>e.id===evId) : null;
+  var evId = parseInt(document.getElementById('rsvp-event-id').value)||null;
+  var ev = evId ? (DB.events||[]).find(function(e){return e.id===evId;}) : null;
   if(!ev){ alert('Event not found.'); return; }
-
-  const studentId = parseInt(document.getElementById('rsvp-student-id').value)||null;
-  let name = document.getElementById('rsvp-name').value.trim();
+  var studentId = parseInt(document.getElementById('rsvp-student-id').value)||null;
+  var name = document.getElementById('rsvp-name').value.trim();
   if(!name && studentId){
-    const s=DB.students.find(x=>x.id===studentId);
+    var s=DB.students.find(function(x){return x.id===studentId;});
     name = s ? (s.parent||s.first+' '+s.last) : '';
   }
   if(!name){ alert('Please enter a name or select a student.'); return; }
-
-  const selections={};
-  document.querySelectorAll('#rsvp-selections [data-sel-id]').forEach(inp=>{
+  var selections={};
+  document.querySelectorAll('#rsvp-selections [data-sel-id]').forEach(function(inp){
     selections[parseInt(inp.dataset.selId)] = parseInt(inp.value)||0;
   });
-
-  const data = {
-    eventId: evId,
-    studentId,
-    name,
-    phone: document.getElementById('rsvp-phone').value.trim(),
-    email: document.getElementById('rsvp-email').value.trim(),
-    status: document.getElementById('rsvp-status').value,
-    amountPaid: parseFloat(document.getElementById('rsvp-paid').value)||0,
-    notes: document.getElementById('rsvp-notes').value.trim(),
-    selections
+  var data = {
+    eventId:evId, studentId:studentId, name:name,
+    phone:document.getElementById('rsvp-phone').value.trim(),
+    email:document.getElementById('rsvp-email').value.trim(),
+    status:document.getElementById('rsvp-status').value,
+    amountPaid:parseFloat(document.getElementById('rsvp-paid').value)||0,
+    notes:document.getElementById('rsvp-notes').value.trim(),
+    selections:selections
   };
-
-  const editId = parseInt(document.getElementById('rsvp-edit-id').value)||null;
+  var editId = parseInt(document.getElementById('rsvp-edit-id').value)||null;
   if(editId){
-    const r = (DB.eventRsvps||[]).find(x=>x.id===editId);
-    if(r) Object.assign(r, data);
+    var r=(DB.eventRsvps||[]).find(function(x){return x.id===editId;});
+    if(r) Object.assign(r,data);
   } else {
     if(!DB.eventRsvps) DB.eventRsvps=[];
-    DB.eventRsvps.push({id:DB.nextId++, ...data});
+    data.id=DB.nextId++;
+    DB.eventRsvps.push(data);
   }
   save(); closeModal('modal-rsvp'); renderEvDetail(evId);
   toast('RSVP saved!');
 }
 
 function markRsvpPaid(rsvpId){
-  const r = (DB.eventRsvps||[]).find(x=>x.id===rsvpId);
+  var r=(DB.eventRsvps||[]).find(function(x){return x.id===rsvpId;});
   if(!r) return;
-  const ev = DB.events.find(e=>e.id===r.eventId);
+  var ev=(DB.events||[]).find(function(e){return e.id===r.eventId;});
   if(!ev) return;
-  r.status='paid';
-  r.amountPaid = evRsvpTotal(ev,r);
-  save(); renderEvDetail(r.eventId);
-  toast('Marked as paid!');
+  r.status='paid'; r.amountPaid=evRsvpTotal(ev,r);
+  save(); renderEvDetail(r.eventId); toast('Marked as paid!');
 }
 
 function deleteRsvp(rsvpId){
-  const r = (DB.eventRsvps||[]).find(x=>x.id===rsvpId);
+  var r=(DB.eventRsvps||[]).find(function(x){return x.id===rsvpId;});
   if(!r||!confirm('Remove this RSVP?')) return;
-  const evId = r.eventId;
-  DB.eventRsvps = (DB.eventRsvps||[]).filter(x=>x.id!==rsvpId);
-  save(); renderEvDetail(evId);
-  toast('RSVP removed.');
+  var evId=r.eventId;
+  DB.eventRsvps=(DB.eventRsvps||[]).filter(function(x){return x.id!==rsvpId;});
+  save(); renderEvDetail(evId); toast('RSVP removed.');
 }
 
 // ── Print ────────────────────────────────────────────
-
 function printEvReport(evId){
-  const ev = DB.events.find(e=>e.id===evId);
+  var ev=(DB.events||[]).find(function(e){return e.id===evId;});
   if(!ev) return;
-  const rsvps = (DB.eventRsvps||[]).filter(r=>r.eventId===evId&&r.status!=='cancelled');
-  const today = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-
-  let summaryTable='', detailTable='';
+  var rsvps=(DB.eventRsvps||[]).filter(function(r){return r.eventId===evId&&r.status!=='cancelled';});
+  var today=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  var summaryRows='', detailRows='', headerCols='', dataCols='';
 
   if(ev.type==='package'){
-    const pkgs=ev.packages||[];
-    // Grand totals per package
-    const pkgTotals={};
-    pkgs.forEach(p=>{ pkgTotals[p.id]=0; });
-    rsvps.forEach(r=>{ pkgs.forEach(p=>{ pkgTotals[p.id]+=(parseInt((r.selections||{})[p.id])||0); }); });
-    summaryTable=\`<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-      <thead><tr style="border-bottom:2px solid #1a1a1a;">
-        <th style="text-align:left;padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Package</th>
-        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Price</th>
-        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:center;">Qty</th>
-        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:right;">Subtotal</th>
-      </tr></thead><tbody>
-      \${pkgs.map(p=>\`<tr style="border-bottom:1px solid #eee;"><td style="padding:6px;">\${p.name}</td><td style="padding:6px;">\${fmt$(p.price)}</td><td style="padding:6px;text-align:center;font-weight:700;">\${pkgTotals[p.id]}</td><td style="padding:6px;text-align:right;">\${fmt$(pkgTotals[p.id]*(parseFloat(p.price)||0))}</td></tr>\`).join('')}
-      </tbody></table>\`;
-    detailTable=\`<table style="width:100%;border-collapse:collapse;">
-      <thead><tr style="border-bottom:2px solid #1a1a1a;">
-        <th style="text-align:left;padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Family</th>
-        \${pkgs.map(p=>\`<th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:center;">\${p.name}</th>\`).join('')}
-        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:right;">Total</th>
-        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Status</th>
-      </tr></thead><tbody>
-      \${rsvps.map(r=>\`<tr style="border-bottom:1px solid #eee;"><td style="padding:6px;font-weight:500;">\${r.name}</td>\${pkgs.map(p=>\`<td style="padding:6px;text-align:center;">\${(r.selections||{})[p.id]||0}</td>\`).join('')}<td style="padding:6px;text-align:right;">\${fmt$(evRsvpTotal(ev,r))}</td><td style="padding:6px;">\${r.status}</td></tr>\`).join('')}
-      </tbody></table>\`;
+    var pkgs=ev.packages||[];
+    var totals={};
+    pkgs.forEach(function(p){totals[p.id]=0;});
+    rsvps.forEach(function(r){pkgs.forEach(function(p){totals[p.id]+=(parseInt((r.selections||{})[p.id])||0);});});
+    summaryRows=pkgs.map(function(p){return '<tr><td>'+p.name+'</td><td>'+fmtDollar(p.price)+'</td><td style="text-align:center;font-weight:700;">'+totals[p.id]+'</td><td style="text-align:right;">'+fmtDollar(totals[p.id]*(parseFloat(p.price)||0))+'</td></tr>';}).join('');
+    headerCols=pkgs.map(function(p){return '<th>'+p.name+'</th>';}).join('');
+    dataCols=function(r){return pkgs.map(function(p){return '<td style="text-align:center;">'+(parseInt((r.selections||{})[p.id])||0)+'</td>';}).join('');};
   } else {
-    const tiers=ev.tiers||[];
-    const tierTotals={};
-    tiers.forEach(t=>{ tierTotals[t.id]=0; });
-    rsvps.forEach(r=>{ tiers.forEach(t=>{ tierTotals[t.id]+=(parseInt((r.selections||{})[t.id])||0); }); });
-    summaryTable=\`<table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-      <thead><tr style="border-bottom:2px solid #1a1a1a;">
-        <th style="text-align:left;padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Age Bracket</th>
-        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Price</th>
-        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:center;">Wristbands</th>
-        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:right;">Subtotal</th>
-      </tr></thead><tbody>
-      \${tiers.map(t=>\`<tr style="border-bottom:1px solid #eee;"><td style="padding:6px;">\${t.label}</td><td style="padding:6px;">\${fmt$(t.price)}</td><td style="padding:6px;text-align:center;font-weight:700;">\${tierTotals[t.id]}</td><td style="padding:6px;text-align:right;">\${fmt$(tierTotals[t.id]*(parseFloat(t.price)||0))}</td></tr>\`).join('')}
-      </tbody></table>\`;
-    detailTable=\`<table style="width:100%;border-collapse:collapse;">
-      <thead><tr style="border-bottom:2px solid #1a1a1a;">
-        <th style="text-align:left;padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Family</th>
-        \${tiers.map(t=>\`<th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:center;">\${t.label}</th>\`).join('')}
-        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;text-align:right;">Total</th>
-        <th style="padding:6px;font-size:11px;text-transform:uppercase;color:#888;">Status</th>
-      </tr></thead><tbody>
-      \${rsvps.map(r=>\`<tr style="border-bottom:1px solid #eee;"><td style="padding:6px;font-weight:500;">\${r.name}</td>\${tiers.map(t=>\`<td style="padding:6px;text-align:center;">\${(r.selections||{})[t.id]||0}</td>\`).join('')}<td style="padding:6px;text-align:right;">\${fmt$(evRsvpTotal(ev,r))}</td><td style="padding:6px;">\${r.status}</td></tr>\`).join('')}
-      </tbody></table>\`;
+    var tiers=ev.tiers||[];
+    var totals={};
+    tiers.forEach(function(t){totals[t.id]=0;});
+    rsvps.forEach(function(r){tiers.forEach(function(t){totals[t.id]+=(parseInt((r.selections||{})[t.id])||0);});});
+    summaryRows=tiers.map(function(t){return '<tr><td>'+t.label+'</td><td>'+fmtDollar(t.price)+'</td><td style="text-align:center;font-weight:700;">'+totals[t.id]+'</td><td style="text-align:right;">'+fmtDollar(totals[t.id]*(parseFloat(t.price)||0))+'</td></tr>';}).join('');
+    headerCols=tiers.map(function(t){return '<th>'+t.label+'</th>';}).join('');
+    dataCols=function(r){return tiers.map(function(t){return '<td style="text-align:center;">'+(parseInt((r.selections||{})[t.id])||0)+'</td>';}).join('');};
   }
 
-  const w=window.open('','_blank');
-  w.document.write(\`<!DOCTYPE html><html><head><title>\${ev.name}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
-    <style>body{font-family:'DM Sans',sans-serif;padding:36px;max-width:800px;margin:0 auto;}h2{font-family:'Syne',sans-serif;margin:0 0 4px;}h3{font-family:'Syne',sans-serif;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:#888;margin:20px 0 10px;}</style>
-    </head><body>
-    <div style="display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #1a1a1a;">
-      <div><div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#888;margin-bottom:2px;">Noble's Martial Arts</div>
-      <h2>\${ev.name}</h2>
-      <div style="font-size:12px;color:#888;">\${fmtFull(ev.date)}</div></div>
-      <div style="text-align:right;font-size:12px;color:#888;">Generated \${today}<br>\${rsvps.length} attendees</div>
-    </div>
-    <h3>\${ev.type==='package'?'Package Summary':'Wristband Summary'}</h3>
-    \${summaryTable}
-    <h3>Per-Family Breakdown</h3>
-    \${detailTable}
-    </body></html>\`);
+  var w=window.open('','_blank');
+  w.document.write('<!DOCTYPE html><html><head><title>'+ev.name+'</title>'
+    +'<style>body{font-family:sans-serif;padding:32px;max-width:800px;margin:0 auto;}table{width:100%;border-collapse:collapse;margin-bottom:24px;}th{text-align:left;padding:6px;font-size:11px;text-transform:uppercase;color:#888;border-bottom:2px solid #1a1a1a;}td{padding:6px;border-bottom:1px solid #eee;}h2{margin:0 0 4px;}h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#888;margin:20px 0 8px;}</style>'
+    +'</head><body>'
+    +'<div style="display:flex;justify-content:space-between;padding-bottom:14px;border-bottom:2px solid #1a1a1a;margin-bottom:16px;">'
+    +'<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#888;">Nobles Martial Arts</div><h2>'+ev.name+'</h2><div style="font-size:12px;color:#888;">'+fmtFull(ev.date)+'</div></div>'
+    +'<div style="text-align:right;font-size:12px;color:#888;">Generated '+today+'<br>'+rsvps.length+' attendees</div></div>'
+    +'<h3>'+(ev.type==='package'?'Package Summary':'Wristband Summary')+'</h3>'
+    +'<table><thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Subtotal</th></tr></thead><tbody>'+summaryRows+'</tbody></table>'
+    +'<h3>Per-Family Breakdown</h3>'
+    +'<table><thead><tr><th>Family</th>'+headerCols+'<th>Total</th><th>Status</th></tr></thead><tbody>'
+    +rsvps.map(function(r){return '<tr><td style="font-weight:500;">'+r.name+'</td>'+dataCols(r)+'<td>'+fmtDollar(evRsvpTotal(ev,r))+'</td><td>'+r.status+'</td></tr>';}).join('')
+    +'</tbody></table></body></html>');
   w.document.close(); w.print();
 }
 
-// ── Jotform Integration ──────────────────────────────
-
-async function generateJotform(evId){
-  const ev = DB.events.find(e=>e.id===evId);
+// ── Jotform Sync ─────────────────────────────────────
+function generateJotform(evId){
+  var ev=(DB.events||[]).find(function(e){return e.id===evId;});
   if(!ev){ toast('Event not found.'); return; }
-
-  const statusEl = document.getElementById('jotform-gen-status');
-  const linkEl = document.getElementById('jotform-gen-link');
-  statusEl.textContent='Creating form…'; linkEl.style.display='none';
-  document.getElementById('modal-jotform-gen').classList.add('open');
-
-  // Build description for Jotform create_form tool
-  const items = ev.type==='package'
-    ? (ev.packages||[]).map(p=>\`\${p.name} (quantity, price \${fmt$(p.price)} each)\`).join(', ')
-    : (ev.tiers||[]).map(t=>\`\${t.label} (quantity, price \${fmt$(t.price)} each)\`).join(', ');
-
-  const description = \`Noble's Martial Arts RSVP form for \${ev.name} on \${fmtFull(ev.date)}.
-Fields needed:
-- Student Name (dropdown with names: \${DB.students.filter(s=>s.status==='Active').map(s=>s.first+' '+s.last).join(', ')}, plus an "Other" option)
-- Parent/Guardian Name (text, required)
-- Contact Phone (phone field, required)  
-- Contact Email (email field, required)
-- \${ev.type==='package'?'Package selections':'Age bracket counts'}: \${items}
-- Special notes or questions (long text, optional)
-- Submit button\`;
-
-  try {
-    // Call Jotform MCP create_form
-    const response = await fetch('https://mcp.jotform.com/mcp-app', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({tool:'create_form', params:{description}})
-    });
-
-    if(!response.ok) throw new Error('Jotform API error: '+response.status);
-    const result = await response.json();
-    const formId = result.form_id || result.id || (result.content&&result.content.form_id);
-
-    if(!formId) throw new Error('No form ID returned');
-
-    ev.jotformId = formId;
-    save();
-    const url = \`https://form.jotform.com/\${formId}\`;
-    document.getElementById('jotform-gen-url').value = url;
-    document.getElementById('jotform-gen-open').href = url;
-    linkEl.style.display='';
-    statusEl.textContent='✓ Form created successfully!';
-    renderEvDetail(evId);
-    toast('Jotform created!');
-  } catch(err){
-    console.error(err);
-    statusEl.innerHTML='<span style="color:var(--red);">Error: '+err.message+'</span><br><small>Check the Jotform MCP connection in settings, then try again.</small>';
+  toast('Opening Jotform generator...');
+  // Build a pre-filled description and open Jotform
+  var items = ev.type==='package'
+    ? (ev.packages||[]).map(function(p){return p.name+' ($'+p.price+')';}).join(', ')
+    : (ev.tiers||[]).map(function(t){return t.label+' ($'+t.price+')';}).join(', ');
+  var msg = 'To generate a Jotform for "'+ev.name+'":\n\n'
+    +'1. Go to jotform.com and create a new form\n'
+    +'2. Add fields for: Parent Name, Phone, Email, Student Name\n'
+    +'3. Add number fields for: '+items+'\n'
+    +'4. Save the form ID here once created.\n\n'
+    +'Or paste a Jotform ID to link an existing form:';
+  var jfId = prompt(msg,'');
+  if(jfId&&jfId.trim()){
+    ev.jotformId=jfId.trim();
+    save(); renderEvDetail(evId);
+    toast('Jotform linked!');
   }
 }
 
 function copyEvJotformLink(formId){
-  const url = \`https://form.jotform.com/\${formId}\`;
-  navigator.clipboard.writeText(url).then(()=>toast('Link copied!')).catch(()=>toast('URL: '+url));
+  var url='https://form.jotform.com/'+formId;
+  navigator.clipboard.writeText(url).then(function(){toast('Link copied!');}).catch(function(){prompt('Copy this link:',url);});
 }
 
 async function syncJotformRsvps(evId){
-  const ev = DB.events.find(e=>e.id===evId);
-  if(!ev||!ev.jotformId){ toast('No Jotform linked to this event.'); return; }
-  toast('Syncing Jotform submissions…');
-
+  var ev=(DB.events||[]).find(function(e){return e.id===evId;});
+  if(!ev||!ev.jotformId){ toast('No Jotform linked.'); return; }
+  var apiKey=DB.jotformApiKey||'';
+  if(!apiKey){ toast('No Jotform API key set in Settings.'); return; }
+  toast('Syncing...');
   try {
-    const apiKey = DB.jotformApiKey||'';
-    if(!apiKey){ toast('No Jotform API key set. Add it in Settings.'); return; }
-    const r = await fetch(\`https://api.jotform.com/form/\${ev.jotformId}/submissions?apiKey=\${apiKey}&limit=100\`);
-    const data = await r.json();
+    var r=await fetch('https://api.jotform.com/form/'+ev.jotformId+'/submissions?apiKey='+apiKey+'&limit=100');
+    var data=await r.json();
     if(!data.content){ toast('No submissions found.'); return; }
-
-    let added=0, updated=0;
-    data.content.forEach(sub=>{
-      const answers = sub.answers;
-      // Extract fields by label matching
-      let parentName='', phone='', email='', studentName='', notes='';
-      const selections={};
-      Object.values(answers).forEach(a=>{
-        const lbl=(a.text||'').toLowerCase();
-        const val=a.answer||'';
+    var added=0, updated=0;
+    data.content.forEach(function(sub){
+      var answers=sub.answers;
+      var parentName='',phone='',email='',studentName='',notes='';
+      var selections={};
+      Object.values(answers).forEach(function(a){
+        var lbl=(a.text||'').toLowerCase();
+        var val=a.answer||'';
+        if(typeof val==='object') val=val.first||val.last||JSON.stringify(val);
         if(lbl.includes('parent')||lbl.includes('guardian')) parentName=val;
         else if(lbl.includes('phone')) phone=val;
         else if(lbl.includes('email')) email=val;
-        else if(lbl.includes('student')) studentName=typeof val==='string'?val:(val.first||'');
-        else if(lbl.includes('note')||lbl.includes('question')) notes=typeof val==='string'?val:'';
+        else if(lbl.includes('student')) studentName=val;
+        else if(lbl.includes('note')||lbl.includes('question')) notes=val;
         else {
-          // Try to match package/tier names
-          if(ev.type==='package'){
-            (ev.packages||[]).forEach(p=>{
-              if(lbl.includes(p.name.toLowerCase())){ selections[p.id]=parseInt(val)||0; }
-            });
-          } else {
-            (ev.tiers||[]).forEach(t=>{
-              if(lbl.includes(t.label.toLowerCase())){ selections[t.id]=parseInt(val)||0; }
-            });
-          }
+          var items2=ev.type==='package'?(ev.packages||[]):(ev.tiers||[]);
+          items2.forEach(function(item){
+            var itemLabel=(ev.type==='package'?item.name:item.label).toLowerCase();
+            if(lbl.includes(itemLabel)){ selections[item.id]=parseInt(val)||0; }
+          });
         }
       });
-
-      const name = parentName||(studentName+' family');
+      var name=parentName||(studentName+' family');
       if(!name) return;
-
-      // Check if already imported
-      const existing = (DB.eventRsvps||[]).find(r=>r.eventId===evId&&r.jotformSubId===sub.id);
-      if(existing){
-        Object.assign(existing,{name,phone,email,notes,selections}); updated++;
-      } else {
+      var existing=(DB.eventRsvps||[]).find(function(r2){return r2.eventId===evId&&r2.jotformSubId===sub.id;});
+      if(existing){ Object.assign(existing,{name:name,phone:phone,email:email,notes:notes,selections:selections}); updated++; }
+      else {
         if(!DB.eventRsvps) DB.eventRsvps=[];
-        // Match to student
-        const student = DB.students.find(s=>
-          (s.first+' '+s.last).toLowerCase()===studentName.toLowerCase()||(s.parent||'').toLowerCase()===parentName.toLowerCase()
-        );
-        DB.eventRsvps.push({id:DB.nextId++,eventId:evId,jotformSubId:sub.id,studentId:student?student.id:null,name,phone,email,status:'committed',amountPaid:0,notes,selections});
+        var student=DB.students.find(function(s){return (s.first+' '+s.last).toLowerCase()===studentName.toLowerCase()||(s.parent||'').toLowerCase()===parentName.toLowerCase();});
+        DB.eventRsvps.push({id:DB.nextId++,eventId:evId,jotformSubId:sub.id,studentId:student?student.id:null,name:name,phone:phone,email:email,status:'committed',amountPaid:0,notes:notes,selections:selections});
         added++;
       }
     });
-
     save(); renderEvDetail(evId);
-    toast(\`Synced: +\${added} new, \${updated} updated.\`);
-  } catch(err){
-    console.error(err);
-    toast('Sync error: '+err.message);
-  }
+    toast('Synced: +'+added+' new, '+updated+' updated.');
+  } catch(err){ toast('Sync error: '+err.message); }
 }
 
 function copyJotformLink(){
-  const url=document.getElementById('jotform-gen-url').value;
+  var url=document.getElementById('jotform-gen-url').value;
   if(!url) return;
-  navigator.clipboard.writeText(url).then(()=>toast('Copied!')).catch(()=>alert(url));
+  navigator.clipboard.writeText(url).then(function(){toast('Copied!');}).catch(function(){alert(url);});
 }
 
 </script>
