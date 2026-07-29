@@ -889,6 +889,10 @@ tbody td{font-size:11px!important;}
       <div class="form-grid">
         <div class="form-group full"><label class="form-label">Label</label><input class="form-input" id="gear-sheet-name" placeholder="e.g. Purple Belt Package Orders"></div>
         <div class="form-group full"><label class="form-label">Published CSV Link</label><input class="form-input" id="gear-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv"></div>
+        <div class="form-group full"><label class="form-label">Cost/Profit Catalog Match (optional)</label>
+          <select class="form-select" id="gear-sheet-catalog"><option value="">— Don't track cost for this sheet —</option></select>
+          <p style="font-size:11px;color:var(--ink-faint);margin-top:4px;">Only affects the Est. Profit summary — the Order Type shown in the table always uses the Label above.</p>
+        </div>
       </div>
       <button class="btn primary" style="margin-top:10px;" onclick="addGearSheetSource()">+ Add Sheet</button>
       <div class="section-divider" style="margin:16px 0 8px;"><span>Configured Sheets</span></div>
@@ -9859,6 +9863,14 @@ if(!DB.jotformApiKey)DB.jotformApiKey='';
 if(!DB.gearSheetSources)DB.gearSheetSources=[];
   const search=($('gear-search')?.value||'').toLowerCase();
   const filterPaid=$('gear-filter-paid')?.value||'';
+  const filterTypeSel=$('gear-filter-type');
+  if(filterTypeSel){
+    const known=new Set(Object.keys(GEAR_CATALOG));
+    DB.gearOrders.forEach(o=>{if(o.orderType)known.add(o.orderType);});
+    const current=filterTypeSel.value;
+    filterTypeSel.innerHTML='<option value="">All types</option>'+
+      Array.from(known).sort().map(t=>`<option${t===current?' selected':''}>${t}</option>`).join('');
+  }
   const filterType=$('gear-filter-type')?.value||'';
   let orders=[...DB.gearOrders].sort((a,b)=>b.date.localeCompare(a.date));
   if(search)orders=orders.filter(o=>(o.studentName||'').toLowerCase().includes(search)||(o.orderType||'').toLowerCase().includes(search)||(o.details||'').toLowerCase().includes(search));
@@ -9871,7 +9883,7 @@ if(!DB.gearSheetSources)DB.gearSheetSources=[];
   const totalOwed=all.filter(o=>!o.paid).reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
   const totalPaid=all.filter(o=>o.paid).reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
   const totalRevenue=all.reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
-  const totalCost=all.reduce((s,o)=>{const cat=GEAR_CATALOG&&GEAR_CATALOG[o.orderType];return s+(cat?cat.cost:0);},0);
+  const totalCost=all.reduce((s,o)=>{const cat=(GEAR_CATALOG&&GEAR_CATALOG[o.orderType])||(o.catalogKey&&GEAR_CATALOG[o.catalogKey]);return s+(cat?cat.cost:0);},0);
   const totalProfit=totalRevenue-totalCost;
   const margin=totalRevenue>0?Math.round(totalProfit/totalRevenue*100):0;
   const summary=$('gear-summary');
@@ -9895,7 +9907,7 @@ if(!DB.gearSheetSources)DB.gearSheetSources=[];
       <td><strong style="font-size:13px;">${o.studentName||'—'}</strong></td>
       <td style="font-size:12px;">${o.orderType||'—'}</td>
       <td style="font-size:11px;color:var(--ink-muted);max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${o.details||''}">${o.details||'—'}</td>
-      <td style="text-align:right;"><div style="font-weight:600;">${o.amount?'$'+parseFloat(o.amount).toFixed(2):'—'}</div>${(()=>{const c=GEAR_CATALOG&&GEAR_CATALOG[o.orderType];return c&&c.cost?'<div style="font-size:10px;color:var(--ink-faint);">cost $'+c.cost.toFixed(2)+' · +$'+(parseFloat(o.amount||c.price)-c.cost).toFixed(2)+'</div>':'';})()}</td>
+      <td style="text-align:right;"><div style="font-weight:600;">${o.amount?'$'+parseFloat(o.amount).toFixed(2):'—'}</div>${(()=>{const c=(GEAR_CATALOG&&GEAR_CATALOG[o.orderType])||(o.catalogKey&&GEAR_CATALOG[o.catalogKey]);return c&&c.cost?'<div style="font-size:10px;color:var(--ink-faint);">cost $'+c.cost.toFixed(2)+' · +$'+(parseFloat(o.amount||c.price)-c.cost).toFixed(2)+'</div>':'';})()}</td>
       <td>${payBadge}</td>
       <td>${paidBadge}</td>
       <td style="white-space:nowrap;">
@@ -9982,28 +9994,54 @@ function deleteGearOrder(id){
 function parseGearOrdersCSVRows(text){
   const lines=text.split(/\r?\n/).filter(l=>l.trim());
   if(lines.length<2)return [];
-  const headers=lines[0].split(',').map(h=>h.replace(/^"|"$/g,'').trim().toLowerCase());
+  const headers=lines[0].split(',').map(h=>h.replace(/^"|"$/g,'').trim());
+  const headersLower=headers.map(h=>h.toLowerCase());
   const rows=[];
   for(let i=1;i<lines.length;i++){
     const cols=lines[i].match(/(".*?"|[^,]+)(?=,|$)/g)||lines[i].split(',');
     const vals=cols.map(c=>c.replace(/^"|"$/g,'').trim());
-    const get=(...keys)=>{for(const k of keys){const idx=headers.findIndex(h=>h.includes(k));if(idx>=0&&vals[idx])return vals[idx];}return '';};
-    const name=get('student','name');if(!name)continue;
-    rows.push({rowIndex:i,name,get});
+    const get=(...keys)=>{for(const k of keys){const idx=headersLower.findIndex(h=>h.includes(k));if(idx>=0&&vals[idx])return vals[idx];}return '';};
+    const name=get('student','name','child');if(!name)continue;
+    rows.push({rowIndex:i,name,get,headers,headersLower,vals});
   }
   return rows;
 }
-function gearRowToOrder(row,dateFallback){
+// Most gear order forms embed the price inside a longer answer
+// ("1 - $10", "$175 Purple Belt Gear Package (A)...") rather than
+// having a dedicated amount column — scan every cell left-to-right
+// and grab the first dollar figure found.
+function extractDollarAmount(row){
+  for(let i=0;i<row.vals.length;i++){
+    const m=(row.vals[i]||'').match(/\$\s?([\d,]+(?:\.\d{1,2})?)/);
+    if(m) return parseFloat(m[1].replace(/,/g,''));
+  }
+  return 0;
+}
+function gearRowToOrder(row,dateFallback,sourceLabel,catalogKey){
   const matched=DB.students.find(s=>`${s.first} ${s.last}`.toLowerCase()===row.name.toLowerCase());
+  // Details: everything on the row except name/timestamp/notes, which already
+  // have dedicated fields — this way nothing from the form gets lost even
+  // though every form's questions are worded differently (package choice,
+  // height, colors, quantity, parent contact info, etc. all land here).
+  const skipKeys=['student','child','timestamp','question','comment'];
+  const detailParts=[];
+  row.headers.forEach((h,idx)=>{
+    const hl=row.headersLower[idx];
+    const v=row.vals[idx];
+    if(!v) return;
+    if(skipKeys.some(k=>hl.includes(k))) return;
+    detailParts.push(h+': '+v);
+  });
   return {
     date:row.get('date','timestamp')||dateFallback,
     studentId:matched?.id||null,
     studentName:row.name,
-    orderType:row.get('package','order type','weapon','type')||'Custom',
-    amount:parseFloat((row.get('amount','price','total')||'').replace(/[^0-9.]/g,''))||0,
-    details:row.get('color','size','detail'),
+    orderType:sourceLabel||row.get('package','order type','weapon','type')||'Custom',
+    amount:extractDollarAmount(row),
+    details:detailParts.join('; '),
     notes:row.get('note','comment','question'),
-    paymentMethod:'Unpaid',paid:false
+    paymentMethod:'Unpaid',paid:false,
+    catalogKey:catalogKey||null
   };
 }
 function importGearCSV(){$('gear-csv-input').click();}
@@ -10028,23 +10066,27 @@ function handleGearCSV(input){
 
 // ── Google Sheet sources (Google Forms → Sheets → CRM) ──
 function openGearSheetSources(){
+  const catSel=$('gear-sheet-catalog');
+  catSel.innerHTML='<option value="">— Don\'t track cost for this sheet —</option>'
+    + Object.keys(GEAR_CATALOG).map(k=>`<option value="${k}">${k}</option>`).join('');
   renderGearSheetSourceList();
   $('modal-gear-sheets').classList.add('open');
 }
 function renderGearSheetSourceList(){
   const el=$('gear-sheet-list');
   if(!DB.gearSheetSources||!DB.gearSheetSources.length){el.innerHTML='<p style="color:var(--ink-muted);font-size:13px;">No sheets added yet.</p>';return;}
-  el.innerHTML=DB.gearSheetSources.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);"><div><strong>${s.name}</strong><div style="font-size:11px;color:var(--ink-faint);word-break:break-all;">${s.url}</div></div><button class="btn small danger" onclick="removeGearSheetSource('${s.id}')">Remove</button></div>`).join('');
+  el.innerHTML=DB.gearSheetSources.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);"><div><strong>${s.name}</strong>${s.catalogKey?` <span class="badge badge-blue" style="font-size:9px;">costed as: ${s.catalogKey}</span>`:''}<div style="font-size:11px;color:var(--ink-faint);word-break:break-all;">${s.url}</div></div><button class="btn small danger" onclick="removeGearSheetSource('${s.id}')">Remove</button></div>`).join('');
 }
 function addGearSheetSource(){
   const name=$('gear-sheet-name').value.trim();
   const url=$('gear-sheet-url').value.trim();
+  const catalogKey=$('gear-sheet-catalog').value||null;
   if(!name||!url){toast('Enter a label and the published CSV link.');return;}
   if(!/output=csv/.test(url)){toast('⚠ That link doesn\'t look like a published CSV link — check the File → Share → Publish to web steps.');}
   if(!DB.gearSheetSources)DB.gearSheetSources=[];
-  DB.gearSheetSources.push({id:'gs_'+Date.now(),name,url});
+  DB.gearSheetSources.push({id:'gs_'+Date.now(),name,url,catalogKey});
   save();
-  $('gear-sheet-name').value='';$('gear-sheet-url').value='';
+  $('gear-sheet-name').value='';$('gear-sheet-url').value='';$('gear-sheet-catalog').value='';
   renderGearSheetSourceList();
   toast('Sheet source added.');
 }
@@ -10068,7 +10110,7 @@ async function syncGearSheets(){
       rows.forEach(row=>{
         const sourceId=src.id+'_r'+row.rowIndex;
         if(existingIds.has(sourceId)) return;
-        const order=gearRowToOrder(row,new Date().toISOString().slice(0,10));
+        const order=gearRowToOrder(row,new Date().toISOString().slice(0,10),src.name,src.catalogKey);
         order.id=Date.now()+Math.random();
         order.sourceId=sourceId;
         order.sourceSheet=src.name;
