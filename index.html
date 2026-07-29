@@ -9853,7 +9853,27 @@ var GEAR_CATALOG={
 var GEAR_PRICES=Object.fromEntries(Object.entries(GEAR_CATALOG).map(function(e){return[e[0],e[1].price];}));
 let _editingGearId=null;
 
-function initGearOrders(){if(!DB.gearOrders)DB.gearOrders=[];renderGearOrders();}
+function initGearOrders(){
+  if(!DB.gearOrders)DB.gearOrders=[];
+  const fixed=repairGearOrderDates();
+  renderGearOrders();
+  if(fixed) toast(`Fixed date formatting on ${fixed} existing order(s).`);
+}
+// One-time repair for orders synced before parseSheetDate existed —
+// their .date field holds the raw "1/30/2024 19:40:32" style string.
+// Safe to run repeatedly: already-correct YYYY-MM-DD dates are left alone.
+function repairGearOrderDates(){
+  if(!DB.gearOrders) return 0;
+  let fixed=0;
+  DB.gearOrders.forEach(o=>{
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(o.date||'')){
+      const iso=parseSheetDate(o.date, new Date().toISOString().slice(0,10));
+      if(iso!==o.date){ o.date=iso; fixed++; }
+    }
+  });
+  if(fixed) save();
+  return fixed;
+}
 
 function renderGearOrders(){
   if(!DB.gearOrders)DB.gearOrders=[];
@@ -10017,6 +10037,16 @@ function extractDollarAmount(row){
   }
   return 0;
 }
+// Sheet timestamps look like "1/30/2024 19:40:32" — convert to the
+// YYYY-MM-DD format the rest of the CRM expects (fmtDate, sorting, etc).
+// Uses local date parts (not toISOString) to avoid UTC day-shift.
+function parseSheetDate(raw, fallback){
+  if(!raw) return fallback;
+  const d=new Date(raw);
+  if(isNaN(d.getTime())) return fallback;
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
 function gearRowToOrder(row,dateFallback,sourceLabel,catalogKey){
   const matched=DB.students.find(s=>`${s.first} ${s.last}`.toLowerCase()===row.name.toLowerCase());
   // Details: everything on the row except name/timestamp/notes, which already
@@ -10033,7 +10063,7 @@ function gearRowToOrder(row,dateFallback,sourceLabel,catalogKey){
     detailParts.push(h+': '+v);
   });
   return {
-    date:row.get('date','timestamp')||dateFallback,
+    date:parseSheetDate(row.get('date','timestamp'), dateFallback),
     studentId:matched?.id||null,
     studentName:row.name,
     orderType:sourceLabel||row.get('package','order type','weapon','type')||'Custom',
