@@ -840,7 +840,10 @@ tbody td{font-size:11px!important;}
 <div id="page-gearorders" class="page">
   <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
     <div><div class="page-title">Gear Orders</div><div class="page-subtitle">Track parent gear & weapon orders</div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <span id="gear-sheets-sync-time" style="font-size:11px;color:var(--ink-faint);"></span>
+      <button class="btn" onclick="openGearSheetSources()">⚙ Manage Sheets</button>
+      <button class="btn primary" onclick="syncGearSheets()">↻ Sync from Sheets</button>
       <button class="btn" onclick="importGearCSV()">📥 Import CSV</button>
       <button class="btn primary" onclick="openAddGearOrder()">+ Add Order</button>
     </div>
@@ -872,6 +875,28 @@ tbody td{font-size:11px!important;}
       </tr></thead>
       <tbody id="gear-tbody"></tbody>
     </table>
+  </div>
+</div>
+
+<!-- GEAR ORDER SHEET SOURCES MODAL -->
+<div class="modal-backdrop" id="modal-gear-sheets">
+  <div class="modal" style="max-width:580px;">
+    <div class="modal-header"><div class="modal-title">⚙ Gear Order Sheet Sources</div><button class="btn ghost" onclick="closeModal('modal-gear-sheets')">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--ink-muted);margin-bottom:14px;line-height:1.5;">
+        For each Google Form response sheet you want tracked here: open the Sheet → <strong>File → Share → Publish to web</strong> → pick the specific tab → format <strong>CSV</strong> → Publish. Paste that published link below (it ends in <code>output=csv</code>). A regular "share" link won't work — it must be published to the web, since that's the format the CRM can actually fetch.
+      </p>
+      <div class="form-grid">
+        <div class="form-group full"><label class="form-label">Label</label><input class="form-input" id="gear-sheet-name" placeholder="e.g. Purple Belt Package Orders"></div>
+        <div class="form-group full"><label class="form-label">Published CSV Link</label><input class="form-input" id="gear-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv"></div>
+      </div>
+      <button class="btn primary" style="margin-top:10px;" onclick="addGearSheetSource()">+ Add Sheet</button>
+      <div class="section-divider" style="margin:16px 0 8px;"><span>Configured Sheets</span></div>
+      <div id="gear-sheet-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-gear-sheets')">Done</button>
+    </div>
   </div>
 </div>
 
@@ -2270,6 +2295,7 @@ if(!DB.gearOrders)DB.gearOrders=[];
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
 if(!DB.jotformApiKey)DB.jotformApiKey='';
+if(!DB.gearSheetSources)DB.gearSheetSources=[];
 if(!DB.classPlans)DB.classPlans=[];
 if(!DB.classLibrary)DB.classLibrary={warmups:[],activities:[]};
 if(!DB.classSchedule||!Array.isArray(DB.classSchedule)||!DB.classSchedule.length)DB.classSchedule=[
@@ -4214,6 +4240,7 @@ if(!DB.gearOrders)DB.gearOrders=[];
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
 if(!DB.jotformApiKey)DB.jotformApiKey='';
+if(!DB.gearSheetSources)DB.gearSheetSources=[];
 if(!DB.classPlans)DB.classPlans=[];
 if(!DB.classLibrary)DB.classLibrary={warmups:[],activities:[]};
 if(!DB.cancelledDays)DB.cancelledDays=[];
@@ -9829,6 +9856,7 @@ function renderGearOrders(){
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
 if(!DB.jotformApiKey)DB.jotformApiKey='';
+if(!DB.gearSheetSources)DB.gearSheetSources=[];
   const search=($('gear-search')?.value||'').toLowerCase();
   const filterPaid=$('gear-filter-paid')?.value||'';
   const filterType=$('gear-filter-type')?.value||'';
@@ -9935,6 +9963,7 @@ function saveGearOrder(){
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
 if(!DB.jotformApiKey)DB.jotformApiKey='';
+if(!DB.gearSheetSources)DB.gearSheetSources=[];
   if(_editingGearId){const i=DB.gearOrders.findIndex(x=>x.id===_editingGearId);if(i>=0)DB.gearOrders[i]=order;}
   else DB.gearOrders.unshift(order);
   save();closeModal('modal-gear-order');renderGearOrders();
@@ -9950,42 +9979,117 @@ function deleteGearOrder(id){
   DB.gearOrders=DB.gearOrders.filter(x=>x.id!==id);
   save();renderGearOrders();
 }
+function parseGearOrdersCSVRows(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2)return [];
+  const headers=lines[0].split(',').map(h=>h.replace(/^"|"$/g,'').trim().toLowerCase());
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const cols=lines[i].match(/(".*?"|[^,]+)(?=,|$)/g)||lines[i].split(',');
+    const vals=cols.map(c=>c.replace(/^"|"$/g,'').trim());
+    const get=(...keys)=>{for(const k of keys){const idx=headers.findIndex(h=>h.includes(k));if(idx>=0&&vals[idx])return vals[idx];}return '';};
+    const name=get('student','name');if(!name)continue;
+    rows.push({rowIndex:i,name,get});
+  }
+  return rows;
+}
+function gearRowToOrder(row,dateFallback){
+  const matched=DB.students.find(s=>`${s.first} ${s.last}`.toLowerCase()===row.name.toLowerCase());
+  return {
+    date:row.get('date','timestamp')||dateFallback,
+    studentId:matched?.id||null,
+    studentName:row.name,
+    orderType:row.get('package','order type','weapon','type')||'Custom',
+    amount:parseFloat((row.get('amount','price','total')||'').replace(/[^0-9.]/g,''))||0,
+    details:row.get('color','size','detail'),
+    notes:row.get('note','comment','question'),
+    paymentMethod:'Unpaid',paid:false
+  };
+}
 function importGearCSV(){$('gear-csv-input').click();}
 function handleGearCSV(input){
   const file=input.files[0];if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
-    const lines=e.target.result.split(/\r?\n/).filter(l=>l.trim());
-    if(lines.length<2){toast('CSV appears empty.');return;}
-    const headers=lines[0].split(',').map(h=>h.replace(/^"|"$/g,'').trim().toLowerCase());
+    const rows=parseGearOrdersCSVRows(e.target.result);
+    if(!rows.length){toast('CSV appears empty.');return;}
+    if(!DB.gearOrders)DB.gearOrders=[];
     let imported=0;
-    for(let i=1;i<lines.length;i++){
-      const cols=lines[i].match(/(".*?"|[^,]+)(?=,|$)/g)||lines[i].split(',');
-      const vals=cols.map(c=>c.replace(/^"|"$/g,'').trim());
-      const get=(...keys)=>{for(const k of keys){const idx=headers.findIndex(h=>h.includes(k));if(idx>=0&&vals[idx])return vals[idx];}return '';};
-      const name=get('student','name');if(!name)continue;
-      const matched=DB.students.find(s=>`${s.first} ${s.last}`.toLowerCase()===name.toLowerCase());
-      const order={
-        id:Date.now()+i,
-        date:get('date','timestamp')||new Date().toISOString().slice(0,10),
-        studentId:matched?.id||null,
-        studentName:name,
-        orderType:get('package','order type','weapon','type')||'Custom',
-        amount:parseFloat(get('amount','price','total').replace(/[^0-9.]/g,''))||0,
-        details:get('color','size','detail'),
-        notes:get('note','comment','question'),
-        paymentMethod:'Unpaid',paid:false
-      };
-      if(!DB.gearOrders)DB.gearOrders=[];
-if(!DB.apparelOrders)DB.apparelOrders=[];
-if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
-if(!DB.jotformApiKey)DB.jotformApiKey='';
+    rows.forEach(row=>{
+      const order=gearRowToOrder(row,new Date().toISOString().slice(0,10));
+      order.id=Date.now()+row.rowIndex;
       DB.gearOrders.unshift(order);imported++;
-    }
+    });
     save();renderGearOrders();input.value='';
     toast(`Imported ${imported} order(s) from CSV.`);
   };
   reader.readAsText(file);
+}
+
+// ── Google Sheet sources (Google Forms → Sheets → CRM) ──
+function openGearSheetSources(){
+  renderGearSheetSourceList();
+  $('modal-gear-sheets').classList.add('open');
+}
+function renderGearSheetSourceList(){
+  const el=$('gear-sheet-list');
+  if(!DB.gearSheetSources||!DB.gearSheetSources.length){el.innerHTML='<p style="color:var(--ink-muted);font-size:13px;">No sheets added yet.</p>';return;}
+  el.innerHTML=DB.gearSheetSources.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);"><div><strong>${s.name}</strong><div style="font-size:11px;color:var(--ink-faint);word-break:break-all;">${s.url}</div></div><button class="btn small danger" onclick="removeGearSheetSource('${s.id}')">Remove</button></div>`).join('');
+}
+function addGearSheetSource(){
+  const name=$('gear-sheet-name').value.trim();
+  const url=$('gear-sheet-url').value.trim();
+  if(!name||!url){toast('Enter a label and the published CSV link.');return;}
+  if(!/output=csv/.test(url)){toast('⚠ That link doesn\'t look like a published CSV link — check the File → Share → Publish to web steps.');}
+  if(!DB.gearSheetSources)DB.gearSheetSources=[];
+  DB.gearSheetSources.push({id:'gs_'+Date.now(),name,url});
+  save();
+  $('gear-sheet-name').value='';$('gear-sheet-url').value='';
+  renderGearSheetSourceList();
+  toast('Sheet source added.');
+}
+function removeGearSheetSource(id){
+  DB.gearSheetSources=(DB.gearSheetSources||[]).filter(s=>s.id!==id);
+  save();renderGearSheetSourceList();
+}
+async function syncGearSheets(){
+  if(!DB.gearSheetSources||!DB.gearSheetSources.length){toast('Add at least one sheet first — click ⚙ Manage Sheets.');return;}
+  const btn=document.querySelector('[onclick="syncGearSheets()"]');
+  if(btn){btn.textContent='↻ Syncing…';btn.disabled=true;}
+  if(!DB.gearOrders)DB.gearOrders=[];
+  const existingIds=new Set(DB.gearOrders.map(o=>o.sourceId).filter(Boolean));
+  let totalNew=0, errors=[];
+  for(const src of DB.gearSheetSources){
+    try{
+      const res=await fetch(src.url);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const text=await res.text();
+      const rows=parseGearOrdersCSVRows(text);
+      rows.forEach(row=>{
+        const sourceId=src.id+'_r'+row.rowIndex;
+        if(existingIds.has(sourceId)) return;
+        const order=gearRowToOrder(row,new Date().toISOString().slice(0,10));
+        order.id=Date.now()+Math.random();
+        order.sourceId=sourceId;
+        order.sourceSheet=src.name;
+        DB.gearOrders.unshift(order);
+        existingIds.add(sourceId);
+        totalNew++;
+      });
+    }catch(e){
+      errors.push(src.name+': '+e.message);
+    }
+  }
+  save();renderGearOrders();
+  DB.gearSheetsLastSync=new Date().toISOString();
+  const tEl=$('gear-sheets-sync-time'); if(tEl) tEl.textContent='Synced just now';
+  if(btn){btn.textContent='↻ Sync from Sheets';btn.disabled=false;}
+  if(errors.length){
+    toast(`Synced ${totalNew} new order(s). ${errors.length} sheet(s) failed — check they're published as CSV.`);
+    console.warn('Gear sheet sync errors:', errors);
+  } else {
+    toast(`✓ Synced ${totalNew} new order(s) from ${DB.gearSheetSources.length} sheet(s).`);
+  }
 }
 
 // ══════════════════════════════════════════════════════
