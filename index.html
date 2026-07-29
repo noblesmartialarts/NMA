@@ -1130,6 +1130,7 @@ tbody td{font-size:11px!important;}
       <button class="btn primary" onclick="openPLManual()">+ Add Private Lesson</button>
     </div>
   </div>
+  <div id="pl-stats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;"></div>
   <div class="table-toolbar" style="border-radius:12px;margin-bottom:16px;">
     <button class="btn small pl-tab primary" data-pltab="pending" onclick="switchPLTab('pending')">Pending</button>
     <button class="btn small pl-tab" data-pltab="set" onclick="switchPLTab('set')">Upcoming</button>
@@ -7786,7 +7787,58 @@ var PL_TAB = 'pending';
 var PL_BOOKINGS = [];
 var PL_SERVICES = [];
 
-function initPrivateLessons(){ switchPLTab(PL_TAB); }
+function initPrivateLessons(){ switchPLTab(PL_TAB); loadPLStats(); }
+
+function loadPLStats(){
+  var el = $('pl-stats'); if (!el) return;
+  Promise.all([
+    supa.from('private_lesson_bookings').select('id,status,final_total,payment_status,package_id,session_date'),
+    supa.from('private_lesson_packages').select('id,price_paid,source,status,sessions_total,sessions_used,purchase_date')
+  ]).then(function(results){
+    var bookings = (results[0].data) || [];
+    var packages = (results[1].data) || [];
+    var thisMonth = new Date().toISOString().slice(0,7); // 'YYYY-MM'
+
+    var pending = bookings.filter(function(b){ return b.status === 'pending'; }).length;
+    var upcoming = bookings.filter(function(b){ return b.status === 'set'; }).length;
+    var completedAll = bookings.filter(function(b){ return b.status === 'completed'; }).length;
+    var completedThisMonth = bookings.filter(function(b){ return b.status === 'completed' && (b.session_date||'').slice(0,7) === thisMonth; }).length;
+
+    var verified = bookings.filter(function(b){ return b.payment_status === 'verified'; });
+    var verifiedPkgIds = {};
+    verified.forEach(function(b){ if (b.package_id) verifiedPkgIds[b.package_id] = true; });
+
+    var revenueAll = verified.reduce(function(sum,b){ return sum + Number(b.final_total||0); }, 0);
+    var revenueThisMonth = verified.filter(function(b){ return (b.session_date||'').slice(0,7) === thisMonth; })
+      .reduce(function(sum,b){ return sum + Number(b.final_total||0); }, 0);
+
+    packages.forEach(function(p){
+      if (p.source === 'purchased' && verifiedPkgIds[p.id] && p.price_paid) {
+        revenueAll += Number(p.price_paid);
+        if ((p.purchase_date||'').slice(0,7) === thisMonth) revenueThisMonth += Number(p.price_paid);
+      }
+    });
+
+    var activePackages = packages.filter(function(p){ return p.status === 'active'; });
+    var sessionsRemaining = activePackages.reduce(function(sum,p){ return sum + (p.sessions_total - p.sessions_used); }, 0);
+
+    var cards = [
+      {label:'Total Revenue', val:'$'+revenueAll.toFixed(0), color:'var(--green)', bg:'var(--green-light)'},
+      {label:'This Month', val:'$'+revenueThisMonth.toFixed(0), color:'var(--green)', bg:'var(--green-light)'},
+      {label:'Pending Requests', val:pending, color:'var(--amber)', bg:'var(--amber-light)'},
+      {label:'Upcoming Sessions', val:upcoming, color:'var(--blue)', bg:'var(--blue-light)'},
+      {label:'Completed (all time)', val:completedAll, color:'var(--indigo)', bg:'var(--indigo-light)'},
+      {label:'Completed This Month', val:completedThisMonth, color:'var(--indigo)', bg:'var(--indigo-light)'},
+      {label:'Active Packages', val:activePackages.length, color:'var(--ink-muted)', bg:'var(--surface)'},
+      {label:'Sessions Banked', val:sessionsRemaining, color:'var(--ink-muted)', bg:'var(--surface)'}
+    ];
+    el.innerHTML = cards.map(function(c){
+      return '<div style="background:'+c.bg+';border:1px solid '+c.color+';border-radius:10px;padding:10px 16px;min-width:120px;text-align:center;">'
+        + '<div style="font-size:22px;font-weight:800;color:'+c.color+';">'+c.val+'</div>'
+        + '<div style="font-size:11px;color:'+c.color+';font-weight:600;">'+c.label+'</div></div>';
+    }).join('');
+  });
+}
 
 function switchPLTab(tab){
   PL_TAB = tab;
@@ -7812,6 +7864,7 @@ function loadPLBookings(){
       if (res.error) { $('pl-list').innerHTML = '<div style="color:#f87171;padding:20px;">Error: '+res.error.message+'</div>'; return; }
       PL_BOOKINGS = res.data || [];
       renderPLBookings();
+      loadPLStats();
     });
   updatePLBadge();
 }
@@ -7922,6 +7975,7 @@ function loadPLPackages(){
           + '<div style="text-align:right;"><span class="badge '+(p.status==='active'?'badge-green':'badge-gray')+'">'+p.status+'</span>'
           + '<div style="font-size:13px;margin-top:4px;">'+p.sessions_used+'/'+p.sessions_total+' used</div></div></div>';
       }).join('');
+      loadPLStats();
     });
 }
 
@@ -8082,6 +8136,7 @@ function plSaveGift(){
         if (pres.error) { errEl.textContent = 'Error: '+pres.error.message; errEl.style.display = 'block'; return; }
         toast(sessionsTotal === 1 ? 'Session gifted!' : 'Package gifted!');
         closeModal('modal-pl-gift');
+        loadPLStats();
       });
     };
     if (res.data && res.data[0]) {
