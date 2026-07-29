@@ -9893,7 +9893,7 @@ if(!DB.gearSheetSources)DB.gearSheetSources=[];
   }
   const filterType=$('gear-filter-type')?.value||'';
   let orders=[...DB.gearOrders].sort((a,b)=>b.date.localeCompare(a.date));
-  if(search)orders=orders.filter(o=>(o.studentName||'').toLowerCase().includes(search)||(o.orderType||'').toLowerCase().includes(search)||(o.details||'').toLowerCase().includes(search));
+  if(search)orders=orders.filter(o=>(o.studentName||'').toLowerCase().includes(search)||(o.orderType||'').toLowerCase().includes(search)||(o.details||'').toLowerCase().includes(search)||(o.sourceSheet||'').toLowerCase().includes(search));
   if(filterPaid==='unpaid')orders=orders.filter(o=>!o.paid);
   if(filterPaid==='paid')orders=orders.filter(o=>o.paid);
   if(filterType)orders=orders.filter(o=>(o.orderType||'').includes(filterType));
@@ -9925,7 +9925,7 @@ if(!DB.gearSheetSources)DB.gearSheetSources=[];
     return `<tr>
       <td style="font-size:12px;color:var(--ink-muted);white-space:nowrap;">${fmtDate(o.date)}</td>
       <td><strong style="font-size:13px;">${o.studentName||'—'}</strong></td>
-      <td style="font-size:12px;">${o.orderType||'—'}</td>
+      <td style="font-size:12px;">${o.orderType||'—'}${o.sourceSheet?`<div style="font-size:10px;color:var(--ink-faint);">via ${o.sourceSheet}</div>`:''}</td>
       <td style="font-size:11px;color:var(--ink-muted);max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${o.details||''}">${o.details||'—'}</td>
       <td style="text-align:right;"><div style="font-weight:600;">${o.amount?'$'+parseFloat(o.amount).toFixed(2):'—'}</div>${(()=>{const c=(GEAR_CATALOG&&GEAR_CATALOG[o.orderType])||(o.catalogKey&&GEAR_CATALOG[o.catalogKey]);return c&&c.cost?'<div style="font-size:10px;color:var(--ink-faint);">cost $'+c.cost.toFixed(2)+' · +$'+(parseFloat(o.amount||c.price)-c.cost).toFixed(2)+'</div>':'';})()}</td>
       <td>${payBadge}</td>
