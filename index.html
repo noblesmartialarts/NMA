@@ -1195,7 +1195,8 @@ tbody td{font-size:11px!important;}
             <option value="outside">Outside client</option>
           </select>
         </div>
-        <div class="form-group full"><label class="form-label">Package</label><select class="form-select" id="pl-g-service"></select></div>
+        <div class="form-group full"><label class="form-label">Service</label><select class="form-select" id="pl-g-service" onchange="plGiftServiceChanged()"></select></div>
+        <div class="form-group full"><label class="form-label">Gift Type</label><select class="form-select" id="pl-g-type"></select></div>
         <div class="form-group full"><label class="form-label">Reason</label><input class="form-input" id="pl-g-reason" placeholder="e.g. Perfect attendance prize, belt test raffle"></div>
       </div>
       <p id="pl-g-err" style="color:#f87171;font-size:13px;display:none;margin-top:8px;"></p>
@@ -8034,33 +8035,52 @@ function plSaveManual(){
 function openPLGift(){
   ['pl-g-name','pl-g-email','pl-g-phone','pl-g-reason'].forEach(function(id){ $(id).value=''; });
   $('pl-g-err').style.display = 'none';
-  loadPLServices(function(){ populatePLServiceSelect('pl-g-service', true); });
+  loadPLServices(function(){
+    var sel = $('pl-g-service');
+    sel.innerHTML = PL_SERVICES.map(function(s){
+      return '<option value="'+s.service_code+'">'+s.service_name+' — '+s.duration_minutes+'min</option>';
+    }).join('');
+    plGiftServiceChanged();
+  });
   $('modal-pl-gift').classList.add('open');
+}
+
+function plGiftServiceChanged(){
+  var svc = PL_SERVICES.filter(function(s){ return s.service_code === $('pl-g-service').value; })[0];
+  var typeSel = $('pl-g-type');
+  var opts = '<option value="single">1 Session'+(svc?' ($'+Number(svc.base_price).toFixed(0)+' value)':'')+'</option>';
+  if (svc && svc.package_available) {
+    opts += '<option value="package">3-Session Package ($'+Number(svc.package_price).toFixed(0)+' value)</option>';
+  }
+  typeSel.innerHTML = opts;
 }
 
 function plSaveGift(){
   var errEl = $('pl-g-err'); errEl.style.display = 'none';
   var name = $('pl-g-name').value.trim(), email = $('pl-g-email').value.trim(), phone = $('pl-g-phone').value.trim();
-  var serviceCode = $('pl-g-service').value, reason = $('pl-g-reason').value.trim();
+  var serviceCode = $('pl-g-service').value, giftType = $('pl-g-type').value, reason = $('pl-g-reason').value.trim();
   var relationship = $('pl-g-relationship').value;
-  if (!name || !email || !serviceCode) { errEl.textContent = 'Please fill in name, email, and package.'; errEl.style.display = 'block'; return; }
+  if (!name || !email || !serviceCode) { errEl.textContent = 'Please fill in name, email, and service.'; errEl.style.display = 'block'; return; }
   var svc = PL_SERVICES.filter(function(s){ return s.service_code === serviceCode; })[0];
-  if (!svc) { errEl.textContent = 'Select a package.'; errEl.style.display = 'block'; return; }
+  if (!svc) { errEl.textContent = 'Select a service.'; errEl.style.display = 'block'; return; }
+
+  var sessionsTotal = (giftType === 'package' && svc.package_available) ? svc.package_session_count : 1;
+  var expWeeks = svc.package_expiration_weeks || 8;
 
   supa.from('private_lesson_clients').select('id').eq('email', email).then(function(res){
     var proceed = function(clientId){
       var purchaseDate = new Date();
-      var expires = new Date(purchaseDate.getTime() + svc.package_expiration_weeks*7*24*60*60*1000);
+      var expires = new Date(purchaseDate.getTime() + expWeeks*7*24*60*60*1000);
       supa.from('private_lesson_packages').insert({
         client_id: clientId, service_id: svc.id, source: 'gifted',
-        sessions_total: svc.package_session_count, sessions_used: 0,
+        sessions_total: sessionsTotal, sessions_used: 0,
         price_paid: null, payment_method: null, gift_reason: reason || null,
         purchase_date: purchaseDate.toISOString().slice(0,10),
         expires_at: expires.toISOString().slice(0,10),
         status: 'active'
       }).then(function(pres){
         if (pres.error) { errEl.textContent = 'Error: '+pres.error.message; errEl.style.display = 'block'; return; }
-        toast('Package gifted!');
+        toast(sessionsTotal === 1 ? 'Session gifted!' : 'Package gifted!');
         closeModal('modal-pl-gift');
       });
     };
