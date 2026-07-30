@@ -368,6 +368,7 @@ tbody td{font-size:11px!important;}
 <!-- DASHBOARD -->
 <div id="page-dashboard" class="page active">
   <div class="page-header"><div class="page-title">Dashboard</div><div class="page-subtitle" id="dash-date"></div></div>
+  <div id="pl-dash-alert"></div>
   <div id="bb-test-alert"></div>
   <div id="scoreboard-area"></div>
   <div class="stats-row" id="stats-row"></div>
@@ -1302,7 +1303,7 @@ tbody td{font-size:11px!important;}
     </div>
     <div class="modal-footer">
       <button class="btn danger" onclick="plConfirmDeletePackage()" style="margin-right:auto;">🗑 Delete Package</button>
-      <button class="btn" onclick="closeModal('modal-pl-edit-package')">Cancel</button>
+      <button class="btn" onclick="closeModal('modal-pl-edit-package')">Close Without Saving</button>
       <button class="btn primary" onclick="plSaveEditPackage()">Save Changes</button>
     </div>
   </div>
@@ -2634,7 +2635,7 @@ function confirmAdvanceMonth(){
 // ══════════════════════════════════════════════════════
 function renderDashboard(){
   $('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  renderScoreboard('scoreboard-area');renderBBTestAlert();
+  renderScoreboard('scoreboard-area');renderBBTestAlert();renderPLDashboardAlert();
   const active=DB.students.filter(s=>s.status==='Active');
   const risk=active.filter(isAtRisk);const stripeReady=active.filter(stripeEligible);
   $('stats-row').innerHTML=`
@@ -2646,6 +2647,31 @@ function renderDashboard(){
   $('stripe-tbody').innerHTML=stripeReady.length?stripeReady.map(s=>`<tr><td><strong>${s.first} ${s.last}</strong></td><td>${stripeDots(s.stripes,maxStripes(s),TWO_CYCLE_BELTS.has(s.belt))}</td><td style="font-size:12px;color:var(--ink-muted);">${s.group}</td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--ink-muted);">None ready yet</td></tr>';
   const upcoming=DB.testEvents.filter(e=>e.date>=new Date().toISOString().slice(0,10)).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);
   $('upcoming-events').innerHTML=upcoming.length?upcoming.map(e=>`<div style="display:flex;align-items:center;gap:13px;padding:8px 0;border-bottom:1px solid var(--border);"><div style="min-width:60px;font-family:var(--font-display);font-weight:700;font-size:16px;">${fmtDate(e.date)}</div><div><div style="font-weight:500;">${e.name}</div><div style="font-size:12px;color:var(--ink-muted);">${e.type}${e.fee>0?' · $'+e.fee:''}</div></div><div class="spacer"></div><span class="badge ${e.type==='Stripe Test'?'badge-amber':e.type==='Black Belt Test'?'badge-dark':'badge-green'}">${e.type}</span></div>`).join(''):'<div style="color:var(--ink-muted);font-size:13px;">No upcoming events. Schedule one in Belt Testing.</div>';
+}
+
+function renderPLDashboardAlert(){
+  var el = $('pl-dash-alert'); if (!el) return;
+  supa.from('private_lesson_bookings')
+    .select('*, service:private_lesson_services(*), client:private_lesson_clients(*)')
+    .eq('status', 'pending')
+    .order('created_at', {ascending:true})
+    .then(function(res){
+      var rows = res.data || [];
+      if (!rows.length) { el.innerHTML = ''; return; }
+      el.innerHTML = '<div style="background:linear-gradient(135deg,#0a1030,#0f00f7);color:#fff;border-radius:14px;padding:20px 24px;margin-bottom:20px;">'
+        + '<div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:14px;">🥊 Private Lesson Requests Awaiting Review ('+rows.length+')</div>'
+        + rows.map(function(b){
+            var svc = b.service||{}, c = b.client||{};
+            return '<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.1);flex-wrap:wrap;">'
+              + '<div style="flex:1;min-width:180px;"><div style="font-weight:500;">'+(c.full_name||'—')+'</div>'
+              + '<div style="font-size:11px;color:rgba(255,255,255,.6);">'+(svc.service_name||'')+' · '+fmtFull(b.session_date)+' @ '+plFmtTime(b.start_time)+'</div></div>'
+              + '<button class="btn small success" onclick="plApprove(\''+b.id+'\')">Approve</button>'
+              + '<button class="btn small danger" onclick="plCancel(\''+b.id+'\')">Decline</button>'
+              + '</div>';
+          }).join('')
+        + '<div style="margin-top:12px;"><button class="btn small" style="background:rgba(255,255,255,.15);color:#fff;border:none;" onclick="nav(\'privatelessons\')">View All in Private Lessons →</button></div>'
+        + '</div>';
+    });
 }
 
 function renderBBTestAlert(){
@@ -8022,7 +8048,7 @@ function plBookingCard(b){
 function plApprove(id){
   supa.from('private_lesson_bookings').update({status:'set'}).eq('id',id).then(function(res){
     if (res.error) { toast('Error: '+res.error.message); return; }
-    toast('Approved'); loadPLBookings();
+    toast('Approved'); loadPLBookings(); renderPLDashboardAlert();
   });
 }
 
@@ -8031,7 +8057,7 @@ function plCancel(id){
   if (reason === null) return;
   supa.from('private_lesson_bookings').update({status:'canceled', cancel_reason:reason||null, canceled_by:'brandon'}).eq('id',id).then(function(res){
     if (res.error) { toast('Error: '+res.error.message); return; }
-    toast('Canceled'); loadPLBookings();
+    toast('Canceled'); loadPLBookings(); renderPLDashboardAlert();
   });
 }
 
