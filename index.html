@@ -1238,6 +1238,44 @@ tbody td{font-size:11px!important;}
   </div>
 </div>
 
+<!-- PRIVATE LESSON: EDIT / DELETE MODAL -->
+<div class="modal-backdrop" id="modal-pl-edit">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header"><div class="modal-title">Edit Private Lesson</div><button class="btn ghost" onclick="closeModal('modal-pl-edit')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="pl-e-date"></div>
+        <div class="form-group"><label class="form-label">Start Time</label><input type="time" class="form-input" id="pl-e-time" step="1800"></div>
+        <div class="form-group full"><label class="form-label">Status</label>
+          <select class="form-select" id="pl-e-status">
+            <option value="pending">Pending</option>
+            <option value="set">Upcoming (Set)</option>
+            <option value="completed">Completed</option>
+            <option value="canceled">Canceled</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Participant Name</label><input class="form-input" id="pl-e-primaryname"></div>
+        <div class="form-group"><label class="form-label">Participant Age</label><input type="number" class="form-input" id="pl-e-primaryage"></div>
+        <div class="form-group full">
+          <label class="form-label">Additional Participants</label>
+          <div id="pl-e-additional-list"></div>
+          <button class="btn small" type="button" onclick="plEditAddParticipantRow()" style="margin-top:8px;">+ Add participant</button>
+        </div>
+        <div class="form-group full"><label class="form-label">Location</label><textarea class="form-input" id="pl-e-location" rows="2"></textarea></div>
+        <div class="form-group full"><label class="form-label">Goals / Training Focus</label><textarea class="form-input" id="pl-e-goals" rows="2"></textarea></div>
+        <div class="form-group full"><label class="form-label">Injuries / Limitations</label><textarea class="form-input" id="pl-e-injuries" rows="2"></textarea></div>
+        <div class="form-group full"><label class="form-label">Instructor Notes</label><textarea class="form-input" id="pl-e-notes" rows="2"></textarea></div>
+      </div>
+      <p id="pl-e-err" style="color:#f87171;font-size:13px;display:none;margin-top:8px;"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn danger" onclick="plConfirmDelete()" style="margin-right:auto;">🗑 Delete Booking</button>
+      <button class="btn" onclick="closeModal('modal-pl-edit')">Cancel</button>
+      <button class="btn primary" onclick="plSaveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <!-- SMS SETTINGS MODAL -->
 <div class="modal-backdrop" id="modal-sms-settings">
   <div class="modal" style="max-width:480px;">
@@ -7920,13 +7958,13 @@ function plBookingCard(b){
   var primary = parts.filter(function(p){ return p.is_primary; })[0] || {};
   var additional = parts.filter(function(p){ return !p.is_primary; });
 
-  var actions = '';
+  var actions = '<button class="btn small" onclick="plOpenEdit(\''+b.id+'\')">✏ Edit</button>';
   if (b.status === 'pending') {
-    actions = '<button class="btn small" onclick="plTogglePaid(\''+b.id+'\',\''+b.payment_status+'\')">'+(b.payment_status==='verified'?'✓ Paid':'Mark Paid')+'</button>'
+    actions += '<button class="btn small" onclick="plTogglePaid(\''+b.id+'\',\''+b.payment_status+'\')">'+(b.payment_status==='verified'?'✓ Paid':'Mark Paid')+'</button>'
       + '<button class="btn small success" onclick="plApprove(\''+b.id+'\')">Approve</button>'
       + '<button class="btn small danger" onclick="plCancel(\''+b.id+'\')">Decline</button>';
   } else if (b.status === 'set') {
-    actions = '<button class="btn small" onclick="plTogglePaid(\''+b.id+'\',\''+b.payment_status+'\')">'+(b.payment_status==='verified'?'✓ Paid':'Mark Paid')+'</button>'
+    actions += '<button class="btn small" onclick="plTogglePaid(\''+b.id+'\',\''+b.payment_status+'\')">'+(b.payment_status==='verified'?'✓ Paid':'Mark Paid')+'</button>'
       + '<button class="btn small success" onclick="plMarkCompleted(\''+b.id+'\')">Mark Completed</button>'
       + '<button class="btn small danger" onclick="plCancel(\''+b.id+'\')">Cancel</button>';
   }
@@ -8178,6 +8216,134 @@ function plSaveGift(){
         proceed(cres.data[0].id);
       });
     }
+  });
+}
+
+var _plEditingId = null;
+
+function plOpenEdit(id){
+  var b = PL_BOOKINGS.filter(function(x){ return x.id === id; })[0];
+  if (!b) { toast('Could not find that booking — try refreshing the tab.'); return; }
+  _plEditingId = id;
+
+  $('pl-e-date').value = b.session_date;
+  $('pl-e-time').value = (b.start_time||'').slice(0,5);
+  $('pl-e-status').value = b.status;
+
+  var primary = (b.participants||[]).filter(function(p){ return p.is_primary; })[0] || {};
+  var additional = (b.participants||[]).filter(function(p){ return !p.is_primary; });
+  $('pl-e-primaryname').value = primary.full_name || '';
+  $('pl-e-primaryage').value = primary.age || '';
+
+  $('pl-e-location').value = b.location_address || '';
+  $('pl-e-goals').value = b.training_focus || '';
+  $('pl-e-injuries').value = b.injuries_limitations || '';
+  $('pl-e-notes').value = b.instructor_notes || '';
+
+  var addList = $('pl-e-additional-list'); addList.innerHTML = '';
+  additional.forEach(function(p){ plEditAddParticipantRow(p.full_name, p.age); });
+
+  $('pl-e-err').style.display = 'none';
+  $('modal-pl-edit').classList.add('open');
+}
+
+function plEditAddParticipantRow(name, age){
+  var list = $('pl-e-additional-list');
+  var row = document.createElement('div');
+  row.className = 'pl-e-part-row';
+  row.style.cssText = 'display:grid;grid-template-columns:2fr 1fr auto;gap:8px;margin-top:8px;';
+  row.innerHTML = '<input class="form-input ape-name" placeholder="Name">'
+    + '<input class="form-input ape-age" type="number" min="1" max="99" placeholder="Age">'
+    + '<button class="btn small danger" type="button">&times;</button>';
+  row.querySelector('.ape-name').value = name || '';
+  row.querySelector('.ape-age').value = age || '';
+  row.querySelector('button').addEventListener('click', function(){ row.remove(); });
+  list.appendChild(row);
+}
+
+function plSaveEdit(){
+  var errEl = $('pl-e-err'); errEl.style.display = 'none';
+  var b = PL_BOOKINGS.filter(function(x){ return x.id === _plEditingId; })[0];
+  if (!b) { errEl.textContent = 'Booking not found — try refreshing.'; errEl.style.display = 'block'; return; }
+
+  var date = $('pl-e-date').value, time = $('pl-e-time').value;
+  var status = $('pl-e-status').value;
+  var primaryName = $('pl-e-primaryname').value.trim();
+  var primaryAge = $('pl-e-primaryage').value || null;
+  var location = $('pl-e-location').value.trim();
+  var goals = $('pl-e-goals').value.trim();
+  var injuries = $('pl-e-injuries').value.trim();
+  var notes = $('pl-e-notes').value.trim();
+
+  if (!date || !time || !location) { errEl.textContent = 'Date, time, and location are required.'; errEl.style.display = 'block'; return; }
+
+  var svc = b.service;
+  var parts = time.split(':').map(Number);
+  var endMin = parts[0]*60 + parts[1] + svc.duration_minutes;
+  var endTime = String(Math.floor(endMin/60)).padStart(2,'0') + ':' + String(endMin%60).padStart(2,'0');
+
+  var wasCompleted = b.status === 'completed';
+  var nowCompleted = status === 'completed';
+
+  var updatePayload = {
+    session_date: date, start_time: time, end_time: endTime, status: status,
+    location_address: location, training_focus: goals || null, client_goals: goals || null,
+    injuries_limitations: injuries || null, instructor_notes: notes || null
+  };
+
+  supa.from('private_lesson_bookings').update(updatePayload).eq('id', b.id).then(function(res){
+    if (res.error) { errEl.textContent = 'Error: '+res.error.message; errEl.style.display = 'block'; return; }
+
+    supa.from('private_lesson_participants').delete().eq('booking_id', b.id).then(function(){
+      var newParticipants = [{ booking_id:b.id, full_name: primaryName || (b.client&&b.client.full_name) || 'Participant', age: primaryAge, is_primary: true }];
+      document.querySelectorAll('#pl-e-additional-list .pl-e-part-row').forEach(function(row){
+        var n = row.querySelector('.ape-name').value.trim();
+        var a = row.querySelector('.ape-age').value;
+        if (n) newParticipants.push({ booking_id:b.id, full_name:n, age:a||null, is_primary:false, relationship_to_primary:'additional' });
+      });
+      supa.from('private_lesson_participants').insert(newParticipants).then(function(){
+        // Keep a package's session count correct if the status change crossed
+        // the completed boundary in either direction while editing.
+        var afterSave = function(){
+          toast('Booking updated');
+          closeModal('modal-pl-edit');
+          if (PL_TAB === 'packages') loadPLPackages(); else loadPLBookings();
+        };
+        if (b.package_id && b.package && wasCompleted !== nowCompleted) {
+          var delta = nowCompleted ? 1 : -1;
+          var newUsed = Math.max(0, (b.package.sessions_used||0) + delta);
+          var newStatus = newUsed >= b.package.sessions_total ? 'fully_used' : 'active';
+          supa.from('private_lesson_packages').update({ sessions_used:newUsed, status:newStatus }).eq('id', b.package_id).then(afterSave);
+        } else {
+          afterSave();
+        }
+      });
+    });
+  });
+}
+
+function plConfirmDelete(){
+  var b = PL_BOOKINGS.filter(function(x){ return x.id === _plEditingId; })[0];
+  if (!b) { toast('Booking not found — try refreshing.'); return; }
+  var label = ((b.client&&b.client.full_name)||'this client')+' — '+fmtFull(b.session_date)+' @ '+plFmtTime(b.start_time);
+  if (!confirm('Permanently delete this booking?\n\n'+label+'\n\nThis cannot be undone.')) return;
+
+  supa.from('private_lesson_participants').delete().eq('booking_id', b.id).then(function(){
+    supa.from('private_lesson_bookings').delete().eq('id', b.id).then(function(res){
+      if (res.error) { toast('Error deleting: '+res.error.message); return; }
+      var finishDelete = function(){
+        toast('Booking deleted');
+        closeModal('modal-pl-edit');
+        if (PL_TAB === 'packages') loadPLPackages(); else loadPLBookings();
+      };
+      // Restore the credit if we just deleted a completed package session
+      if (b.package_id && b.status === 'completed' && b.package) {
+        var newUsed = Math.max(0, (b.package.sessions_used||0) - 1);
+        supa.from('private_lesson_packages').update({ sessions_used:newUsed, status:'active' }).eq('id', b.package_id).then(finishDelete);
+      } else {
+        finishDelete();
+      }
+    });
   });
 }
 
