@@ -1276,6 +1276,38 @@ tbody td{font-size:11px!important;}
   </div>
 </div>
 
+<!-- PRIVATE LESSON PACKAGE: EDIT / DELETE MODAL -->
+<div class="modal-backdrop" id="modal-pl-edit-package">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header"><div class="modal-title">Edit Package</div><button class="btn ghost" onclick="closeModal('modal-pl-edit-package')">✕</button></div>
+    <div class="modal-body">
+      <p id="pl-ep-clientinfo" style="font-size:13px;color:var(--ink-muted);margin-bottom:10px;"></p>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Sessions Total</label><input type="number" min="1" class="form-input" id="pl-ep-total"></div>
+        <div class="form-group"><label class="form-label">Sessions Used</label><input type="number" min="0" class="form-input" id="pl-ep-used"></div>
+        <div class="form-group"><label class="form-label">Expires</label><input type="date" class="form-input" id="pl-ep-expires"></div>
+        <div class="form-group"><label class="form-label">Status</label>
+          <select class="form-select" id="pl-ep-status">
+            <option value="active">Active</option>
+            <option value="fully_used">Fully Used</option>
+            <option value="expired">Expired</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="refunded">Refunded</option>
+          </select>
+        </div>
+        <div class="form-group full"><label class="form-label">Price Paid (blank for gifted)</label><input type="number" step="0.01" class="form-input" id="pl-ep-price"></div>
+        <div class="form-group full"><label class="form-label">Gift Reason / Notes</label><input class="form-input" id="pl-ep-reason"></div>
+      </div>
+      <p id="pl-ep-err" style="color:#f87171;font-size:13px;display:none;margin-top:8px;"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn danger" onclick="plConfirmDeletePackage()" style="margin-right:auto;">🗑 Delete Package</button>
+      <button class="btn" onclick="closeModal('modal-pl-edit-package')">Cancel</button>
+      <button class="btn primary" onclick="plSaveEditPackage()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <!-- SMS SETTINGS MODAL -->
 <div class="modal-backdrop" id="modal-sms-settings">
   <div class="modal" style="max-width:480px;">
@@ -7854,6 +7886,7 @@ function showMoreHistory(studentId) {
 // ══════════════════════════════════════════════════════
 var PL_TAB = 'pending';
 var PL_BOOKINGS = [];
+var PL_PACKAGES = [];
 var PL_SERVICES = [];
 
 function initPrivateLessons(){ switchPLTab(PL_TAB); loadPLStats(); }
@@ -8035,14 +8068,18 @@ function loadPLPackages(){
       var el = $('pl-list');
       if (res.error) { el.innerHTML = '<div style="color:#f87171;padding:20px;">Error: '+res.error.message+'</div>'; return; }
       var data = res.data || [];
+      PL_PACKAGES = data;
       if (!data.length) { el.innerHTML = '<div style="color:var(--ink-muted);padding:30px;text-align:center;">No packages yet.</div>'; return; }
       el.innerHTML = data.map(function(p){
         var svc = p.service||{}, c = p.client||{};
         return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">'
           + '<div><div style="font-weight:700;">'+(c.full_name||'—')+' · '+(svc.service_name||'—')+'</div>'
           + '<div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">'+(p.source==='gifted'?'🎁 Gifted':'Purchased')+' '+fmtFull(p.purchase_date)+' · Expires '+fmtFull(p.expires_at)+'</div></div>'
+          + '<div style="display:flex;align-items:center;gap:12px;">'
           + '<div style="text-align:right;"><span class="badge '+(p.status==='active'?'badge-green':'badge-gray')+'">'+p.status+'</span>'
-          + '<div style="font-size:13px;margin-top:4px;">'+p.sessions_used+'/'+p.sessions_total+' used</div></div></div>';
+          + '<div style="font-size:13px;margin-top:4px;">'+p.sessions_used+'/'+p.sessions_total+' used</div></div>'
+          + '<button class="btn small" onclick="plOpenEditPackage(\''+p.id+'\')">✏ Edit</button>'
+          + '</div></div>';
       }).join('');
       loadPLStats();
     });
@@ -8343,6 +8380,69 @@ function plConfirmDelete(){
       } else {
         finishDelete();
       }
+    });
+  });
+}
+
+var _plEditingPackageId = null;
+
+function plOpenEditPackage(id){
+  var p = PL_PACKAGES.filter(function(x){ return x.id === id; })[0];
+  if (!p) { toast('Could not find that package — try refreshing the tab.'); return; }
+  _plEditingPackageId = id;
+
+  var svc = p.service||{}, c = p.client||{};
+  $('pl-ep-clientinfo').textContent = (c.full_name||'—')+' · '+(svc.service_name||'—')+' · '+(p.source==='gifted'?'Gifted':'Purchased')+' '+fmtFull(p.purchase_date);
+  $('pl-ep-total').value = p.sessions_total;
+  $('pl-ep-used').value = p.sessions_used;
+  $('pl-ep-expires').value = p.expires_at;
+  $('pl-ep-status').value = p.status;
+  $('pl-ep-price').value = p.price_paid || '';
+  $('pl-ep-reason').value = p.gift_reason || '';
+  $('pl-ep-err').style.display = 'none';
+  $('modal-pl-edit-package').classList.add('open');
+}
+
+function plSaveEditPackage(){
+  var errEl = $('pl-ep-err'); errEl.style.display = 'none';
+  var total = parseInt($('pl-ep-total').value, 10);
+  var used = parseInt($('pl-ep-used').value, 10);
+  var expires = $('pl-ep-expires').value;
+  var status = $('pl-ep-status').value;
+  var price = $('pl-ep-price').value;
+  var reason = $('pl-ep-reason').value.trim();
+
+  if (!total || total < 1 || isNaN(used) || used < 0 || !expires) {
+    errEl.textContent = 'Sessions total, sessions used, and expiration are required.'; errEl.style.display = 'block'; return;
+  }
+  if (used > total) { errEl.textContent = 'Sessions used can\'t exceed sessions total.'; errEl.style.display = 'block'; return; }
+
+  var payload = {
+    sessions_total: total, sessions_used: used, expires_at: expires, status: status,
+    price_paid: price ? Number(price) : null, gift_reason: reason || null
+  };
+
+  supa.from('private_lesson_packages').update(payload).eq('id', _plEditingPackageId).then(function(res){
+    if (res.error) { errEl.textContent = 'Error: '+res.error.message; errEl.style.display = 'block'; return; }
+    toast('Package updated');
+    closeModal('modal-pl-edit-package');
+    loadPLPackages();
+  });
+}
+
+function plConfirmDeletePackage(){
+  var p = PL_PACKAGES.filter(function(x){ return x.id === _plEditingPackageId; })[0];
+  if (!p) { toast('Package not found.'); return; }
+  var svc = p.service||{}, c = p.client||{};
+  var label = (c.full_name||'this client')+' — '+(svc.service_name||'package')+' ('+p.sessions_used+'/'+p.sessions_total+' used)';
+  if (!confirm('Permanently delete this package?\n\n'+label+'\n\nAny bookings still referencing it will keep their history but lose the package link. This cannot be undone.')) return;
+
+  supa.from('private_lesson_bookings').update({ package_id:null }).eq('package_id', p.id).then(function(){
+    supa.from('private_lesson_packages').delete().eq('id', p.id).then(function(res){
+      if (res.error) { toast('Error deleting: '+res.error.message); return; }
+      toast('Package deleted');
+      closeModal('modal-pl-edit-package');
+      loadPLPackages();
     });
   });
 }
