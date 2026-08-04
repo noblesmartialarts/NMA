@@ -1045,11 +1045,31 @@ tbody td{font-size:11px!important;}
       <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">Write your own message to any group</div>
       <button class="btn small primary" onclick="openCustomSms()">Compose</button>
     </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px;">🌦️ Weather Closure</div>
+      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">Community House closed due to weather</div>
+      <button class="btn small primary" onclick="sendQuickSms('weather')">Send to All</button>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px;">🥋 Bring Your Gear</div>
+      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">Remind families to bring uniform/belt for testing</div>
+      <button class="btn small primary" onclick="sendQuickSms('gear')">Send to Eligible</button>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px;">📦 Order Ready for Pickup</div>
+      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">Apparel/gear order is ready — pick anytime</div>
+      <button class="btn small primary" onclick="sendQuickSms('orderready')">Compose &amp; Pick Recipients</button>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px;">🎉 Event Reminder</div>
+      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">Remind families of an upcoming event/RSVP</div>
+      <button class="btn small primary" onclick="sendQuickSms('event')">Send to All</button>
+    </div>
   </div>
   <!-- Compose area -->
-  <div class="section-divider"><span>Compose SMS</span></div>
+  <div class="section-divider" id="sms-compose-divider"><span>Compose SMS</span></div>
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;">
-    <div style="margin-bottom:12px;">
+    <div style="margin-bottom:14px;">
       <label class="form-label">Recipients</label>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
         <button class="btn small" onclick="smsSelectGroup('all')">All active</button>
@@ -1062,15 +1082,29 @@ tbody td{font-size:11px!important;}
         <button class="btn small" onclick="smsSelectGroup('eligible')">Test Eligible</button>
         <button class="btn small" style="color:var(--red);" onclick="smsClearRecipients()">Clear</button>
       </div>
+      <div style="position:relative;margin-bottom:8px;">
+        <input type="text" class="form-input" id="sms-search" placeholder="Type a student or parent name to add…" autocomplete="off" oninput="smsSearchStudents()" onkeydown="smsSearchKeydown(event)">
+        <div id="sms-search-results" style="display:none;position:absolute;z-index:20;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-top:4px;max-height:240px;overflow-y:auto;box-shadow:0 6px 18px rgba(0,0,0,.12);"></div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <input type="text" class="form-input" id="sms-custom-name" placeholder="Name (optional)" style="flex:1;">
+        <input type="tel" class="form-input" id="sms-custom-phone" placeholder="Phone number" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault();smsAddCustomNumber();}">
+        <button class="btn small" onclick="smsAddCustomNumber()">+ Add Number</button>
+      </div>
+      <div id="sms-recipient-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;"></div>
       <div id="sms-recipient-summary" style="font-size:12px;color:var(--ink-muted);"></div>
     </div>
     <div class="form-group">
       <label class="form-label">Message <span id="sms-char-count" style="font-weight:400;color:var(--ink-muted);"></span></label>
       <textarea class="form-input" id="sms-body" rows="4" placeholder="Type your message…" oninput="smsUpdateCount()"></textarea>
+      <div style="font-size:11px;color:var(--ink-faint);margin-top:4px;">Tip: use {first}, {belt}, {group}, or {parent} — each recipient gets their own version automatically.</div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;">
       <div id="sms-cost-estimate" style="font-size:11px;color:var(--ink-faint);"></div>
-      <button class="btn primary" onclick="sendComposedSms()">📱 Send SMS</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="sendTestSms()">🧪 Send Test to Me</button>
+        <button class="btn primary" onclick="sendComposedSms()">📱 Send SMS</button>
+      </div>
     </div>
     <div id="sms-progress" style="margin-top:12px;"></div>
   </div>
@@ -1320,6 +1354,7 @@ tbody td{font-size:11px!important;}
       <div class="form-group"><label class="form-label">Account SID</label><input class="form-input" id="sms-sid" placeholder="ACxxxxxxxxxxxxxxx" type="password"></div>
       <div class="form-group"><label class="form-label">Auth Token</label><input class="form-input" id="sms-token" placeholder="Your auth token" type="password"></div>
       <div class="form-group"><label class="form-label">From number</label><input class="form-input" id="sms-from" placeholder="+19195550100"></div>
+      <div class="form-group"><label class="form-label">Your number (for test sends)</label><input class="form-input" id="sms-test-number" placeholder="+19195551234"><div style="font-size:11px;color:var(--ink-muted);margin-top:4px;">Used by the "Send Test" button so you can preview a broadcast before it goes to families.</div></div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-sms-settings')">Cancel</button>
@@ -2777,7 +2812,7 @@ function openProfile(id){
         <div class="prof-avatar">${initials(s)}</div>
         <div><div class="prof-name">${s.first} ${s.last}</div><div class="prof-sub">${s.group} · ${s.status}</div><div class="flags" style="margin-top:5px;">${flags.join('')}</div></div>
         <div class="spacer"></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">${promo?`<button class="btn success" onclick="promoteBelt(${s.id})">🎖 Promote → ${promo.belt}</button>`:''}<button class="btn primary" onclick="openEditStudent(${s.id})">Edit</button><button class="btn" onclick="openMergeStudent(${s.id})" title="Merge with another student">⇔ Merge</button></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${promo?`<button class="btn success" onclick="promoteBelt(${s.id})">🎖 Promote → ${promo.belt}</button>`:''}${s.phone?`<button class="btn" onclick="smsOneStudent(${s.id})" title="Send SMS">📱 Text</button>`:''}<button class="btn primary" onclick="openEditStudent(${s.id})">Edit</button><button class="btn" onclick="openMergeStudent(${s.id})" title="Merge with another student">⇔ Merge</button></div>
       </div>
       <div class="prof-grid">
         <div class="pf"><label>Current belt</label><p><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></p></div>
@@ -7107,7 +7142,7 @@ function renderRevenueChart(){
 var _smsRecipients = [];
 
 function initSms() {
-  if (!DB.twilioConfig) DB.twilioConfig = {sid:'',token:'',from:''};
+  if (!DB.twilioConfig) DB.twilioConfig = {sid:'',token:'',from:'',testNumber:''};
   var hasCreds = DB.twilioConfig.sid && DB.twilioConfig.token && DB.twilioConfig.from;
   var prompt = $('sms-setup-prompt');
   if (prompt) prompt.style.display = hasCreds ? 'none' : 'block';
@@ -7120,6 +7155,7 @@ function openSmsSettings() {
   if ($('sms-sid')) $('sms-sid').value = DB.twilioConfig.sid || '';
   if ($('sms-token')) $('sms-token').value = DB.twilioConfig.token || '';
   if ($('sms-from')) $('sms-from').value = DB.twilioConfig.from || '';
+  if ($('sms-test-number')) $('sms-test-number').value = DB.twilioConfig.testNumber || '';
   $('modal-sms-settings').classList.add('open');
 }
 
@@ -7127,12 +7163,22 @@ function saveSmsSettings() {
   DB.twilioConfig = {
     sid: $('sms-sid').value.trim(),
     token: $('sms-token').value.trim(),
-    from: $('sms-from').value.trim()
+    from: $('sms-from').value.trim(),
+    testNumber: ($('sms-test-number') ? $('sms-test-number').value.trim() : '')
   };
   save();
   closeModal('modal-sms-settings');
   initSms();
   toast('Twilio settings saved!');
+}
+
+function smsPersonalize(body, r) {
+  return (body || '')
+    .replace(/\{first\}/g, (r && r.first) || 'there')
+    .replace(/\{last\}/g, (r && r.last) || '')
+    .replace(/\{belt\}/g, (r && r.belt) || '')
+    .replace(/\{group\}/g, (r && r.group) || '')
+    .replace(/\{parent\}/g, (r && r.parent) || 'there');
 }
 
 function smsGetPhone(s) {
@@ -7154,7 +7200,7 @@ function smsSelectGroup(group) {
     return s.group === group;
   });
   var phones = students.map(function(s) {
-    return {id: s.id, name: s.first + ' ' + s.last, phone: smsGetPhone(s), group: s.group};
+    return {id: s.id, name: s.first + ' ' + s.last, first: s.first, last: s.last, belt: s.belt, group: s.group, parent: s.parent, phone: smsGetPhone(s)};
   }).filter(function(r) { return r.phone; });
   // Dedupe by phone
   var seen = {};
@@ -7171,9 +7217,86 @@ function smsClearRecipients() {
   renderSmsRecipientSummary();
 }
 
+function smsSearchStudents() {
+  var input = $('sms-search');
+  var results = $('sms-search-results');
+  if (!input || !results) return;
+  var q = input.value.toLowerCase().trim();
+  if (!q) { results.style.display = 'none'; results.innerHTML = ''; return; }
+  var selectedPhones = {};
+  _smsRecipients.forEach(function(r) { selectedPhones[r.phone] = true; });
+  var matches = (DB.students || []).filter(function(s) {
+    if (s.status !== 'Active') return false;
+    var full = (s.first + ' ' + s.last).toLowerCase();
+    var parent = (s.parent || '').toLowerCase();
+    return full.indexOf(q) !== -1 || parent.indexOf(q) !== -1;
+  }).slice(0, 8);
+  if (!matches.length) {
+    results.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:var(--ink-muted);">No matching active students</div>';
+    results.style.display = 'block';
+    return;
+  }
+  results.innerHTML = matches.map(function(s) {
+    var phone = smsGetPhone(s);
+    var already = phone && selectedPhones[phone];
+    var noPhone = !phone;
+    return '<div style="padding:8px 12px;font-size:13px;cursor:' + (already || noPhone ? 'default' : 'pointer') + ';border-bottom:1px solid var(--border);opacity:' + (already || noPhone ? '0.5' : '1') + ';" ' +
+      (already || noPhone ? '' : 'onclick="smsAddStudent(' + s.id + ')"') + '>' +
+      '<div style="font-weight:600;">' + s.first + ' ' + s.last + (s.parent ? ' <span style="font-weight:400;color:var(--ink-muted);">(' + s.parent + ')</span>' : '') + '</div>' +
+      '<div style="font-size:11px;color:var(--ink-muted);">' + (already ? 'Already added' : (phone || 'No valid phone on file')) + ' · ' + (s.group || '') + '</div>' +
+    '</div>';
+  }).join('');
+  results.style.display = 'block';
+}
+
+function smsSearchKeydown(e) {
+  if (e.key === 'Escape') { var r = $('sms-search-results'); if (r) r.style.display = 'none'; }
+}
+
+function smsAddStudent(id) {
+  var s = (DB.students || []).find(function(x) { return x.id === id; });
+  if (!s) return;
+  var phone = smsGetPhone(s);
+  if (!phone) { toast('No valid phone number on file for ' + s.first + '.'); return; }
+  if (_smsRecipients.some(function(r) { return r.phone === phone; })) { toast('Already added.'); return; }
+  _smsRecipients.push({id: s.id, name: s.first + ' ' + s.last, first: s.first, last: s.last, belt: s.belt, group: s.group, parent: s.parent, phone: phone});
+  var input = $('sms-search'); if (input) input.value = '';
+  var results = $('sms-search-results'); if (results) results.style.display = 'none';
+  renderSmsRecipientSummary();
+}
+
+function smsAddCustomNumber() {
+  var nameEl = $('sms-custom-name'), phoneEl = $('sms-custom-phone');
+  if (!phoneEl) return;
+  var name = (nameEl && nameEl.value.trim()) || 'Custom contact';
+  var digits = phoneEl.value.replace(/\D/g, '');
+  var phone = null;
+  if (digits.length === 10) phone = '+1' + digits;
+  else if (digits.length === 11 && digits[0] === '1') phone = '+' + digits;
+  if (!phone) { toast('Enter a valid 10-digit phone number.'); return; }
+  if (_smsRecipients.some(function(r) { return r.phone === phone; })) { toast('Already added.'); return; }
+  _smsRecipients.push({id: null, name: name, first: name.split(' ')[0], last: '', belt: '', group: 'Custom', parent: name, phone: phone});
+  phoneEl.value = ''; if (nameEl) nameEl.value = '';
+  renderSmsRecipientSummary();
+}
+
+function smsRemoveRecipient(phone) {
+  _smsRecipients = _smsRecipients.filter(function(r) { return r.phone !== phone; });
+  renderSmsRecipientSummary();
+}
+
 function renderSmsRecipientSummary() {
   var el = $('sms-recipient-summary');
   var costEl = $('sms-cost-estimate');
+  var chipsEl = $('sms-recipient-chips');
+  if (chipsEl) {
+    chipsEl.innerHTML = _smsRecipients.map(function(r) {
+      return '<span style="display:inline-flex;align-items:center;gap:6px;background:var(--blue-light);color:var(--blue);border-radius:20px;padding:4px 6px 4px 10px;font-size:12px;font-weight:500;">' +
+        r.name +
+        '<span style="cursor:pointer;font-weight:700;padding:0 2px;" title="Remove" onclick="smsRemoveRecipient(\'' + r.phone + '\')">✕</span>' +
+      '</span>';
+    }).join('');
+  }
   if (!el) return;
   if (!_smsRecipients.length) {
     el.textContent = 'No recipients selected';
@@ -7194,9 +7317,14 @@ function smsUpdateCount() {
 }
 
 function openCustomSms() {
+  smsClearRecipients();
   var body = $('sms-body');
-  if (body) body.value = '';
+  if (body) { body.value = ''; }
   smsUpdateCount();
+  var compose = $('sms-compose-divider');
+  if (compose) compose.scrollIntoView({behavior:'smooth', block:'start'});
+  if (body) setTimeout(function() { body.focus(); }, 300);
+  toast('Pick recipients and write your message below.');
 }
 
 var SMS_TEMPLATES = {
@@ -7206,7 +7334,16 @@ var SMS_TEMPLATES = {
     var dateStr = ev ? fmtDate(ev.date) : 'an upcoming date';
     return "Hi NMA families! Belt testing is coming up on " + dateStr + ". Please confirm your student's attendance — reply YES to confirm or call/text us with any questions. 🥋";
   },
-  registration: "Hi NMA families! Registration for this month's classes is now open. If you haven't registered yet, please sign up through RecConnect at your earliest convenience. Questions? Just reply here!"
+  registration: "Hi NMA families! Registration for this month's classes is now open. If you haven't registered yet, please sign up through RecConnect at your earliest convenience. Questions? Just reply here!",
+  weather: "Hi NMA families! Due to weather, class is cancelled today at Wake Forest Community House. Stay safe — we'll see you next week! 🥋",
+  gear: "Hi {parent}! A reminder to bring {first}'s full uniform and current belt to class this week — testing is coming up and we want everyone ready. 🥋",
+  orderready: "Hi {parent}! {first}'s Noble's Martial Arts order is ready for pickup. Grab it at your next class — see you Monday! 🥋",
+  event: function() {
+    var ev = DB.events && DB.events.filter(function(e) { return new Date(e.date) >= new Date(); }).sort(function(a,b) { return a.date.localeCompare(b.date); })[0];
+    var dateStr = ev ? fmtDate(ev.date) : 'an upcoming date';
+    var name = ev ? (ev.name || 'our upcoming event') : 'an upcoming event';
+    return "Hi NMA families! Just a reminder about " + name + " on " + dateStr + ". Hope to see you there — reply here with any questions! 🥋";
+  }
 };
 
 function sendQuickSms(type) {
@@ -7214,10 +7351,12 @@ function sendQuickSms(type) {
   if (!body) return;
 
   // Set recipients based on type
-  if (type === 'noclass' || type === 'registration') {
+  if (type === 'noclass' || type === 'registration' || type === 'weather' || type === 'event') {
     smsSelectGroup('all');
-  } else if (type === 'belttest') {
+  } else if (type === 'belttest' || type === 'gear') {
     smsSelectGroup('eligible');
+  } else if (type === 'orderready') {
+    smsClearRecipients();
   }
 
   var smsBodyEl = $('sms-body');
@@ -7225,9 +7364,44 @@ function sendQuickSms(type) {
   smsUpdateCount();
 
   // Scroll to compose
-  var compose = document.querySelector('#page-sms .section-divider:last-of-type');
-  if (compose) compose.scrollIntoView({behavior:'smooth'});
-  toast('Template loaded — review and hit Send.');
+  var compose = $('sms-compose-divider');
+  if (compose) compose.scrollIntoView({behavior:'smooth', block:'start'});
+  toast(type === 'orderready' ? 'Template loaded — add the recipient(s) and hit Send.' : 'Template loaded — review and hit Send.');
+}
+
+async function sendTestSms() {
+  if (!DB.twilioConfig || !DB.twilioConfig.sid) {
+    toast('Set up Twilio first — click ⚙ Twilio Settings'); return;
+  }
+  if (!DB.twilioConfig.testNumber) {
+    toast('Add "Your number" in ⚙ Twilio Settings first.'); openSmsSettings(); return;
+  }
+  var body = ($('sms-body') && $('sms-body').value.trim()) || '';
+  if (!body) { toast('Enter a message first.'); return; }
+
+  var sample = _smsRecipients[0] || {first:'Alex', last:'Student', belt:'Yellow', group:'Karate Kids', parent:'Test Parent'};
+  var personalized = smsPersonalize(body, sample);
+  var digits = DB.twilioConfig.testNumber.replace(/\D/g, '');
+  var testPhone = digits.length === 10 ? '+1' + digits : (digits.length === 11 ? '+' + digits : null);
+  if (!testPhone) { toast('Your test number in Twilio Settings looks invalid.'); return; }
+
+  toast('Sending test…');
+  try {
+    var res = await fetch('/.netlify/functions/sms', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        sid: DB.twilioConfig.sid,
+        token: DB.twilioConfig.token,
+        from: DB.twilioConfig.from,
+        to: testPhone,
+        body: '[TEST] ' + personalized
+      })
+    });
+    var data = await res.json();
+    if (res.ok && !data.error) toast('Test sent to your phone ✓');
+    else toast('Test failed to send — check Twilio settings.');
+  } catch(e) { toast('Test failed to send — check network/Twilio settings.'); }
 }
 
 async function sendComposedSms() {
@@ -7242,8 +7416,11 @@ async function sendComposedSms() {
   if (progress) progress.innerHTML = '<div style="color:var(--ink-muted);font-size:13px;">Sending 0 / ' + _smsRecipients.length + '…</div>';
 
   var sent = 0, failed = 0;
+  var results = [];
   for (var i = 0; i < _smsRecipients.length; i++) {
     var r = _smsRecipients[i];
+    var personalized = smsPersonalize(body, r);
+    var ok = false;
     try {
       var res = await fetch('/.netlify/functions/sms', {
         method: 'POST',
@@ -7253,13 +7430,14 @@ async function sendComposedSms() {
           token: DB.twilioConfig.token,
           from: DB.twilioConfig.from,
           to: r.phone,
-          body: body
+          body: personalized
         })
       });
       var data = await res.json();
-      if (res.ok && !data.error) sent++;
-      else failed++;
+      ok = res.ok && !data.error;
+      if (ok) sent++; else failed++;
     } catch(e) { failed++; }
+    results.push({name: r.name, phone: r.phone, ok: ok});
     if (progress) progress.innerHTML = '<div style="color:var(--ink-muted);font-size:13px;">Sending ' + (i+1) + ' / ' + _smsRecipients.length + '…</div>';
   }
 
@@ -7270,7 +7448,8 @@ async function sendComposedSms() {
     body: body,
     sent: sent,
     failed: failed,
-    count: _smsRecipients.length
+    count: _smsRecipients.length,
+    recipients: results
   });
   save();
 
@@ -7288,13 +7467,26 @@ function renderSmsLog() {
     el.innerHTML = '<div style="color:var(--ink-muted);font-size:13px;padding:16px;">No messages sent yet.</div>';
     return;
   }
-  el.innerHTML = DB.smsLog.slice(0,20).map(function(m) {
-    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;">' +
-      '<div style="flex:1;">' +
-        '<div style="font-size:12px;color:var(--ink-muted);margin-bottom:4px;">' + fmtDate(m.date) + ' · ' + m.sent + '/' + m.count + ' delivered</div>' +
-        '<div style="font-size:13px;">' + m.body + '</div>' +
+  el.innerHTML = DB.smsLog.slice(0,20).map(function(m, idx) {
+    var recipDetail = '';
+    if (m.recipients && m.recipients.length) {
+      recipDetail = '<div id="sms-log-recip-' + idx + '" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">' +
+        m.recipients.map(function(r) {
+          return '<div style="font-size:12px;padding:2px 0;">' + (r.ok ? '✓' : '✕') + ' ' + r.name + ' <span style="color:var(--ink-muted);">' + r.phone + '</span></div>';
+        }).join('') +
+      '</div>';
+    }
+    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px;">' +
+      '<div style="display:flex;gap:12px;align-items:flex-start;">' +
+        '<div style="flex:1;">' +
+          '<div style="font-size:12px;color:var(--ink-muted);margin-bottom:4px;">' + fmtDate(m.date) + ' · ' + m.sent + '/' + m.count + ' delivered' +
+          (m.recipients && m.recipients.length ? ' · <span style="cursor:pointer;text-decoration:underline;" onclick="var d=document.getElementById(\'sms-log-recip-' + idx + '\');d.style.display=d.style.display===\'none\'?\'block\':\'none\';">who got this?</span>' : '') +
+          '</div>' +
+          '<div style="font-size:13px;">' + m.body + '</div>' +
+        '</div>' +
+        '<span class="badge ' + (m.failed ? 'badge-gray' : 'badge-green') + '" style="flex-shrink:0;">' + (m.failed ? m.failed + ' failed' : '✓ All sent') + '</span>' +
       '</div>' +
-      '<span class="badge ' + (m.failed ? 'badge-gray' : 'badge-green') + '" style="flex-shrink:0;">' + (m.failed ? m.failed + ' failed' : '✓ All sent') + '</span>' +
+      recipDetail +
     '</div>';
   }).join('');
 }
@@ -7462,6 +7654,23 @@ function enrollTrial() {
   }, 300);
 }
 
+function smsOneStudent(id) {
+  var s = (DB.students || []).find(function(x) { return x.id === id; });
+  if (!s || !s.phone) return;
+  var phone = smsGetPhone(s);
+  if (!phone) { toast('No valid phone number on file for ' + s.first + '.'); return; }
+  nav('sms');
+  setTimeout(function() {
+    _smsRecipients = [{id: s.id, name: s.first + ' ' + s.last, first: s.first, last: s.last, belt: s.belt, group: s.group, parent: s.parent, phone: phone}];
+    renderSmsRecipientSummary();
+    if ($('sms-body')) $('sms-body').value = '';
+    smsUpdateCount();
+    var compose = $('sms-compose-divider');
+    if (compose) compose.scrollIntoView({behavior:'smooth', block:'start'});
+    setTimeout(function() { if ($('sms-body')) $('sms-body').focus(); }, 250);
+  }, 200);
+}
+
 function smsOneTrial(id) {
   var t = (DB.trials||[]).find(function(x){return x.id===id;});
   if (!t || !t.phone) return;
@@ -7470,7 +7679,7 @@ function smsOneTrial(id) {
     var digits = t.phone.replace(/\D/g,'');
     var e164 = digits.length===10 ? '+1'+digits : (digits.length===11?'+'+digits:null);
     if (e164) {
-      _smsRecipients = [{id:'trial-'+t.id, name:t.name, phone:e164}];
+      _smsRecipients = [{id:'trial-'+t.id, name:t.name, first:(t.name||'').split(' ')[0], last:'', belt:'', group:'Trial', parent:t.name, phone:e164}];
       renderSmsRecipientSummary();
       if ($('sms-body')) $('sms-body').value = "Hi! This is Noble's Martial Arts following up on " + (t.name||'your student') + "'s trial class. We'd love to have them join us! Any questions?";
       smsUpdateCount();
