@@ -2840,6 +2840,7 @@ function openProfile(id){
       ${histMore?`<button onclick="showMoreHistory(${s.id})" id="hist-more-btn" style="font-size:12px;color:var(--link);background:none;border:none;cursor:pointer;padding:4px 0;">Show all history…</button>`:''}
       <div id="profile-orders-section-${s.id}" style="margin-top:12px;"></div>
       <div id="profile-privatelessons-${s.id}" style="margin-top:12px;"></div>
+      <div id="profile-saleitems-${s.id}" style="margin-top:12px;"></div>
     </div>`:''}
     ${promoHist.length?`<div class="section-divider"><span>Promotion history</span></div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
@@ -2847,6 +2848,7 @@ function openProfile(id){
     </div>`:''}`;
   renderProfileOrders(s);
   renderProfilePrivateLessons(s);
+  renderProfileSaleOrders(s);
 }
 
 function adjustStripe(id,delta){
@@ -8708,6 +8710,29 @@ function renderProfilePrivateLessons(s){
     });
 }
 setTimeout(updatePLBadge, 1500);
+
+function renderProfileSaleOrders(s){
+  var el = document.getElementById('profile-saleitems-'+s.id);
+  if (!el) return;
+  var filter = s.email ? 'student_id.eq.'+s.id+',requestor_email.eq.'+s.email : 'student_id.eq.'+s.id;
+  supa.from('nma_sale_orders')
+    .select('id,items,total,status,requestor_name,requestor_email,submitted_at,student_id')
+    .or(filter)
+    .order('submitted_at', {ascending:false})
+    .then(function(res){
+      if (res.error || !res.data || !res.data.length) { el.innerHTML=''; return; }
+      var statusBadge = { pending:'badge-gray', approved:'badge-green', declined:'badge-red' };
+      el.innerHTML = '<div class="section-divider" style="margin:10px 0 8px;"><span>Sale Item Requests ('+res.data.length+')</span></div>'
+        + res.data.map(function(o){
+            var itemsDesc = (o.items||[]).map(function(i){ return i.qty+'× '+i.title; }).join(', ');
+            return '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+              + '<div><span style="font-size:11px;color:var(--ink-faint);margin-right:8px;">'+fmtDate((o.submitted_at||'').slice(0,10))+'</span>'
+              + '<span class="badge '+(statusBadge[o.status]||'badge-gray')+'" style="font-size:9px;margin-right:6px;">'+o.status+'</span>'
+              + itemsDesc + '</div>'
+              + '<strong style="flex-shrink:0;margin-left:10px;">$'+Number(o.total).toFixed(2)+'</strong></div>';
+          }).join('');
+    });
+}
 
 function renderProfileOrders(s) {
   var el = document.getElementById('profile-orders-section-'+s.id);
