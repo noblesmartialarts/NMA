@@ -94,6 +94,9 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
 .form-group{display:flex;flex-direction:column;gap:5px;}
 .form-group.full{grid-column:1/-1;}
 .form-label{font-size:11px;font-weight:500;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.06em;}
+.seg-toggle{display:flex;gap:6px;}
+.seg-btn{flex:1;padding:9px 10px;border:1px solid var(--border);background:var(--paper);border-radius:8px;font-size:13px;font-weight:500;color:var(--ink-muted);cursor:pointer;}
+.seg-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
 .form-input{border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-family:var(--font-body);font-size:13px;background:var(--paper);color:var(--ink);outline:none;width:100%;}
 .form-select{border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-family:var(--font-body);font-size:13px;background:var(--paper);color:var(--ink);cursor:pointer;outline:none;width:100%;}
 .checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;}
@@ -927,11 +930,11 @@ tbody td{font-size:11px!important;}
 <!-- INVENTORY -->
 <div id="page-inventory" class="page">
   <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-    <div><div class="page-title">Inventory</div><div class="page-subtitle">Belts, gear orders with wholesale cost &amp; margin tracking</div></div>
-    <div style="display:flex;gap:8px;"><button class="btn" onclick="openInvModal()">+ Add Belt</button><button class="btn primary" onclick="openOrderModal()">+ Log Order</button></div>
+    <div><div class="page-title">Inventory</div><div class="page-subtitle">Belts &amp; uniforms, gear orders with wholesale cost &amp; margin tracking</div></div>
+    <div style="display:flex;gap:8px;"><button class="btn" onclick="openInvModal()">+ Add Item</button><button class="btn primary" onclick="openOrderModal()">+ Log Order</button></div>
   </div>
-  <div class="section-divider"><span>Belt inventory</span></div>
-  <div class="table-wrap" style="margin-bottom:20px;"><table><thead><tr><th>Belt</th><th>Size</th><th>Qty</th><th>Wholesale</th><th>Sell price</th><th>Margin</th><th></th></tr></thead><tbody id="belt-inv-tbody"></tbody></table></div>
+  <div class="section-divider"><span>Belt &amp; uniform inventory</span></div>
+  <div class="table-wrap" style="margin-bottom:20px;"><table><thead><tr><th>Type</th><th>Item</th><th>Size</th><th>Qty</th><th>Wholesale</th><th>Sell price</th><th>Margin</th><th></th></tr></thead><tbody id="belt-inv-tbody"></tbody></table></div>
   <div class="section-divider"><span>Order log</span></div>
   <div class="table-wrap"><table><thead><tr><th>Student</th><th>Item</th><th>Date</th><th>Cost</th><th>Charged</th><th>Margin</th><th>Notes</th></tr></thead><tbody id="order-tbody"></tbody></table></div>
   <div style="margin-top:10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px;" id="inv-profit-summary"></div>
@@ -992,7 +995,7 @@ tbody td{font-size:11px!important;}
       <button class="btn small" onclick="bulkSelectGroup('Little Dragons')">Little Dragons</button>
       <button class="btn small" onclick="bulkSelectGroup('Karate Kids')">Karate Kids</button>
       <button class="btn small" onclick="bulkSelectGroup('Black Belt Club')">BBC</button>
-      <button class="btn small" onclick="bulkSelectGroup("Master's Club")">Master's</button>
+      <button class="btn small" onclick="bulkSelectGroup('Master&#39;s Club')">Master's</button>
       <button class="btn small" onclick="bulkSelectGroup('Legends Club')">Legends</button>
       <button class="btn small" onclick="bulkSelectUnregistered()">Unregistered</button>
       <button class="btn small" onclick="bulkClearAll()">Clear</button>
@@ -1864,10 +1867,26 @@ tbody td{font-size:11px!important;}
 
 <div class="modal-backdrop" id="modal-inv">
   <div class="modal" style="max-width:440px;">
-    <div class="modal-header"><div class="modal-title">Belt Inventory</div><button class="btn ghost" onclick="closeModal('modal-inv')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="inv-modal-title">Add Inventory Item</div><button class="btn ghost" onclick="closeModal('modal-inv')">✕</button></div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="form-group"><label class="form-label">Belt color</label><input class="form-input" id="inv-color"></div>
+        <div class="form-group full">
+          <label class="form-label">Item type</label>
+          <div class="seg-toggle" id="inv-type-toggle">
+            <button type="button" class="seg-btn active" data-type="belt" onclick="setInvType('belt')">🥋 Belt</button>
+            <button type="button" class="seg-btn" data-type="uniform" onclick="setInvType('uniform')">👕 Uniform</button>
+          </div>
+        </div>
+        <div class="form-group" id="inv-color-group"><label class="form-label">Belt color</label>
+          <select class="form-select" id="inv-color"><option value="">— Select belt —</option></select>
+        </div>
+        <div class="form-group" id="inv-uniform-name-group" style="display:none;"><label class="form-label">Uniform item</label>
+          <select class="form-select" id="inv-uniform-name">
+            <option>Uniform — Top</option>
+            <option>Uniform — Pants</option>
+            <option>Uniform — Full Set</option>
+          </select>
+        </div>
         <div class="form-group"><label class="form-label">Size</label><select class="form-select" id="inv-size"><option>000</option><option>00</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select></div>
         <div class="form-group"><label class="form-label">Qty</label><input class="form-input" id="inv-qty" type="number" value="1"></div>
         <div class="form-group"><label class="form-label">Wholesale cost ($)</label><input class="form-input" id="inv-cost" type="number" step="0.01"></div>
@@ -2199,13 +2218,17 @@ const BELT_PATHS={
   'Legends Club':['BB White','BB Yellow','BB Orange','BB Purple','BB Blue','BB Green','BB Brown','BB Red']
 };
 
-// Red/Red II/Red III require 5 stripes across 2 cycles
-const TWO_CYCLE_BELTS=new Set(['Red','Red II','Red III']);
-// At 3 stripes on these belts = halfway (orange dot), awarded AT belt test
-const HALFWAY_MAP={'Red':'Red.5','Red II':'Red II.5','Red III':'Black Belt Candidate'};
+// NOTE: Red-family half-ranks (Red.5, Red II.5) are already modeled as their own
+// steps in BELT_PATHS/NEXT_BELT below, each reached via the same 2-stripe cycle as
+// every other belt. There is no special longer cycle for red belts.
 
-// These "ranks" are titles awarded at belt test — no physical belt is ordered
+// Titles awarded at belt test that have no physical belt ordered.
+// Half-ranks and the Black Belt Candidate title don't need a belt purchase.
 const NO_BELT_RANKS=new Set(['Red.5','Red II.5','Black Belt Candidate']);
+// Of NO_BELT_RANKS, only these skip the Intent to Promote letter entirely.
+// Black Belt Candidate → BB White still requires a letter — the special
+// Black Belt intent-to-promote letter, not the standard one.
+const NO_LETTER_RANKS=new Set(['Red.5','Red II.5']);
 
 // Legends Club: only BB Red is eligible for Black Belt Test (1st Degree)
 const BB_TEST_ELIGIBLE_BELTS=new Set(['BB Red']);
@@ -2452,7 +2475,7 @@ DB.students.forEach(s=>{if(!s.history)s.history=[];});
 // ══════════════════════════════════════════════════════
 // $ defined above
 function initials(s){return(s.first||'')[0]+(s.last||'')[0];}
-function maxStripes(s){return TWO_CYCLE_BELTS.has(s.belt)?5:2;}
+function maxStripes(s){return 2;}
 function totalClassesAttended(sid){
   // Count all 'present' entries across all recorded attendance dates
   return Object.values(DB.attendance||{}).reduce((sum,dayRec)=>{
@@ -2477,11 +2500,37 @@ function intentLetterAutoEligible(s){
   if(!s||s.status!=='Active')return false;
   if(s.testEligibleOverride===true)return true;
   if(s.testEligibleOverride===false)return false;
-  if(!getPromotion(s))return false;
+  const promo=getPromotion(s);
+  if(!promo)return false;
+  // Red.5 / Red II.5 test straight off the normal 2-stripe cycle — no letter needed.
+  if(NO_LETTER_RANKS.has(promo.belt))return false;
+  // Black Belt Candidate → BB White uses the special Black Belt letter instead
+  // of the standard Intent to Promote letter — see isBlackBeltLetterCase().
+  if(isBlackBeltLetterCase(s))return false;
   // Intent to Promote letters are prepared before the 2nd stripe test.
   // 1 stripe = letter candidate; full stripes = actual belt-test candidate.
   return stripeCount(s)>=1;
 }
+function isBlackBeltLetterCase(s){
+  const promo=getPromotion(s);
+  return !!(promo&&s.belt==='Black Belt Candidate'&&promo.belt==='BB White');
+}
+function blackBeltLetterAutoEligible(s){
+  if(!s||s.status!=='Active')return false;
+  if(!isBlackBeltLetterCase(s))return false;
+  if(s.testEligibleOverride===true)return true;
+  if(s.testEligibleOverride===false)return false;
+  return stripeCount(s)>=1;
+}
+function blackBeltLetterEligible(s){
+  if(s.intentLetterOverride===true)return true;
+  if(s.intentLetterOverride===false)return false;
+  return blackBeltLetterAutoEligible(s);
+}
+// Unified helpers — route to the Black Belt letter logic when applicable,
+// otherwise the standard Intent to Promote letter logic.
+function letterAutoEligible(s){return isBlackBeltLetterCase(s)?blackBeltLetterAutoEligible(s):intentLetterAutoEligible(s);}
+function letterEligible(s){return isBlackBeltLetterCase(s)?blackBeltLetterEligible(s):intentToPromoteEligible(s);}
 function intentToPromoteEligible(s){
   if(s.intentLetterOverride===true)return true;
   if(s.intentLetterOverride===false)return false;
@@ -2501,12 +2550,11 @@ function fmt$(n){return'$'+(+n||0).toFixed(2);}
 function closeModal(id){$(id).classList.remove('open');}
 document.querySelectorAll('.modal-backdrop').forEach(b=>b.addEventListener('click',e=>{if(e.target===b)b.classList.remove('open');}));
 
-function stripeDots(n,max,isRed){
+function stripeDots(n,max){
   let h='<span class="stripe-dots">';
   for(let i=0;i<max;i++){
-    const isHalf=isRed&&i===2;
     const filled=i<n;
-    h+=`<span class="stripe-dot${!filled?' empty':isHalf?' halfway':''}"></span>`;
+    h+=`<span class="stripe-dot${!filled?' empty':''}"></span>`;
   }
   return h+'</span>';
 }
@@ -2679,7 +2727,7 @@ function renderDashboard(){
     <div class="stat-card warn"><div class="stat-label">Stripe-ready</div><div class="stat-value">${stripeReady.length}</div><div class="stat-sub">Eligible to test</div></div>
     <div class="stat-card good"><div class="stat-label">Registered</div><div class="stat-value">${active.filter(s=>s.registered==='Yes').length}</div><div class="stat-sub">This month</div></div>`;
   $('risk-tbody').innerHTML=risk.length?risk.map(s=>`<tr><td><strong>${s.first} ${s.last}</strong></td><td>${missedRecent(s.id)?'<span class="badge badge-red">Missed classes</span>':'<span class="badge badge-amber">Unregistered</span>'}</td><td><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--ink-muted);">No at-risk students 🎉</td></tr>';
-  $('stripe-tbody').innerHTML=stripeReady.length?stripeReady.map(s=>`<tr><td><strong>${s.first} ${s.last}</strong></td><td>${stripeDots(s.stripes,maxStripes(s),TWO_CYCLE_BELTS.has(s.belt))}</td><td style="font-size:12px;color:var(--ink-muted);">${s.group}</td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--ink-muted);">None ready yet</td></tr>';
+  $('stripe-tbody').innerHTML=stripeReady.length?stripeReady.map(s=>`<tr><td><strong>${s.first} ${s.last}</strong></td><td>${stripeDots(s.stripes,maxStripes(s))}</td><td style="font-size:12px;color:var(--ink-muted);">${s.group}</td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--ink-muted);">None ready yet</td></tr>';
   const upcoming=DB.testEvents.filter(e=>e.date>=new Date().toISOString().slice(0,10)).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);
   $('upcoming-events').innerHTML=upcoming.length?upcoming.map(e=>`<div style="display:flex;align-items:center;gap:13px;padding:8px 0;border-bottom:1px solid var(--border);"><div style="min-width:60px;font-family:var(--font-display);font-weight:700;font-size:16px;">${fmtDate(e.date)}</div><div><div style="font-weight:500;">${e.name}</div><div style="font-size:12px;color:var(--ink-muted);">${e.type}${e.fee>0?' · $'+e.fee:''}</div></div><div class="spacer"></div><span class="badge ${e.type==='Stripe Test'?'badge-amber':e.type==='Black Belt Test'?'badge-dark':'badge-green'}">${e.type}</span></div>`).join(''):'<div style="color:var(--ink-muted);font-size:13px;">No upcoming events. Schedule one in Belt Testing.</div>';
 }
@@ -2780,7 +2828,7 @@ function renderRoster(){
       <td style="font-size:12px;color:var(--ink-muted);">${s.group}</td>
       <td><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></td>
       <td>${attSummaryBadge(s.id)}</td>
-      <td><div style="display:flex;align-items:center;gap:4px;">${stripeDots(s.stripes,maxStripes(s),TWO_CYCLE_BELTS.has(s.belt))}<button class="btn ghost" style="font-size:11px;padding:2px 4px;" onclick="adjustStripe(${s.id},-1)">−</button><button class="btn ghost" style="font-size:11px;padding:2px 4px;" onclick="adjustStripe(${s.id},1)">+</button></div></td>
+      <td><div style="display:flex;align-items:center;gap:4px;">${stripeDots(s.stripes,maxStripes(s))}<button class="btn ghost" style="font-size:11px;padding:2px 4px;" onclick="adjustStripe(${s.id},-1)">−</button><button class="btn ghost" style="font-size:11px;padding:2px 4px;" onclick="adjustStripe(${s.id},1)">+</button></div></td>
       <td><div class="flags">${flags.join('')}</div></td>
       <td>${regBadge}</td>
       <td style="white-space:nowrap;">${promo?`<button class="btn small success" onclick="promoteBelt(${s.id})" title="→ ${promo.belt}">→ ${promo.belt}</button> `:''}  <button class="btn small" onclick="toggleStudentActive(${s.id})" style="font-size:10px;">${s.status==='Active'?'⊘ Inactive':'↺ Reactivate'}</button> <button class="btn small" onclick="openEditStudent(${s.id})">Edit</button> <button class="btn small" onclick="openMergeStudent(${s.id})" title="Merge">⇔</button> <button class="btn small" onclick="deleteStudent(${s.id})">✕</button></td>
@@ -2816,7 +2864,7 @@ function openProfile(id){
       </div>
       <div class="prof-grid">
         <div class="pf"><label>Current belt</label><p><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></p></div>
-        <div class="pf"><label>Stripes</label><p>${stripeDots(s.stripes,maxStripes(s),TWO_CYCLE_BELTS.has(s.belt))} ${s.stripes}/${maxStripes(s)}</p></div>
+        <div class="pf"><label>Stripes</label><p>${stripeDots(s.stripes,maxStripes(s))} ${s.stripes}/${maxStripes(s)}</p></div>
         <div class="pf"><label>Next belt</label><p>${promo?('<span class="belt-pill" style="'+beltStyle(promo.belt)+';font-size:11px;">'+promo.belt+'</span>'+(promo.group!==s.group?' <span style="font-size:11px;color:var(--ink-muted);">(→ '+promo.group+')</span>':'')):'Max rank'}</p></div>
         <div class="pf"><label>Belt test eligible</label><p><span class="badge ${stripeEligible(s)?'badge-green':'badge-gray'}">${stripeEligible(s)?'Yes — ready':s.testEligibleOverride===false?'Blocked':'No'}</span><span style="font-size:11px;color:var(--ink-muted);margin-left:8px;">${stripeCount(s)}/${maxStripes(s)} stripes · ${totalClassesAttended(s.id)} classes attended</span> <button class="btn small" style="margin-left:6px;font-size:11px;" onclick="toggleEligibilityOverride(${s.id})">${s.testEligibleOverride===true?'✓ Forced':''}${s.testEligibleOverride===false?'✗ Blocked':''}${s.testEligibleOverride===undefined||s.testEligibleOverride===null?'Override':'Clear override'}</button></p></div>
         <div class="pf"><label>Belt size</label><p>${s.beltSize||'—'}</p></div>
@@ -3114,7 +3162,7 @@ function attAdjStripe(id, delta) {
     // Update plus button disabled state
     const s = DB.students.find(x => x.id === id);
     if (s) {
-      const max = (typeof TWO_CYCLE_BELTS !== 'undefined' && TWO_CYCLE_BELTS.has(s.belt)) ? 5 : 4;
+      const max = maxStripes(s);
       const plusBtn = card.querySelector('.att-stripe-plus');
       if (plusBtn) plusBtn.disabled = newCount >= max;
     }
@@ -3157,8 +3205,8 @@ function saveAttendance(){
       if(!n) return;
       const s=DB.students.find(function(x){return x.id===parseInt(sid);});
       if(!s) return;
-      const maxStripes=(typeof TWO_CYCLE_BELTS!=='undefined'&&TWO_CYCLE_BELTS.has(s.belt))?5:4;
-      s.stripes=Math.min(maxStripes,(s.stripes||0)+n);
+      const stripeCap=2;
+      s.stripes=Math.min(stripeCap,(s.stripes||0)+n);
       addHistory(s,'stripe','Awarded '+n+' stripe(s) at stripe test',date);
     });
     _attStripeAwards={};
@@ -3188,11 +3236,10 @@ function renderCheckin(){
   $('checkin-grid').innerHTML=students.map(s=>{
     const cs=ciState[s.id]||{present:false,stripesAwarded:0};
     const ns=Math.min(maxStripes(s),s.stripes+cs.stripesAwarded);
-    const isRed=TWO_CYCLE_BELTS.has(s.belt);
-    const next=getNextBelt(s);
+        const next=getNextBelt(s);
     return `<div class="ci-card${cs.present?' checked-in':''}">
       <div class="ci-card-top"><div class="ci-av">${initials(s)}</div><div><div style="font-weight:500;font-size:13px;">${s.first} ${s.last}</div><div style="font-size:11px;color:var(--ink-muted);">${s.group.split(' ')[0]}</div></div>${cs.present?'<span class="badge badge-green" style="margin-left:auto;font-size:10px;">Present</span>':''}</div>
-      <div class="ci-belt-row"><span class="belt-pill" style="${beltStyle(s.belt)};font-size:11px;">${s.belt}</span>${stripeDots(ns,maxStripes(s),isRed)}<span style="font-size:11px;color:var(--ink-muted);">${ns}/${maxStripes(s)}</span>${ns>=maxStripes(s)?'<span class="badge badge-amber" style="font-size:10px;">Test ready</span>':''}</div>
+      <div class="ci-belt-row"><span class="belt-pill" style="${beltStyle(s.belt)};font-size:11px;">${s.belt}</span>${stripeDots(ns,maxStripes(s))}<span style="font-size:11px;color:var(--ink-muted);">${ns}/${maxStripes(s)}</span>${ns>=maxStripes(s)?'<span class="badge badge-amber" style="font-size:10px;">Test ready</span>':''}</div>
       ${next&&ns>=maxStripes(s)?`<div style="font-size:11px;color:var(--green);margin-bottom:7px;">→ Next: ${next}</div>`:''}
       <div class="ci-actions">
         <button class="ci-btn mark-present" onclick="ciTogglePresent(${s.id})">${cs.present?'Mark absent':'Mark present'}</button>
@@ -3307,7 +3354,7 @@ function renderTestEligibility(){
     return `<tr><td><strong>${s.first} ${s.last}</strong></td><td style="font-size:12px;color:var(--ink-muted);">${s.group}</td>
       <td><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></td>
       <td>${promo?`<span class="belt-pill" style="${beltStyle(promo.belt)};font-size:11px;">${promo.belt}</span>${promo.group!==s.group?` <span class="badge badge-blue" style="font-size:10px;">${promo.group}</span>`:''}`:'—'}</td>
-      <td>${stripeDots(stripeCount(s),maxStripes(s),TWO_CYCLE_BELTS.has(s.belt))}<div style="font-size:10px;color:var(--ink-faint);margin-top:2px;">${stripeCount(s)}/${maxStripes(s)}</div></td>
+      <td>${stripeDots(stripeCount(s),maxStripes(s))}<div style="font-size:10px;color:var(--ink-faint);margin-top:2px;">${stripeCount(s)}/${maxStripes(s)}</div></td>
       <td><label class="checkbox-row" title="1+ stripe is auto-selected for Intent to Promote letters"><input type="checkbox" ${intent?'checked':''} onchange="setIntentLetterSelected(${s.id},this.checked)"><span class="badge ${intent?'badge-blue':'badge-gray'}">${intent?'Letter':'No letter'}</span></label></td>
       <td><label class="checkbox-row" title="Full stripes are auto-selected for belt testing. Uncheck/check to override."><input type="checkbox" ${eligible?'checked':''} onchange="setBeltTestEligible(${s.id},this.checked)"><span class="badge ${eligible?'badge-green':'badge-gray'}">${eligible?'Test':'No test'}</span></label><div style="font-size:10px;color:var(--ink-faint);margin-top:2px;">${overrideLabel}</div></td>
       <td><label class="checkbox-row"><input type="checkbox" ${paid?'checked':''} onchange="toggleFee(${evId},${s.id},this.checked)"><span>${paid?'Paid':'Unpaid'}</span></label></td>
@@ -3323,7 +3370,7 @@ function setBeltTestEligible(sid,checked){
 }
 function setIntentLetterSelected(sid,checked){
   const s=DB.students.find(x=>x.id===sid);if(!s)return;
-  const auto=intentLetterAutoEligible(s);
+  const auto=letterAutoEligible(s);
   s.intentLetterOverride=(checked===auto)?null:!!checked;
   save();
   if($('test-eligibility-tbody'))renderTestEligibility();
@@ -3393,7 +3440,9 @@ function promoteBelt(sid){
   if(!confirm(`Promote ${s.first} ${s.last}?\n${s.belt} → ${promo.belt}${cross?'\nGroup: '+s.group+' → '+promo.group:''}\n\nStripes reset to 0.`))return;
   DB.promotions.push({studentId:s.id,date:new Date().toISOString().slice(0,10),fromBelt:s.belt,fromGroup:s.group,toBelt:promo.belt,toGroup:promo.group});
   addHistory(s,'promo',`Promoted: ${s.belt} → ${promo.belt}${cross?' (→ '+promo.group+')':''}`);
-  s.belt=promo.belt;s.group=promo.group;s.stripes=0;save();
+  s.belt=promo.belt;s.group=promo.group;s.stripes=0;
+  if(!NO_BELT_RANKS.has(promo.belt))consumeBeltStock(promo.belt,s.beltSize);
+  save();
   if($('roster-list-view').style.display!=='none')renderRoster();else openProfile(s.id);
   toast(`${s.first} promoted to ${promo.belt}!`);
 }
@@ -3440,6 +3489,7 @@ function runMassPromo(){
     DB.promotions.push({studentId:s.id,date:new Date().toISOString().slice(0,10),fromBelt:s.belt,fromGroup:s.group,toBelt:state.promo.belt,toGroup:state.promo.group});
     addHistory(s,'promo',`Promoted: ${s.belt} → ${state.promo.belt}`);
     s.belt=state.promo.belt;s.group=state.promo.group;s.stripes=0;count++;
+    if(!NO_BELT_RANKS.has(state.promo.belt))consumeBeltStock(state.promo.belt,s.beltSize);
   });
   save();closeModal('modal-mass-promo');renderTesting();renderDashboard();toast(`${count} student(s) promoted!`);
 }
@@ -3515,30 +3565,67 @@ function renderBeltOrder(){
 
   const tally={};
   students.forEach(s=>{const next=getNextBeltForOrder(s);if(!next)return;if(NO_BELT_RANKS.has(next))return;const key=next+'|'+(s.beltSize||'0');if(!tally[key])tally[key]={belt:next,size:s.beltSize||'0',qty:0};tally[key].qty++;});
-  const tallyArr=Object.values(tally).sort((a,b)=>rankIndex(a.belt)-rankIndex(b.belt));
-  $('bo-summary').innerHTML=tallyArr.length?tallyArr.map(t=>`<div class="bo-row"><div style="display:flex;align-items:center;gap:8px;"><span class="belt-pill" style="${beltStyle(t.belt)};font-size:11px;">${t.belt}</span><span style="font-size:12px;color:var(--ink-muted);">Sz ${t.size}</span></div><span class="bo-qty">${t.qty}</span></div>`).join(''):'<div style="padding:16px;color:var(--ink-muted);font-size:13px;">No belts needed.</div>';
+  const tallyArr=Object.values(tally).map(t=>{const stock=findBeltStock(t.belt,t.size);const inStock=stock?stock.qty:0;return {...t,inStock,toOrder:Math.max(0,t.qty-inStock)};}).sort((a,b)=>rankIndex(a.belt)-rankIndex(b.belt));
+  $('bo-summary').innerHTML=tallyArr.length?tallyArr.map(t=>`<div class="bo-row"><div style="display:flex;align-items:center;gap:8px;"><span class="belt-pill" style="${beltStyle(t.belt)};font-size:11px;">${t.belt}</span><span style="font-size:12px;color:var(--ink-muted);">Sz ${t.size}</span></div><div style="display:flex;align-items:center;gap:10px;"><span style="font-size:11px;color:var(--ink-muted);">Need ${t.qty} · In stock ${t.inStock}</span><span class="bo-qty" style="color:${t.toOrder>0?'var(--red)':'var(--green)'};">${t.toOrder>0?'Order '+t.toOrder:'✓ Covered'}</span></div></div>`).join(''):'<div style="padding:16px;color:var(--ink-muted);font-size:13px;">No belts needed.</div>';
   $('bo-student-list').innerHTML=students.length?students.map(s=>{const next=getNextBeltForOrder(s);const noBelt=next&&NO_BELT_RANKS.has(next);return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><div style="flex:1;"><div style="font-weight:500;">${s.first} ${s.last}</div><div style="font-size:11px;color:var(--ink-muted);">${s.group}</div></div><span class="belt-pill" style="${beltStyle(s.belt)};font-size:11px;">${s.belt}</span><span style="color:var(--ink-faint);font-size:11px;">→</span>${next?`<span class="belt-pill" style="${beltStyle(next)};font-size:11px;">${next}</span>${noBelt?'<span class="badge badge-amber" style="font-size:10px;margin-left:3px;">no belt</span>':''}`:'<span style="font-size:11px;color:var(--ink-muted);">—</span>'}<span style="font-size:11px;color:var(--ink-muted);min-width:32px;text-align:right;">${noBelt||!next?'—':'Sz '+(s.beltSize||'0')}</span></div>`;}).join(''):'<div style="color:var(--ink-muted);font-size:13px;">No eligible students.</div>';
   const today=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-  $('bo-print-area').innerHTML=`<div id="printable-order" style="font-family:'DM Sans',sans-serif;font-size:13px;"><div style="display:flex;justify-content:space-between;margin-bottom:16px;padding-bottom:13px;border-bottom:2px solid #1a1a1a;"><div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;">Noble's Martial Arts</div><div style="font-size:12px;color:#6b6b6b;">Belt Order Sheet — Generated ${today}</div></div>${ev?`<div style="text-align:right;font-size:12px;color:#6b6b6b;">${ev.name}<br>${fmtFull(ev.date)}</div>`:''}</div><table style="width:100%;border-collapse:collapse;margin-bottom:14px;"><thead><tr style="border-bottom:1px solid #ddd;"><th style="text-align:left;padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Belt</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Size</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;text-align:center;">Qty</th></tr></thead><tbody>${tallyArr.map(t=>`<tr style="border-bottom:1px solid #f0f0f0;"><td style="padding:6px;">${t.belt}</td><td style="padding:6px;">${t.size}</td><td style="padding:6px;text-align:center;font-weight:700;">${t.qty}</td></tr>`).join('')||'<tr><td colspan="3" style="padding:9px;color:#aaa;">No belts needed</td></tr>'}</tbody></table><table style="width:100%;border-collapse:collapse;"><thead><tr style="border-bottom:1px solid #ddd;"><th style="text-align:left;padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Student</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Current</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Next Belt</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Size</th></tr></thead><tbody>${students.map(s=>{const next=getNextBeltForOrder(s);return `<tr style="border-bottom:1px solid #f0f0f0;"><td style="padding:6px;">${s.first} ${s.last}</td><td style="padding:6px;">${s.belt}</td><td style="padding:6px;font-weight:600;">${next||'—'}</td><td style="padding:6px;">${s.beltSize||'0'}</td></tr>`;}).join('')}</tbody></table></div>`;
+  $('bo-print-area').innerHTML=`<div id="printable-order" style="font-family:'DM Sans',sans-serif;font-size:13px;"><div style="display:flex;justify-content:space-between;margin-bottom:16px;padding-bottom:13px;border-bottom:2px solid #1a1a1a;"><div><div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;">Noble's Martial Arts</div><div style="font-size:12px;color:#6b6b6b;">Belt Order Sheet — Generated ${today}</div></div>${ev?`<div style="text-align:right;font-size:12px;color:#6b6b6b;">${ev.name}<br>${fmtFull(ev.date)}</div>`:''}</div><table style="width:100%;border-collapse:collapse;margin-bottom:14px;"><thead><tr style="border-bottom:1px solid #ddd;"><th style="text-align:left;padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Belt</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Size</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;text-align:center;">Needed</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;text-align:center;">In stock</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;text-align:center;">To order</th></tr></thead><tbody>${tallyArr.map(t=>`<tr style="border-bottom:1px solid #f0f0f0;"><td style="padding:6px;">${t.belt}</td><td style="padding:6px;">${t.size}</td><td style="padding:6px;text-align:center;">${t.qty}</td><td style="padding:6px;text-align:center;">${t.inStock}</td><td style="padding:6px;text-align:center;font-weight:700;">${t.toOrder}</td></tr>`).join('')||'<tr><td colspan="5" style="padding:9px;color:#aaa;">No belts needed</td></tr>'}</tbody></table><table style="width:100%;border-collapse:collapse;"><thead><tr style="border-bottom:1px solid #ddd;"><th style="text-align:left;padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Student</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Current</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Next Belt</th><th style="padding:6px;font-size:11px;color:#888;text-transform:uppercase;">Size</th></tr></thead><tbody>${students.map(s=>{const next=getNextBeltForOrder(s);return `<tr style="border-bottom:1px solid #f0f0f0;"><td style="padding:6px;">${s.first} ${s.last}</td><td style="padding:6px;">${s.belt}</td><td style="padding:6px;font-weight:600;">${next||'—'}</td><td style="padding:6px;">${s.beltSize||'0'}</td></tr>`;}).join('')}</tbody></table></div>`;
 }
 function printBeltOrder(){const c=$('printable-order');if(!c){alert('Generate an order first.');return;}const w=window.open('','_blank');w.document.write(`<!DOCTYPE html><html><head><title>Belt Order</title><link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"><style>body{font-family:'DM Sans',sans-serif;padding:34px;max-width:740px;margin:0 auto;}table{width:100%;border-collapse:collapse;}th,td{padding:6px;text-align:left;border-bottom:1px solid #e0e0e0;}</style></head><body>${c.innerHTML}</body></html>\`);w.document.close();w.print();}</html>`);w.document.close();w.print();}
 
 // ══════════════════════════════════════════════════════
 // INVENTORY
 // ══════════════════════════════════════════════════════
+// Orderable belts only — half-ranks and titles with no physical belt are excluded
+const ORDERABLE_BELTS=Object.keys(BELT_COLORS).filter(b=>!NO_BELT_RANKS.has(b));
+function invItemLabel(item){return item.type==='uniform'?(item.uniformName||'Uniform'):item.color;}
 function renderInventory(){
-  $('belt-inv-tbody').innerHTML=DB.inventory.length?DB.inventory.map(item=>{const m=(+item.sell||0)-(+item.cost||0);return `<tr><td><span class="belt-pill" style="${beltStyle(item.color)}">${item.color}</span></td><td>${item.size}</td><td><div style="display:flex;align-items:center;gap:5px;"><button class="btn ghost" onclick="adjustInv(${item.id},-1)">−</button><strong>${item.qty}</strong><button class="btn ghost" onclick="adjustInv(${item.id},1)">+</button></div></td><td>${item.cost?fmt$(item.cost):'—'}</td><td>${item.sell?fmt$(item.sell):'—'}</td><td><span class="badge ${m>0?'badge-green':m<0?'badge-red':'badge-gray'}">${m>=0?'+':''}${fmt$(m)}</span></td><td><button class="btn small" onclick="deleteInv(${item.id})">✕</button></td></tr>`;}).join(''):'<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--ink-muted);">No belt inventory</td></tr>';
+  $('belt-inv-tbody').innerHTML=DB.inventory.length?DB.inventory.map(item=>{
+    const m=(+item.sell||0)-(+item.cost||0);
+    const isUniform=item.type==='uniform';
+    const label=isUniform?`<span class="badge badge-gray">${item.uniformName||'Uniform'}</span>`:`<span class="belt-pill" style="${beltStyle(item.color)}">${item.color}</span>`;
+    return `<tr><td style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;">${isUniform?'👕 Uniform':'🥋 Belt'}</td><td>${label}</td><td>${item.size}</td><td><div style="display:flex;align-items:center;gap:5px;"><button class="btn ghost" onclick="adjustInv(${item.id},-1)">−</button><strong>${item.qty}</strong><button class="btn ghost" onclick="adjustInv(${item.id},1)">+</button></div></td><td>${item.cost?fmt$(item.cost):'—'}</td><td>${item.sell?fmt$(item.sell):'—'}</td><td><span class="badge ${m>0?'badge-green':m<0?'badge-red':'badge-gray'}">${m>=0?'+':''}${fmt$(m)}</span></td><td><button class="btn small" onclick="deleteInv(${item.id})">✕</button></td></tr>`;
+  }).join(''):'<tr><td colspan="8" style="text-align:center;padding:16px;color:var(--ink-muted);">No inventory yet</td></tr>';
   $('order-tbody').innerHTML=DB.orders.length?DB.orders.map(o=>{const s=DB.students.find(x=>x.id===o.studentId);const m=(+o.charged||0)-(+o.cost||0);return `<tr><td>${s?s.first+' '+s.last:'—'}</td><td>${o.item}</td><td>${fmtDate(o.date)}</td><td>${fmt$(o.cost)}</td><td>${fmt$(o.charged)}</td><td><span class="badge ${m>=0?'badge-green':'badge-red'}">${m>=0?'+':''}${fmt$(m)}</span></td><td style="font-size:12px;color:var(--ink-muted);">${o.notes||'—'}</td></tr>`;}).join(''):'<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--ink-muted);">No orders logged</td></tr>';
   const tC=DB.orders.reduce((a,o)=>a+(+o.cost||0),0),tR=DB.orders.reduce((a,o)=>a+(+o.charged||0),0);
   $('inv-profit-summary').innerHTML=`<div style="display:flex;gap:26px;flex-wrap:wrap;"><div><div style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Total cost paid</div><div style="font-family:var(--font-display);font-size:19px;font-weight:700;color:var(--red);">${fmt$(tC)}</div></div><div><div style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Total charged</div><div style="font-family:var(--font-display);font-size:19px;font-weight:700;color:var(--green);">${fmt$(tR)}</div></div><div><div style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Net margin</div><div style="font-family:var(--font-display);font-size:19px;font-weight:700;color:${tR-tC>=0?'var(--green)':'var(--red)'};">${tR-tC>=0?'+':''}${fmt$(tR-tC)}</div></div></div>`;
   $('ord-student').innerHTML=DB.students.filter(s=>s.status==='Active').map(s=>`<option value="${s.id}">${s.first} ${s.last}</option>`).join('');
 }
-function openInvModal(){$('inv-color').value='';$('inv-qty').value='1';$('inv-cost').value='';$('inv-sell').value='';$('modal-inv').classList.add('open');}
-function saveInvItem(){const color=$('inv-color').value.trim();if(!color){alert('Belt color required.');return;}DB.inventory.push({id:DB.nextId++,color,size:$('inv-size').value,qty:parseInt($('inv-qty').value)||0,cost:parseFloat($('inv-cost').value)||0,sell:parseFloat($('inv-sell').value)||0});save();closeModal('modal-inv');renderInventory();toast('Belt added!');}
+function setInvType(type){
+  document.querySelectorAll('#inv-type-toggle .seg-btn').forEach(b=>b.classList.toggle('active',b.dataset.type===type));
+  $('inv-color-group').style.display=type==='belt'?'':'none';
+  $('inv-uniform-name-group').style.display=type==='uniform'?'':'none';
+  $('modal-inv').dataset.invType=type;
+}
+function openInvModal(){
+  $('inv-color').innerHTML='<option value="">— Select belt —</option>'+ORDERABLE_BELTS.map(b=>`<option value="${b}">${b}</option>`).join('');
+  $('inv-color').value='';$('inv-uniform-name').selectedIndex=0;$('inv-qty').value='1';$('inv-cost').value='';$('inv-sell').value='';
+  setInvType('belt');
+  $('modal-inv').classList.add('open');
+}
+function saveInvItem(){
+  const type=$('modal-inv').dataset.invType||'belt';
+  if(type==='belt'){
+    const color=$('inv-color').value;if(!color){alert('Belt color required.');return;}
+    DB.inventory.push({id:DB.nextId++,type:'belt',color,size:$('inv-size').value,qty:parseInt($('inv-qty').value)||0,cost:parseFloat($('inv-cost').value)||0,sell:parseFloat($('inv-sell').value)||0});
+    toast('Belt added!');
+  }else{
+    const uniformName=$('inv-uniform-name').value;
+    DB.inventory.push({id:DB.nextId++,type:'uniform',uniformName,color:uniformName,size:$('inv-size').value,qty:parseInt($('inv-qty').value)||0,cost:parseFloat($('inv-cost').value)||0,sell:parseFloat($('inv-sell').value)||0});
+    toast('Uniform added!');
+  }
+  save();closeModal('modal-inv');renderInventory();
+}
 function adjustInv(id,delta){const item=DB.inventory.find(i=>i.id===id);if(!item)return;item.qty=Math.max(0,item.qty+delta);save();renderInventory();}
 function deleteInv(id){DB.inventory=DB.inventory.filter(i=>i.id!==id);save();renderInventory();}
 function openOrderModal(){['ord-item','ord-cost','ord-charged','ord-notes'].forEach(id=>$(id).value='');$('ord-date').value=new Date().toISOString().slice(0,10);renderInventory();$('modal-order').classList.add('open');}
 function saveOrder(){const sid=parseInt($('ord-student').value),item=$('ord-item').value.trim();if(!item){alert('Item required.');return;}DB.orders.push({id:DB.nextId++,studentId:sid,item,date:$('ord-date').value,cost:parseFloat($('ord-cost').value)||0,charged:parseFloat($('ord-charged').value)||0,notes:$('ord-notes').value.trim()});save();closeModal('modal-order');renderInventory();toast('Order logged!');}
+// Belt stock lookup used by the Belt Order page and by auto-consume on promotion
+function findBeltStock(belt,size){return DB.inventory.find(i=>(i.type||'belt')==='belt'&&i.color===belt&&i.size===(size||'0'));}
+function consumeBeltStock(belt,size){
+  const item=findBeltStock(belt,size);
+  if(item&&item.qty>0){item.qty--;save();}
+}
 
 // ══════════════════════════════════════════════════════
 // INVOICES
@@ -3912,6 +3999,7 @@ function deleteCustomTemplate(fullId){const numId=parseInt(fullId.replace('custo
 // CURRICULUM
 // ══════════════════════════════════════════════════════
 function renderCurriculum(){
+  const escJs=s=>String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   $('curriculum-content').innerHTML=Object.entries(CURRICULUM).map(([key,prog])=>`
     <div class="curr-card">
       <div class="curr-hdr">
@@ -3919,10 +4007,10 @@ function renderCurriculum(){
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <span style="font-size:12px;color:var(--ink-muted);">Current:</span>
           <span class="curr-badge">Cycle ${prog.currentCycle}</span>
-          <button class="btn small" onclick="cyclePrev('${key}')">◀</button>
-          <button class="btn small" onclick="cycleNext('${key}')">▶</button>
-          <button class="btn small success" onclick="cycleAdvance('${key}')">Cycle Complete ✓</button>
-          <button class="btn small" onclick="openCurriculumEditor('${key}')">✏ Edit</button>
+          <button class="btn small" onclick="cyclePrev('${escJs(key)}')">◀</button>
+          <button class="btn small" onclick="cycleNext('${escJs(key)}')">▶</button>
+          <button class="btn small success" onclick="cycleAdvance('${escJs(key)}')">Cycle Complete ✓</button>
+          <button class="btn small" onclick="openCurriculumEditor('${escJs(key)}')">✏ Edit</button>
         </div>
       </div>
       ${prog.cycles.map(c=>`
@@ -4476,31 +4564,33 @@ function generateLetters(){
     return;
   }
   const candidates=DB.students.filter(s=>s.status==='Active'&&getPromotion(s));
-  const eligible=candidates.filter(intentToPromoteEligible);
+  const eligible=candidates.filter(s=>letterEligible(s)&&!isBlackBeltLetterCase(s));
+  const bbEligible=candidates.filter(s=>letterEligible(s)&&isBlackBeltLetterCase(s));
   const selector=`<div class="no-print" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:18px;">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
       <div>
         <div style="font-family:var(--font-display);font-size:14px;font-weight:700;">Intent Letter List</div>
-        <div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">Auto-selected: active students with at least <strong>1 stripe</strong>. Belt testing/promotions still require full stripes (${candidates.length?'usually 2; red ranks use 5':'2'}).</div>
+        <div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">Auto-selected: active students with at least <strong>1 stripe</strong>. Belt testing/promotions require the full 2-stripe cycle. Black Belt Candidates get the special Black Belt letter instead of the standard one.</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <span class="badge badge-blue">${eligible.length} selected</span>
+        <span class="badge badge-blue">${eligible.length+bbEligible.length} selected</span>
         <button class="btn small" onclick="clearIntentLetterOverrides()">Reset manual selections</button>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:7px;">
       ${candidates.map(s=>{
-        const selected=intentToPromoteEligible(s);
-        const auto=intentLetterAutoEligible(s);
+        const selected=letterEligible(s);
+        const auto=letterAutoEligible(s);
+        const bb=isBlackBeltLetterCase(s);
         const manual=s.intentLetterOverride===true?'Manual yes':s.intentLetterOverride===false?'Manual no':(auto?'Auto 1+ stripe':'Needs 1 stripe');
         return `<label class="checkbox-row" style="background:var(--paper);border:1px solid var(--border);border-radius:8px;padding:8px 10px;align-items:flex-start;">
           <input type="checkbox" ${selected?'checked':''} onchange="setIntentLetterSelected(${s.id},this.checked)" style="margin-top:2px;">
-          <span><span style="font-weight:600;">${s.first} ${s.last}</span><br><span style="font-size:11px;color:var(--ink-muted);">${s.group} · ${stripeCount(s)}/${maxStripes(s)} stripes · ${manual}</span></span>
+          <span><span style="font-weight:600;">${s.first} ${s.last}</span>${bb?' <span class="badge badge-amber" style="font-size:9px;">Black Belt letter</span>':''}<br><span style="font-size:11px;color:var(--ink-muted);">${s.group} · ${stripeCount(s)}/${maxStripes(s)} stripes · ${manual}</span></span>
         </label>`;
       }).join('')||'<div style="color:var(--ink-muted);font-size:13px;">No active students with a next rank available.</div>'}
     </div>
   </div>`;
-  if(!eligible.length){
+  if(!eligible.length&&!bbEligible.length){
     container.innerHTML=selector+'<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:34px;text-align:center;color:var(--ink-muted);">No students are currently selected for Intent to Promote letters.</div>';
     return;
   }
@@ -4579,7 +4669,70 @@ function generateLetters(){
         <div style="min-height:72px;"></div>
       </div>
     </div>`;
-  }).join('');
+  }).join('')+bbEligible.map(s=>buildBlackBeltLetter(s,ev)).join('');
+}
+
+// Special "Intent to Promote — Black Belt Candidate" letter.
+// Two physical pages, matching the printed form exactly. The only data
+// auto-populated is Student Name and Test Date on page 1 — everything
+// else (affirmations, signature lines, quote) is static, same as the form.
+function buildBlackBeltLetter(s,ev){
+  const name=`${s.first} ${s.last}`;
+  const testDate=ev?fmtFull(ev.date):'';
+  const logo=`<div style="width:52px;height:52px;background:#1a1a1a;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;flex-shrink:0;">NMA</div>`;
+  return `<div class="letter-page" id="bb-letter-${s.id}-p1" style="font-family:Georgia,serif;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
+      <div>
+        <div style="font-size:18px;font-weight:700;color:#111;">Noble's Martial Arts</div>
+        <div style="font-size:13px;font-weight:600;color:#333;">Intent to Promote &ndash; Black Belt Candidate</div>
+      </div>
+      ${logo}
+    </div>
+    <hr style="border:none;border-top:1px solid #999;margin-bottom:18px;">
+
+    <div style="font-size:15px;font-weight:700;color:#111;margin-bottom:8px;">Statement of Intent</div>
+    <p style="font-size:13px;line-height:1.7;color:#222;margin-bottom:10px;">The rank of Black Belt is not simply a new belt color. It is a symbol of perseverance, discipline, courage, leadership, humility, and unwavering commitment. It represents years of training, countless repetitions, physical endurance, mental resilience, and the decision to rise after every challenge.</p>
+    <p style="font-size:13px;line-height:1.7;color:#222;margin-bottom:18px;">This document serves as a formal declaration of intent for the student named below to participate in the Noble's Martial Arts Black Belt Test.</p>
+    <hr style="border:none;border-top:1px solid #999;margin-bottom:18px;">
+
+    <div style="font-size:15px;font-weight:700;color:#111;margin-bottom:10px;">Candidate Information</div>
+    <div style="font-size:13px;color:#222;margin-bottom:10px;">Student Name: <span style="border-bottom:1px solid #333;padding-bottom:2px;font-weight:700;">${name}</span></div>
+    <div style="font-size:13px;color:#222;margin-bottom:18px;">Test Date: <span style="border-bottom:1px solid #333;padding-bottom:2px;font-weight:700;">${testDate}</span></div>
+    <hr style="border:none;border-top:1px solid #999;margin-bottom:18px;">
+
+    <div style="font-size:17px;font-weight:700;color:#111;margin-bottom:10px;">Parent/Guardian Affirmation</div>
+    <p style="font-size:13px;line-height:1.7;color:#222;margin-bottom:10px;">By signing below, I affirm that my child has consistently demonstrated the character of a Black Belt within our home and community.</p>
+    <p style="font-size:13px;line-height:1.7;color:#222;margin-bottom:10px;">I recognize that Black Belt excellence extends beyond the dojo &mdash; it is reflected in responsibility, integrity, self-discipline, respect, and perseverance.</p>
+    <p style="font-size:13px;line-height:1.7;color:#222;margin-bottom:10px;">I believe my child has shown growth not only in physical skill, but in mindset, maturity, and leadership.</p>
+    <p style="font-size:13px;line-height:1.7;color:#222;margin-bottom:16px;">I give my full permission and support for my child to undertake the Noble's Martial Arts Black Belt Test, understanding the physical and mental demands it requires.</p>
+    <div style="font-size:13px;color:#222;margin-bottom:14px;">Parent/Guardian Name (Printed): <span style="border-bottom:1px solid #333;display:inline-block;min-width:260px;">&nbsp;</span></div>
+    <div style="font-size:13px;color:#222;margin-bottom:14px;">Parent/Guardian Signature: <span style="border-bottom:1px solid #333;display:inline-block;min-width:260px;">&nbsp;</span></div>
+    <div style="font-size:13px;color:#222;">Date: <span style="border-bottom:1px solid #333;display:inline-block;min-width:160px;">&nbsp;</span></div>
+  </div>
+  <div class="letter-page" id="bb-letter-${s.id}-p2" style="font-family:Georgia,serif;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:17px;font-weight:700;color:#111;">Student Commitment</div>
+      ${logo}
+    </div>
+    <p style="font-size:13px;line-height:1.7;color:#222;margin-bottom:10px;">By signing below, I declare that I am ready to face the challenge of the Black Belt Test.</p>
+    <p style="font-size:13px;line-height:1.7;color:#222;margin-bottom:10px;">I understand that this test will push me physically, mentally, and emotionally. I accept that it will require endurance, focus, determination, and heart.</p>
+    <p style="font-size:13px;line-height:1.7;color:#222;margin-bottom:10px;">I believe that I have prepared to the best of my ability. I am willing to give my full effort, to demonstrate courage under pressure, and to uphold the standards of Noble's Martial Arts.</p>
+    <p style="font-size:13px;line-height:1.7;color:#222;margin-bottom:16px;">I seek to earn my place among the ranks of NMA Black Belts &mdash; a community of dedicated martial artists who lead by example.</p>
+    <div style="font-size:13px;color:#222;margin-bottom:14px;">Student Name (Printed): <span style="border-bottom:1px solid #333;display:inline-block;min-width:260px;">&nbsp;</span></div>
+    <div style="font-size:13px;color:#222;margin-bottom:14px;">Student Signature: <span style="border-bottom:1px solid #333;display:inline-block;min-width:260px;">&nbsp;</span></div>
+    <div style="font-size:13px;color:#222;margin-bottom:18px;">Date: <span style="border-bottom:1px solid #333;display:inline-block;min-width:160px;">&nbsp;</span></div>
+    <hr style="border:none;border-top:1px solid #999;margin-bottom:18px;">
+
+    <div style="font-size:17px;font-weight:700;color:#111;margin-bottom:10px;">Instructor Endorsement</div>
+    <p style="font-size:13px;line-height:1.7;color:#222;margin-bottom:10px;">By signing below, I formally acknowledge that this candidate has demonstrated the technical proficiency, physical preparedness, mental discipline, and character expected of a Black Belt candidate at Noble's Martial Arts.</p>
+    <p style="font-size:13px;line-height:1.7;color:#222;margin-bottom:10px;">I believe this student has shown perseverance through adversity, consistency in training, and the leadership qualities that align with the expectations of a Black Belt.</p>
+    <p style="font-size:13px;line-height:1.7;color:#222;margin-bottom:16px;">It is my professional judgment that this student is prepared to undertake the Noble's Martial Arts Black Belt Test.</p>
+    <div style="font-size:13px;color:#222;margin-bottom:14px;">Instructor Signature: <span style="border-bottom:1px solid #333;display:inline-block;min-width:260px;">&nbsp;</span></div>
+    <div style="font-size:13px;color:#222;line-height:1.6;margin-bottom:14px;">Brandon Noble<br>Head Instructor<br>Noble's Martial Arts</div>
+    <div style="font-size:13px;color:#222;margin-bottom:18px;">Date: <span style="border-bottom:1px solid #333;display:inline-block;min-width:160px;">&nbsp;</span></div>
+    <hr style="border:none;border-top:1px solid #999;margin-bottom:18px;">
+    <p style="font-size:13px;font-weight:700;text-align:center;color:#111;font-style:italic;">&ldquo;A Black Belt is not a destination, it is a commitment to never stop growing.&rdquo;</p>
+  </div>`;
 }
 
 function printLettersOnly(){
