@@ -97,6 +97,11 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
 .seg-toggle{display:flex;gap:6px;}
 .seg-btn{flex:1;padding:9px 10px;border:1px solid var(--border);background:var(--paper);border-radius:8px;font-size:13px;font-weight:500;color:var(--ink-muted);cursor:pointer;}
 .seg-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+.qab-chip{border:1px solid transparent;border-radius:16px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:transform .08s;}
+.qab-chip:hover{transform:translateY(-1px);filter:brightness(1.06);}
+.qab-chip:active{transform:translateY(0);}
+.inv-price-input{width:64px;padding:4px 6px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--paper);color:var(--ink);}
+.inv-price-input:focus{outline:none;border-color:var(--ink);}
 .form-input{border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-family:var(--font-body);font-size:13px;background:var(--paper);color:var(--ink);outline:none;width:100%;}
 .form-select{border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-family:var(--font-body);font-size:13px;background:var(--paper);color:var(--ink);cursor:pointer;outline:none;width:100%;}
 .checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;}
@@ -934,6 +939,15 @@ tbody td{font-size:11px!important;}
     <div style="display:flex;gap:8px;"><button class="btn" onclick="openInvModal()">+ Add Item</button><button class="btn primary" onclick="openOrderModal()">+ Log Order</button></div>
   </div>
   <div class="section-divider"><span>Belt &amp; uniform inventory</span></div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px;">
+      <span style="font-size:12px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em;">⚡ Quick add belt</span>
+      <span style="font-size:11px;color:var(--ink-faint);">— click a belt to add 1 (creates it if new, bumps qty if it already exists)</span>
+      <button class="btn small" onclick="applyDefaultBeltCosts()" title="Fills in $1.99 / $3.49 wholesale for any belt rows still at $0 — won't touch costs you've already set" style="margin-left:auto;">💲 Apply default costs</button>
+      <select class="form-select" id="quick-add-size" style="width:auto;padding:4px 8px;font-size:12px;"><option>000</option><option>00</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select>
+    </div>
+    <div id="quick-add-belts" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+  </div>
   <div class="table-wrap" style="margin-bottom:20px;"><table><thead><tr><th>Type</th><th>Item</th><th>Size</th><th>Qty</th><th>Wholesale</th><th>Sell price</th><th>Margin</th><th></th></tr></thead><tbody id="belt-inv-tbody"></tbody></table></div>
   <div class="section-divider"><span>Order log</span></div>
   <div class="table-wrap"><table><thead><tr><th>Student</th><th>Item</th><th>Date</th><th>Cost</th><th>Charged</th><th>Margin</th><th>Notes</th></tr></thead><tbody id="order-tbody"></tbody></table></div>
@@ -1878,7 +1892,7 @@ tbody td{font-size:11px!important;}
           </div>
         </div>
         <div class="form-group" id="inv-color-group"><label class="form-label">Belt color</label>
-          <select class="form-select" id="inv-color"><option value="">— Select belt —</option></select>
+          <select class="form-select" id="inv-color" onchange="if($('inv-cost').value==='')$('inv-cost').value=defaultBeltCost(this.value)||'';"><option value="">— Select belt —</option></select>
         </div>
         <div class="form-group" id="inv-uniform-name-group" style="display:none;"><label class="form-label">Uniform item</label>
           <select class="form-select" id="inv-uniform-name">
@@ -3537,16 +3551,7 @@ function renderBeltOrder(){
   const ev=DB.testEvents.find(e=>e.id===evId);
   const isBBTest=ev&&ev.type==='Black Belt Test';
 
-  // Master rank order for sorting (all belts in rank sequence)
-  const RANK_ORDER=[
-    'LD White','LD Yellow','LD Orange','LD Purple','LD Blue','LD Green','LD Brown','LD Red','LD Black',
-    'White','Yellow','Yellow II','Orange','Orange II',
-    'Purple','Purple II','Blue','Blue II','Green','Green II',
-    'Brown','Brown II','Brown III',
-    'Red','Red.5','Red II','Red II.5','Red III','Black Belt Candidate',
-    'BB White','BB Yellow','BB Orange','BB Purple','BB Blue','BB Green','BB Brown','BB Red'
-  ];
-  const rankIndex=b=>{ const i=RANK_ORDER.indexOf(b); return i===-1?999:i; };
+  // (RANK_ORDER / rankIndex are now defined globally, shared with the Inventory page)
 
   // getNextBelt with BB test gate: Black Belt Candidate only promotes to BB White during a Black Belt Test
   function getNextBeltForOrder(s){
@@ -3577,15 +3582,42 @@ function printBeltOrder(){const c=$('printable-order');if(!c){alert('Generate an
 // INVENTORY
 // ══════════════════════════════════════════════════════
 // Orderable belts only — half-ranks and titles with no physical belt are excluded
+// Master rank order for sorting (all belts in rank sequence)
+const RANK_ORDER=[
+  'LD White','LD Yellow','LD Orange','LD Purple','LD Blue','LD Green','LD Brown','LD Red','LD Black',
+  'White','Yellow','Yellow II','Orange','Orange II',
+  'Purple','Purple II','Blue','Blue II','Green','Green II',
+  'Brown','Brown II','Brown III',
+  'Red','Red.5','Red II','Red II.5','Red III','Black Belt Candidate',
+  'BB White','BB Yellow','BB Orange','BB Purple','BB Blue','BB Green','BB Brown','BB Red'
+];
+const rankIndex=b=>{ const i=RANK_ORDER.indexOf(b); return i===-1?999:i; };
 const ORDERABLE_BELTS=Object.keys(BELT_COLORS).filter(b=>!NO_BELT_RANKS.has(b));
+// Wholesale cost rule: all belts $1.99, except LD belts (excluding LD White) and Brown III at $3.49
+function defaultBeltCost(belt){
+  if(belt==='Brown III')return 3.49;
+  if(belt&&belt.startsWith('LD ')&&belt!=='LD White')return 3.49;
+  return 1.99;
+}
 function invItemLabel(item){return item.type==='uniform'?(item.uniformName||'Uniform'):item.color;}
 function renderInventory(){
-  $('belt-inv-tbody').innerHTML=DB.inventory.length?DB.inventory.map(item=>{
+  renderQuickAddBelts();
+  const belts=DB.inventory.filter(i=>(i.type||'belt')==='belt')
+    .sort((a,b)=>rankIndex(a.color)-rankIndex(b.color)||String(a.size).localeCompare(b.size,undefined,{numeric:true}));
+  const uniforms=DB.inventory.filter(i=>i.type==='uniform')
+    .sort((a,b)=>(a.uniformName||'').localeCompare(b.uniformName||'')||String(a.size).localeCompare(b.size,undefined,{numeric:true}));
+  const row=item=>{
     const m=(+item.sell||0)-(+item.cost||0);
     const isUniform=item.type==='uniform';
     const label=isUniform?`<span class="badge badge-gray">${item.uniformName||'Uniform'}</span>`:`<span class="belt-pill" style="${beltStyle(item.color)}">${item.color}</span>`;
-    return `<tr><td style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;">${isUniform?'👕 Uniform':'🥋 Belt'}</td><td>${label}</td><td>${item.size}</td><td><div style="display:flex;align-items:center;gap:5px;"><button class="btn ghost" onclick="adjustInv(${item.id},-1)">−</button><strong>${item.qty}</strong><button class="btn ghost" onclick="adjustInv(${item.id},1)">+</button></div></td><td>${item.cost?fmt$(item.cost):'—'}</td><td>${item.sell?fmt$(item.sell):'—'}</td><td><span class="badge ${m>0?'badge-green':m<0?'badge-red':'badge-gray'}">${m>=0?'+':''}${fmt$(m)}</span></td><td><button class="btn small" onclick="deleteInv(${item.id})">✕</button></td></tr>`;
-  }).join(''):'<tr><td colspan="8" style="text-align:center;padding:16px;color:var(--ink-muted);">No inventory yet</td></tr>';
+    const low=item.qty>0&&item.qty<=2;
+    return `<tr${item.qty===0?' style="opacity:.55;"':''}><td style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;">${isUniform?'👕':'🥋'}</td><td>${label}</td><td style="color:var(--ink-muted);">${item.size}</td><td><div style="display:flex;align-items:center;gap:5px;"><button class="btn ghost" onclick="adjustInv(${item.id},-1)">−</button><strong style="min-width:16px;text-align:center;display:inline-block;${item.qty===0?'color:var(--red);':low?'color:#b45309;':''}">${item.qty}</strong><button class="btn ghost" onclick="adjustInv(${item.id},1)">+</button></div></td><td><input type="number" step="0.01" class="inv-price-input" value="${item.cost||''}" placeholder="0.00" onchange="updateInvPrice(${item.id},'cost',this.value)"></td><td><input type="number" step="0.01" class="inv-price-input" value="${item.sell||''}" placeholder="0.00" onchange="updateInvPrice(${item.id},'sell',this.value)"></td><td><span class="badge ${m>0?'badge-green':m<0?'badge-red':'badge-gray'}">${m>=0?'+':''}${fmt$(m)}</span></td><td><button class="btn small" onclick="deleteInv(${item.id})">✕</button></td></tr>`;
+  };
+  const sectionRow=(label,count)=>`<tr class="inv-section-row"><td colspan="8" style="padding:9px 8px 5px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);border-top:1px solid var(--border);">${label} <span style="font-weight:400;color:var(--ink-faint);">(${count})</span></td></tr>`;
+  let html='';
+  if(belts.length)html+=sectionRow('Belts',belts.length)+belts.map(row).join('');
+  if(uniforms.length)html+=sectionRow('Uniforms',uniforms.length)+uniforms.map(row).join('');
+  $('belt-inv-tbody').innerHTML=html||'<tr><td colspan="8" style="text-align:center;padding:16px;color:var(--ink-muted);">No inventory yet</td></tr>';
   $('order-tbody').innerHTML=DB.orders.length?DB.orders.map(o=>{const s=DB.students.find(x=>x.id===o.studentId);const m=(+o.charged||0)-(+o.cost||0);return `<tr><td>${s?s.first+' '+s.last:'—'}</td><td>${o.item}</td><td>${fmtDate(o.date)}</td><td>${fmt$(o.cost)}</td><td>${fmt$(o.charged)}</td><td><span class="badge ${m>=0?'badge-green':'badge-red'}">${m>=0?'+':''}${fmt$(m)}</span></td><td style="font-size:12px;color:var(--ink-muted);">${o.notes||'—'}</td></tr>`;}).join(''):'<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--ink-muted);">No orders logged</td></tr>';
   const tC=DB.orders.reduce((a,o)=>a+(+o.cost||0),0),tR=DB.orders.reduce((a,o)=>a+(+o.charged||0),0);
   $('inv-profit-summary').innerHTML=`<div style="display:flex;gap:26px;flex-wrap:wrap;"><div><div style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Total cost paid</div><div style="font-family:var(--font-display);font-size:19px;font-weight:700;color:var(--red);">${fmt$(tC)}</div></div><div><div style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Total charged</div><div style="font-family:var(--font-display);font-size:19px;font-weight:700;color:var(--green);">${fmt$(tR)}</div></div><div><div style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Net margin</div><div style="font-family:var(--font-display);font-size:19px;font-weight:700;color:${tR-tC>=0?'var(--green)':'var(--red)'};">${tR-tC>=0?'+':''}${fmt$(tR-tC)}</div></div></div>`;
@@ -3618,6 +3650,34 @@ function saveInvItem(){
 }
 function adjustInv(id,delta){const item=DB.inventory.find(i=>i.id===id);if(!item)return;item.qty=Math.max(0,item.qty+delta);save();renderInventory();}
 function deleteInv(id){DB.inventory=DB.inventory.filter(i=>i.id!==id);save();renderInventory();}
+function updateInvPrice(id,field,val){
+  const item=DB.inventory.find(i=>i.id===id);if(!item)return;
+  item[field]=val===''?0:parseFloat(val)||0;
+  save();renderInventory();
+}
+function renderQuickAddBelts(){
+  const el=$('quick-add-belts');if(!el)return;
+  el.innerHTML=ORDERABLE_BELTS.map(b=>{
+    const style=beltStyle(b);
+    return `<button type="button" class="qab-chip" style="${style}" onclick="quickAddBelt('${b.replace(/'/g,"\\'")}')" title="Add 1 ${b}">${b}</button>`;
+  }).join('');
+}
+function quickAddBelt(belt){
+  const size=$('quick-add-size')?.value||'0';
+  const existing=DB.inventory.find(i=>(i.type||'belt')==='belt'&&i.color===belt&&i.size===size);
+  if(existing){existing.qty++;}
+  else{DB.inventory.push({id:DB.nextId++,type:'belt',color:belt,size,qty:1,cost:defaultBeltCost(belt),sell:0});}
+  save();renderInventory();
+  toast(`+1 ${belt} (sz ${size})`);
+}
+function applyDefaultBeltCosts(){
+  const targets=DB.inventory.filter(i=>(i.type||'belt')==='belt'&&(!i.cost||i.cost===0));
+  if(!targets.length){toast('All belts already have a wholesale cost set.');return;}
+  if(!confirm(`Set default wholesale cost ($1.99, or $3.49 for LD belts and Brown III) on ${targets.length} belt row(s) currently at $0? This won't touch belts that already have a cost.`))return;
+  targets.forEach(i=>i.cost=defaultBeltCost(i.color));
+  save();renderInventory();
+  toast(`Updated wholesale cost on ${targets.length} belt row(s).`);
+}
 function openOrderModal(){['ord-item','ord-cost','ord-charged','ord-notes'].forEach(id=>$(id).value='');$('ord-date').value=new Date().toISOString().slice(0,10);renderInventory();$('modal-order').classList.add('open');}
 function saveOrder(){const sid=parseInt($('ord-student').value),item=$('ord-item').value.trim();if(!item){alert('Item required.');return;}DB.orders.push({id:DB.nextId++,studentId:sid,item,date:$('ord-date').value,cost:parseFloat($('ord-cost').value)||0,charged:parseFloat($('ord-charged').value)||0,notes:$('ord-notes').value.trim()});save();closeModal('modal-order');renderInventory();toast('Order logged!');}
 // Belt stock lookup used by the Belt Order page and by auto-consume on promotion
