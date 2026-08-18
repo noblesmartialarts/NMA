@@ -942,9 +942,8 @@ tbody td{font-size:11px!important;}
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px;">
       <span style="font-size:12px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em;">⚡ Quick add belt</span>
-      <span style="font-size:11px;color:var(--ink-faint);">— click a belt to add 1 (creates it if new, bumps qty if it already exists)</span>
+      <span style="font-size:11px;color:var(--ink-faint);">— click a belt, then pick a size</span>
       <button class="btn small" onclick="applyDefaultBeltCosts()" title="Fills in $1.99 / $3.49 wholesale for any belt rows still at $0 — won't touch costs you've already set" style="margin-left:auto;">💲 Apply default costs</button>
-      <select class="form-select" id="quick-add-size" style="width:auto;padding:4px 8px;font-size:12px;"><option>000</option><option>00</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select>
     </div>
     <div id="quick-add-belts" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
   </div>
@@ -1908,6 +1907,16 @@ tbody td{font-size:11px!important;}
       </div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('modal-inv')">Cancel</button><button class="btn primary" onclick="saveInvItem()">Add</button></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-quick-size">
+  <div class="modal" style="max-width:340px;">
+    <div class="modal-header"><div class="modal-title">Size?</div><button class="btn ghost" onclick="closeModal('modal-quick-size')">✕</button></div>
+    <div class="modal-body">
+      <div id="quick-size-belt-label" style="margin-bottom:10px;"></div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;" id="quick-size-grid"></div>
+    </div>
   </div>
 </div>
 
@@ -3662,13 +3671,22 @@ function renderQuickAddBelts(){
     return `<button type="button" class="qab-chip" style="${style}" onclick="quickAddBelt('${b.replace(/'/g,"\\'")}')" title="Add 1 ${b}">${b}</button>`;
   }).join('');
 }
+let quickAddPendingBelt=null;
+const QUICK_ADD_SIZES=['000','00','0','1','2','3','4','5','6','7'];
 function quickAddBelt(belt){
-  const size=$('quick-add-size')?.value||'0';
+  quickAddPendingBelt=belt;
+  $('quick-size-belt-label').innerHTML=`<span class="belt-pill" style="${beltStyle(belt)}">${belt}</span> <span style="font-size:12px;color:var(--ink-muted);">— pick a size to add 1</span>`;
+  $('quick-size-grid').innerHTML=QUICK_ADD_SIZES.map(sz=>`<button type="button" class="btn small" onclick="confirmQuickAddSize('${sz}')">${sz}</button>`).join('');
+  $('modal-quick-size').classList.add('open');
+}
+function confirmQuickAddSize(size){
+  const belt=quickAddPendingBelt;if(!belt)return;
   const existing=DB.inventory.find(i=>(i.type||'belt')==='belt'&&i.color===belt&&i.size===size);
   if(existing){existing.qty++;}
   else{DB.inventory.push({id:DB.nextId++,type:'belt',color:belt,size,qty:1,cost:defaultBeltCost(belt),sell:0});}
-  save();renderInventory();
+  save();closeModal('modal-quick-size');renderInventory();
   toast(`+1 ${belt} (sz ${size})`);
+  quickAddPendingBelt=null;
 }
 function applyDefaultBeltCosts(){
   const targets=DB.inventory.filter(i=>(i.type||'belt')==='belt'&&(!i.cost||i.cost===0));
