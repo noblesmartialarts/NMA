@@ -776,6 +776,8 @@ tbody td{font-size:11px!important;}
   </div>
   <div class="section-divider"><span>Scheduled events</span></div>
   <div id="test-events-list" style="margin-bottom:20px;"></div>
+  <div class="section-divider"><span>🥋 Black Belt Test Forecast</span></div>
+  <div id="bb-forecast-area" style="margin-bottom:20px;"></div>
   <div class="section-divider"><span>Eligibility &amp; fee tracking</span></div>
   <div class="table-wrap">
     <div class="table-toolbar">
@@ -805,7 +807,9 @@ tbody td{font-size:11px!important;}
   <div class="section-divider"><span>Monthly registrations</span></div>
   <div class="table-wrap" style="margin-bottom:20px;"><table><thead><tr><th style="width:28px;"><input type="checkbox" id="reg-check-all" onchange="toggleAllReg(this.checked)" title="Select all"></th><th>Student</th><th>Group</th><th>Status</th><th>Payment</th><th>Actions</th></tr></thead><tbody id="reg-tbody"></tbody></table></div>
   <div class="section-divider"><span>Belt test fee log</span></div>
-  <div class="table-wrap"><table><thead><tr><th>Student</th><th>Test event</th><th>Fee</th><th>Date paid</th></tr></thead><tbody id="fee-tbody"></tbody></table></div>
+  <div class="table-wrap"><table><thead><tr><th>Student</th><th>Test event</th><th>Belt tested for</th><th>Fee</th><th>Date paid</th></tr></thead><tbody id="fee-tbody"></tbody></table></div>
+  <div class="section-divider"><span>Revenue by belt promoted to</span></div>
+  <div class="table-wrap" style="margin-bottom:20px;"><table><thead><tr><th>Belt</th><th># Promotions (paid)</th><th>Revenue</th></tr></thead><tbody id="belt-revenue-tbody"></tbody></table></div>
   <div class="section-divider"><span>Month-by-month revenue history</span></div>
   <div id="rev-month-history"></div>
 </div>
@@ -1865,7 +1869,7 @@ tbody td{font-size:11px!important;}
 
 <div class="modal-backdrop" id="modal-test">
   <div class="modal" style="max-width:460px;">
-    <div class="modal-header"><div class="modal-title">Schedule Test Event</div><button class="btn ghost" onclick="closeModal('modal-test')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="test-modal-title">Schedule Test Event</div><button class="btn ghost" onclick="closeModal('modal-test')">✕</button></div>
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group"><label class="form-label">Event name</label><input class="form-input" id="te-name" placeholder="e.g. June Belt Test"></div>
@@ -1875,6 +1879,21 @@ tbody td{font-size:11px!important;}
       </div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('modal-test')">Cancel</button><button class="btn primary" onclick="saveTestEvent()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-jrbb-cert">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header"><div class="modal-title">🎖 Junior Black Belt Certificate</div><button class="btn ghost" onclick="closeModal('modal-jrbb-cert')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="jrbb-cert-sid">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Name on certificate</label><input class="form-input" id="jrbb-cert-name"></div>
+        <div class="form-group"><label class="form-label">Date of promotion</label><input class="form-input" id="jrbb-cert-date" type="date"></div>
+      </div>
+      <div style="font-size:12px;color:var(--ink-muted);margin-top:8px;">Opens a print-ready page using the official Jr Black Belt certificate design. Review the name/date, then print or save as PDF.</div>
+    </div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('modal-jrbb-cert')">Cancel</button><button class="btn primary" onclick="printJrBlackBeltCertificate()">🖨 Print Certificate</button></div>
   </div>
 </div>
 
@@ -2883,7 +2902,7 @@ function openProfile(id){
         <div class="prof-avatar">${initials(s)}</div>
         <div><div class="prof-name">${s.first} ${s.last}</div><div class="prof-sub">${s.group} · ${s.status}</div><div class="flags" style="margin-top:5px;">${flags.join('')}</div></div>
         <div class="spacer"></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">${promo?`<button class="btn success" onclick="promoteBelt(${s.id})">🎖 Promote → ${promo.belt}</button>`:''}${s.phone?`<button class="btn" onclick="smsOneStudent(${s.id})" title="Send SMS">📱 Text</button>`:''}<button class="btn primary" onclick="openEditStudent(${s.id})">Edit</button><button class="btn" onclick="openMergeStudent(${s.id})" title="Merge with another student">⇔ Merge</button></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${promo?`<button class="btn success" onclick="promoteBelt(${s.id})">🎖 Promote → ${promo.belt}</button>`:''}${s.group==='Legends Club'?`<button class="btn" onclick="openJrBBCertModal(${s.id})" title="Print/reprint Junior Black Belt certificate">🏆 Jr BB Certificate</button>`:''}${s.phone?`<button class="btn" onclick="smsOneStudent(${s.id})" title="Send SMS">📱 Text</button>`:''}<button class="btn primary" onclick="openEditStudent(${s.id})">Edit</button><button class="btn" onclick="openMergeStudent(${s.id})" title="Merge with another student">⇔ Merge</button></div>
       </div>
       <div class="prof-grid">
         <div class="pf"><label>Current belt</label><p><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></p></div>
@@ -3339,7 +3358,85 @@ function ciToggleLeader(id) {
 // ══════════════════════════════════════════════════════
 // BELT TESTING
 // ══════════════════════════════════════════════════════
-function renderTesting(){renderTestEvents();renderTestSelect();renderTestEligibility();}
+function renderTesting(){renderTestEvents();renderTestSelect();renderTestEligibility();renderBBForecast();}
+
+// ══════════════════════════════════════════════════════
+// BLACK BELT TEST FORECAST (pace-based projection)
+// ══════════════════════════════════════════════════════
+function computeGlobalAvgPromoIntervalDays(){
+  const diffs=[];
+  DB.students.forEach(s=>{
+    const promos=(s.history||[]).filter(h=>h.type==='promo').map(h=>h.date).sort();
+    for(let i=1;i<promos.length;i++){
+      const d=(new Date(promos[i])-new Date(promos[i-1]))/86400000;
+      if(d>0&&d<365)diffs.push(d);
+    }
+  });
+  if(!diffs.length)return 75;
+  return diffs.reduce((a,b)=>a+b,0)/diffs.length;
+}
+function studentAvgPromoIntervalDays(s){
+  const promos=(s.history||[]).filter(h=>h.type==='promo').map(h=>h.date).sort();
+  if(promos.length<2)return null;
+  const diffs=[];
+  for(let i=1;i<promos.length;i++){
+    const d=(new Date(promos[i])-new Date(promos[i-1]))/86400000;
+    if(d>0&&d<365)diffs.push(d);
+  }
+  if(!diffs.length)return null;
+  return diffs.reduce((a,b)=>a+b,0)/diffs.length;
+}
+function renderBBForecast(){
+  const el=$('bb-forecast-area');if(!el)return;
+  const today=new Date().toISOString().slice(0,10);
+  const nextBB=DB.testEvents.filter(e=>e.type==='Black Belt Test'&&e.date>=today).sort((a,b)=>a.date.localeCompare(b.date))[0];
+  const globalAvg=computeGlobalAvgPromoIntervalDays();
+  const mPath=BELT_PATHS["Master's Club"];
+  const candIdx=mPath.indexOf('Black Belt Candidate');
+  const redIdx=mPath.indexOf('Red');
+  const pool=DB.students.filter(s=>s.status==='Active'&&(
+    (s.group==="Master's Club"&&mPath.indexOf(s.belt)>=redIdx) ||
+    (s.group==='Legends Club'&&s.belt==='BB Red')
+  ));
+  if(!pool.length){el.innerHTML='<div style="color:var(--ink-muted);font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">No students in the Red/Candidate pipeline yet.</div>';return;}
+  const rows=pool.map(s=>{
+    let remaining;
+    if(s.belt==='Black Belt Candidate'||s.belt==='BB Red'){
+      remaining=0;
+    } else {
+      const curIdx=mPath.indexOf(s.belt);
+      const stepsLeft=candIdx-curIdx;
+      const progress=stripeCount(s)/maxStripes(s);
+      remaining=Math.max(0,stepsLeft-progress);
+    }
+    const pace=studentAvgPromoIntervalDays(s)||globalAvg;
+    const projDays=Math.round(remaining*pace);
+    const projDate=new Date();projDate.setDate(projDate.getDate()+projDays);
+    const projDateStr=projDate.toISOString().slice(0,10);
+    let status,badgeClass;
+    if(remaining<=0){status='Ready now';badgeClass='badge-green';}
+    else if(nextBB&&projDateStr<=nextBB.date){status='On pace';badgeClass='badge-green';}
+    else if(nextBB){status='Behind pace';badgeClass='badge-amber';}
+    else {status='Pace only — no BB test scheduled';badgeClass='badge-gray';}
+    return {s,remaining,projDateStr,status,badgeClass};
+  }).sort((a,b)=>a.remaining-b.remaining);
+  el.innerHTML=`
+    <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">
+      ${nextBB?`Next Black Belt Test: <strong>${fmtFull(nextBB.date)}</strong>`:'No upcoming Black Belt Test scheduled — projections show estimated readiness only.'}
+      · Pace estimated from each student's own promotion history, falling back to the school average of ${Math.round(globalAvg)} days/rank when a student doesn't have enough history yet.
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Student</th><th>Current Belt</th><th>Stripes</th><th>Ranks to go</th><th>Est. ready date</th><th>Status</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr>
+        <td><strong>${r.s.first} ${r.s.last}</strong><div style="font-size:11px;color:var(--ink-muted);">${r.s.group}</div></td>
+        <td><span class="belt-pill" style="${beltStyle(r.s.belt)}">${r.s.belt}</span></td>
+        <td>${stripeDots(r.s.stripes,maxStripes(r.s))}</td>
+        <td>${r.remaining<=0?'—':r.remaining.toFixed(1)}</td>
+        <td style="font-size:12px;">${r.remaining<=0?'Now':fmtDate(r.projDateStr)}</td>
+        <td><span class="badge ${r.badgeClass}">${r.status}</span></td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+}
 function renderTestEvents(){
   const el=$('test-events-list');
   el.innerHTML=DB.testEvents.length===0?
@@ -3354,6 +3451,7 @@ function renderTestEvents(){
       <div class="spacer"></div>
       <span class="badge ${e.type==='Stripe Test'?'badge-amber':e.type==='Black Belt Test'?'badge-dark':'badge-green'}">${e.type}</span>
       ${!e.completed?`<button class="btn small success" onclick="logTestComplete(${e.id})">✓ Log Complete</button>`:''}
+      <button class="btn small" onclick="openEditTestEvent(${e.id})">Edit</button>
       <button class="btn small danger" onclick="deleteTestEvent(${e.id})">✕</button>
     </div>`).join('');
 }
@@ -3407,19 +3505,40 @@ function clearIntentLetterOverrides(){
 }
 
 function toggleFee(evId,sid,paid){
+  const s=DB.students.find(x=>x.id===sid);
+  const beltTested=paid&&s?(getPromotion(s)?.belt||s.belt):null;
   const idx=DB.testFees.findIndex(f=>f.eventId===evId&&f.studentId===sid);
-  if(idx>=0){DB.testFees[idx].paid=paid;DB.testFees[idx].datePaid=paid?new Date().toISOString().slice(0,10):null;}
-  else DB.testFees.push({eventId:evId,studentId:sid,paid,datePaid:paid?new Date().toISOString().slice(0,10):null});
-  save();toast(paid?'Fee marked paid.':'Fee unmarked.');
+  if(idx>=0){DB.testFees[idx].paid=paid;DB.testFees[idx].datePaid=paid?new Date().toISOString().slice(0,10):null;if(beltTested)DB.testFees[idx].belt=beltTested;}
+  else DB.testFees.push({eventId:evId,studentId:sid,paid,datePaid:paid?new Date().toISOString().slice(0,10):null,belt:beltTested});
+  save();renderRevenue();toast(paid?'Fee marked paid.':'Fee unmarked.');
 }
+let _editingTestEventId=null;
 function openTestModal(){
+  _editingTestEventId=null;
+  $('test-modal-title').textContent='Schedule Test Event';
   $('te-name').value='';$('te-date').value=new Date().toISOString().slice(0,10);
   $('te-type').value='Stripe Test';$('te-fee').value='0';$('modal-test').classList.add('open');
+}
+function openEditTestEvent(id){
+  const ev=DB.testEvents.find(e=>e.id===id);if(!ev)return;
+  _editingTestEventId=id;
+  $('test-modal-title').textContent='Edit Test Event';
+  $('te-name').value=ev.name;$('te-date').value=ev.date;
+  $('te-type').value=ev.type;$('te-fee').value=ev.fee;
+  $('modal-test').classList.add('open');
 }
 function saveTestEvent(){
   const name=$('te-name').value.trim(),date=$('te-date').value;
   if(!name||!date){alert('Name and date required.');return;}
-  DB.testEvents.push({id:DB.nextId++,name,date,type:$('te-type').value,fee:parseFloat($('te-fee').value)||0});
+  const type=$('te-type').value,fee=parseFloat($('te-fee').value)||0;
+  if(_editingTestEventId!=null){
+    const ev=DB.testEvents.find(e=>e.id===_editingTestEventId);
+    if(ev){ev.name=name;ev.date=date;ev.type=type;ev.fee=fee;}
+    _editingTestEventId=null;
+    save();closeModal('modal-test');renderTesting();renderDashboard();toast('Test event updated!');
+    return;
+  }
+  DB.testEvents.push({id:DB.nextId++,name,date,type,fee});
   save();closeModal('modal-test');renderTesting();toast('Test event added!');
 }
 function deleteTestEvent(id){if(!confirm('Delete this event?'))return;DB.testEvents=DB.testEvents.filter(e=>e.id!==id);DB.testFees=DB.testFees.filter(f=>f.eventId!==id);save();renderTesting();}
@@ -3460,6 +3579,7 @@ function promoteBelt(sid){
   const s=DB.students.find(x=>x.id===parseInt(sid));if(!s)return;
   const promo=getPromotion(s);if(!promo){toast('No next belt defined.');return;}
   const cross=promo.group!==s.group;
+  const isJrBB=isBlackBeltLetterCase(s);
   if(!confirm(`Promote ${s.first} ${s.last}?\n${s.belt} → ${promo.belt}${cross?'\nGroup: '+s.group+' → '+promo.group:''}\n\nStripes reset to 0.`))return;
   DB.promotions.push({studentId:s.id,date:new Date().toISOString().slice(0,10),fromBelt:s.belt,fromGroup:s.group,toBelt:promo.belt,toGroup:promo.group});
   addHistory(s,'promo',`Promoted: ${s.belt} → ${promo.belt}${cross?' (→ '+promo.group+')':''}`);
@@ -3468,6 +3588,7 @@ function promoteBelt(sid){
   save();
   if($('roster-list-view').style.display!=='none')renderRoster();else openProfile(s.id);
   toast(`${s.first} promoted to ${promo.belt}!`);
+  if(isJrBB)setTimeout(()=>openJrBBCertModal(s.id),400);
 }
 
 let massPromoState={};
@@ -3507,14 +3628,21 @@ function runMassPromo(){
   if(!toPromote.length){alert('No students selected.');return;}
   if(!confirm(`Promote ${toPromote.length} student(s)?`))return;
   let count=0;
+  const jrbbIds=[];
   toPromote.forEach(([sid,state])=>{
     const s=DB.students.find(x=>x.id===parseInt(sid));if(!s)return;
+    if(isBlackBeltLetterCase(s))jrbbIds.push(s.id);
     DB.promotions.push({studentId:s.id,date:new Date().toISOString().slice(0,10),fromBelt:s.belt,fromGroup:s.group,toBelt:state.promo.belt,toGroup:state.promo.group});
     addHistory(s,'promo',`Promoted: ${s.belt} → ${state.promo.belt}`);
     s.belt=state.promo.belt;s.group=state.promo.group;s.stripes=0;count++;
     if(!NO_BELT_RANKS.has(state.promo.belt))consumeBeltStock(state.promo.belt,s.beltSize);
   });
   save();closeModal('modal-mass-promo');renderTesting();renderDashboard();toast(`${count} student(s) promoted!`);
+  if(jrbbIds.length===1){
+    setTimeout(()=>openJrBBCertModal(jrbbIds[0]),400);
+  } else if(jrbbIds.length>1){
+    setTimeout(()=>toast(`🎖 ${jrbbIds.length} students earned Jr Black Belt — print certificates from each profile.`),600);
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -3541,7 +3669,26 @@ function renderRevenue(){
       <button class="btn small" style="${s.omitFromReg?'border-color:var(--red);color:var(--red);':''}" onclick="toggleOmit(${s.id})">${s.omitFromReg?'Un-omit':'Omit'}</button>
     </td></tr>`;
   }).join('');
-  $('fee-tbody').innerHTML=allFees.length?allFees.map(f=>{const s=DB.students.find(x=>x.id===f.studentId);const ev=DB.testEvents.find(e=>e.id===f.eventId);return `<tr><td>${s?s.first+' '+s.last:'—'}</td><td>${ev?ev.name:'—'}</td><td><span class="badge badge-green">${ev?fmt$(ev.fee):'—'}</span></td><td style="font-size:12px;color:var(--ink-muted);">${fmtDate(f.datePaid)}</td></tr>`;}).join(''):'<tr><td colspan="4" style="text-align:center;padding:16px;color:var(--ink-muted);">No fees recorded yet</td></tr>';
+  $('fee-tbody').innerHTML=allFees.length?allFees.map(f=>{const s=DB.students.find(x=>x.id===f.studentId);const ev=DB.testEvents.find(e=>e.id===f.eventId);return `<tr><td>${s?s.first+' '+s.last:'—'}</td><td>${ev?ev.name:'—'}</td><td>${f.belt?`<span class="belt-pill" style="${beltStyle(f.belt)};font-size:11px;">${f.belt}</span>`:'<span style="color:var(--ink-faint);font-size:12px;">—</span>'}</td><td><span class="badge badge-green">${ev?fmt$(ev.fee):'—'}</span></td><td style="font-size:12px;color:var(--ink-muted);">${fmtDate(f.datePaid)}</td></tr>`;}).join(''):'<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--ink-muted);">No fees recorded yet</td></tr>';
+  renderBeltRevenue(allFees);
+}
+function renderBeltRevenue(allFees){
+  const el=$('belt-revenue-tbody');if(!el)return;
+  const byBelt={};
+  allFees.forEach(f=>{
+    const ev=DB.testEvents.find(e=>e.id===f.eventId);if(!ev)return;
+    const key=f.belt||'Unspecified (logged before belt-tracking)';
+    if(!byBelt[key])byBelt[key]={count:0,revenue:0};
+    byBelt[key].count++;byBelt[key].revenue+=ev.fee;
+  });
+  const beltOrder=Object.values(BELT_PATHS).flat();
+  const rows=Object.entries(byBelt).sort((a,b)=>{
+    const ai=beltOrder.indexOf(a[0]),bi=beltOrder.indexOf(b[0]);
+    if(ai===-1&&bi===-1)return a[0].localeCompare(b[0]);
+    if(ai===-1)return 1;if(bi===-1)return -1;
+    return ai-bi;
+  });
+  el.innerHTML=rows.length?rows.map(([belt,d])=>`<tr><td>${beltOrder.includes(belt)?`<span class="belt-pill" style="${beltStyle(belt)};font-size:11px;">${belt}</span>`:`<span style="color:var(--ink-muted);font-size:12px;">${belt}</span>`}</td><td>${d.count}</td><td><span class="badge badge-green">${fmt$(d.revenue)}</span></td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--ink-muted);">No fees recorded yet</td></tr>';
 }
 function toggleReg(id){const s=DB.students.find(x=>x.id===id);if(!s)return;s.registered=s.registered==='Yes'?'No':'Yes';if(s.registered==='Yes')addHistory(s,'reg',`Registered for ${DB.scoreboard.label||'this month'}`);save();renderRevenue();}
 function toggleVenmo(id){const s=DB.students.find(x=>x.id===id);if(!s)return;s.paidVenmo=!s.paidVenmo;if(s.paidVenmo&&s.registered!=='Yes'){s.registered='Yes';addHistory(s,'reg','Registered (Venmo)');}save();renderRevenue();toast(s.paidVenmo?'Marked Venmo — excluded from cash total.':'Venmo flag removed.');}
@@ -7296,6 +7443,50 @@ function checkAndOfferCertificate(s,fromBelt,fromGroup,toBelt,toGroup){
       }
     },300);
   }
+}
+
+// ══════════════════════════════════════════════════════
+// JUNIOR BLACK BELT CERTIFICATE (official branded template)
+// ══════════════════════════════════════════════════════
+const JRBB_CERT_IMG='https://crm.noblesmartialarts.com/assets/cert-jr-blackbelt-bg.jpg';
+function openJrBBCertModal(studentId){
+  const s=DB.students.find(x=>x.id===studentId);if(!s)return;
+  const promo=(DB.promotions||[]).filter(p=>p.studentId===studentId&&p.toBelt==='BB White').sort((a,b)=>b.date.localeCompare(a.date))[0];
+  $('jrbb-cert-sid').value=studentId;
+  $('jrbb-cert-name').value=s.first+' '+s.last;
+  $('jrbb-cert-date').value=promo?promo.date:new Date().toISOString().slice(0,10);
+  $('modal-jrbb-cert').classList.add('open');
+}
+function printJrBlackBeltCertificate(){
+  const name=($('jrbb-cert-name').value||'').trim()||'Student Name';
+  const dateVal=$('jrbb-cert-date').value;
+  const dateStr=dateVal?fmtFull(dateVal):'';
+  const w=window.open('','_blank','width=950,height=1230');
+  w.document.write(`<!DOCTYPE html><html><head><title>Junior Black Belt Certificate</title>
+  <style>
+    @page{size:letter;margin:0;}
+    body{margin:0;padding:0;background:#fff;}
+    .cert-wrap{position:relative;width:8.5in;height:11in;}
+    .cert-wrap img{position:absolute;top:0;left:0;width:100%;height:100%;display:block;}
+    .cert-name{position:absolute;top:43.18%;left:0;width:100%;text-align:center;transform:translateY(-50%);
+      font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:700;font-size:26pt;color:#182a4d;}
+    .cert-date{position:absolute;top:67.33%;left:0;width:100%;text-align:center;transform:translateY(-50%);
+      font-family:Georgia,'Times New Roman',serif;font-size:11pt;color:#222;}
+    @media print{body{margin:0;}}
+  </style></head><body>
+  <div class="cert-wrap">
+    <img id="cert-bg" src="${JRBB_CERT_IMG}">
+    <div class="cert-name">${name}</div>
+    <div class="cert-date">Date of Promotion: ${dateStr}</div>
+  </div>
+  <script>
+    var img=document.getElementById('cert-bg');
+    function go(){ setTimeout(function(){ window.print(); }, 400); }
+    if(img.complete && img.naturalWidth>0){ go(); } else { img.onload=go; img.onerror=go; }
+  <\/script>
+  </body></html>`);
+  w.document.close();
+  closeModal('modal-jrbb-cert');
 }
 
 // ══════════════════════════════════════════════════════
