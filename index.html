@@ -1889,9 +1889,9 @@ tbody td{font-size:11px!important;}
       <input type="hidden" id="jrbb-cert-sid">
       <div class="form-grid">
         <div class="form-group"><label class="form-label">Name on certificate</label><input class="form-input" id="jrbb-cert-name"></div>
-        <div class="form-group"><label class="form-label">Date of promotion</label><input class="form-input" id="jrbb-cert-date" type="date"></div>
+        <div class="form-group"><label class="form-label">Date of promotion (defaults to next scheduled Black Belt Test)</label><input class="form-input" id="jrbb-cert-date" type="date"></div>
       </div>
-      <div style="font-size:12px;color:var(--ink-muted);margin-top:8px;">Opens a print-ready page using the official Jr Black Belt certificate design. Review the name/date, then print or save as PDF.</div>
+      <div style="font-size:12px;color:var(--ink-muted);margin-top:8px;">Opens a print-ready page using the official Jr Black Belt certificate design. The date auto-fills to your next scheduled Black Belt Test — adjust it here if needed, then print or save as PDF.</div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('modal-jrbb-cert')">Cancel</button><button class="btn primary" onclick="printJrBlackBeltCertificate()">🖨 Print Certificate</button></div>
   </div>
@@ -7449,12 +7449,18 @@ function checkAndOfferCertificate(s,fromBelt,fromGroup,toBelt,toGroup){
 // JUNIOR BLACK BELT CERTIFICATE (official branded template)
 // ══════════════════════════════════════════════════════
 const JRBB_CERT_IMG='https://crm.noblesmartialarts.com/assets/cert-jr-blackbelt-bg.jpg';
+function getNextBBTestDate(){
+  const today=new Date().toISOString().slice(0,10);
+  const upcoming=DB.testEvents.filter(e=>e.type==='Black Belt Test'&&e.date>=today).sort((a,b)=>a.date.localeCompare(b.date))[0];
+  if(upcoming)return upcoming.date;
+  const mostRecent=DB.testEvents.filter(e=>e.type==='Black Belt Test').sort((a,b)=>b.date.localeCompare(a.date))[0];
+  return mostRecent?mostRecent.date:today;
+}
 function openJrBBCertModal(studentId){
   const s=DB.students.find(x=>x.id===studentId);if(!s)return;
-  const promo=(DB.promotions||[]).filter(p=>p.studentId===studentId&&p.toBelt==='BB White').sort((a,b)=>b.date.localeCompare(a.date))[0];
   $('jrbb-cert-sid').value=studentId;
   $('jrbb-cert-name').value=s.first+' '+s.last;
-  $('jrbb-cert-date').value=promo?promo.date:new Date().toISOString().slice(0,10);
+  $('jrbb-cert-date').value=getNextBBTestDate();
   $('modal-jrbb-cert').classList.add('open');
 }
 function printJrBlackBeltCertificate(){
