@@ -2902,7 +2902,7 @@ function openProfile(id){
         <div class="prof-avatar">${initials(s)}</div>
         <div><div class="prof-name">${s.first} ${s.last}</div><div class="prof-sub">${s.group} · ${s.status}</div><div class="flags" style="margin-top:5px;">${flags.join('')}</div></div>
         <div class="spacer"></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">${promo?`<button class="btn success" onclick="promoteBelt(${s.id})">🎖 Promote → ${promo.belt}</button>`:''}${s.group==='Legends Club'?`<button class="btn" onclick="openJrBBCertModal(${s.id})" title="Print/reprint Junior Black Belt certificate">🏆 Jr BB Certificate</button>`:''}${s.phone?`<button class="btn" onclick="smsOneStudent(${s.id})" title="Send SMS">📱 Text</button>`:''}<button class="btn primary" onclick="openEditStudent(${s.id})">Edit</button><button class="btn" onclick="openMergeStudent(${s.id})" title="Merge with another student">⇔ Merge</button></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${promo?`<button class="btn success" onclick="promoteBelt(${s.id})">🎖 Promote → ${promo.belt}</button>`:''}${(s.group==='Legends Club'||s.belt==='Black Belt Candidate')?`<button class="btn" onclick="openJrBBCertModal(${s.id})" title="Print Junior Black Belt certificate">🏆 Jr BB Certificate</button>`:''}${s.phone?`<button class="btn" onclick="smsOneStudent(${s.id})" title="Send SMS">📱 Text</button>`:''}<button class="btn primary" onclick="openEditStudent(${s.id})">Edit</button><button class="btn" onclick="openMergeStudent(${s.id})" title="Merge with another student">⇔ Merge</button></div>
       </div>
       <div class="prof-grid">
         <div class="pf"><label>Current belt</label><p><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></p></div>
