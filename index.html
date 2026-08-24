@@ -7476,14 +7476,14 @@ function printJrBlackBeltCertificate(){
     .cert-wrap img{position:absolute;top:0;left:0;width:100%;height:100%;display:block;}
     .cert-name{position:absolute;top:43.18%;left:0;width:100%;text-align:center;transform:translateY(-50%);
       font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:700;font-size:26pt;color:#182a4d;}
-    .cert-date{position:absolute;top:67.33%;left:0;width:100%;text-align:center;transform:translateY(-50%);
-      font-family:Georgia,'Times New Roman',serif;font-size:11pt;color:#222;}
+    .cert-date{position:absolute;top:67.36%;left:54%;text-align:left;transform:translateY(-50%);
+      font-family:Georgia,'Times New Roman',serif;font-size:11pt;color:#222;white-space:nowrap;}
     @media print{body{margin:0;}}
   </style></head><body>
   <div class="cert-wrap">
     <img id="cert-bg" src="${JRBB_CERT_IMG}">
     <div class="cert-name">${name}</div>
-    <div class="cert-date">Date of Promotion: ${dateStr}</div>
+    <div class="cert-date">${dateStr}</div>
   </div>
   <script>
     var img=document.getElementById('cert-bg');
