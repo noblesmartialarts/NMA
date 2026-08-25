@@ -1170,7 +1170,7 @@ tbody td{font-size:11px!important;}
 <!-- PROSPECT MODAL -->
 <div class="modal-backdrop" id="modal-prospect">
   <div class="modal" style="max-width:520px;">
-    <div class="modal-header"><div class="modal-title" id="prospect-modal-title">Add Prospect</div><button class="btn ghost" onclick="closeModal('modal-prospect')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="prospect-modal-title">Add Prospect</div><button class="btn ghost" onclick="cancelProspectModal()">✕</button></div>
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group"><label class="form-label">Student name</label><input class="form-input" id="tr-name" placeholder="First Last"></div>
@@ -1200,7 +1200,7 @@ tbody td{font-size:11px!important;}
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn" onclick="closeModal('modal-prospect')">Cancel</button>
+      <button class="btn" onclick="cancelProspectModal()">Cancel</button>
       <div style="display:flex;gap:8px;">
         <button class="btn" id="tr-enroll-btn" onclick="enrollProspect()" style="display:none;color:var(--green);">→ Enroll as Student</button>
         <button class="btn primary" onclick="saveProspect()">Save</button>
@@ -4130,6 +4130,9 @@ async function sendGmailMessage(to,subject,body){
 }
 
 // ── Gmail Contacts import
+let gmailAlreadyReviewedCount=0;
+let _gmailProspectFlowActive=false;
+
 async function openContactsImportModal(){
   if(!gmailToken){alert('Connect Gmail first using the "Connect Gmail" button.');return;}
   $('modal-gmail-contacts').classList.add('open');
@@ -4202,42 +4205,49 @@ async function openContactsImportModal(){
         gmailUnmatchedContacts.push(c);
       }
     });
-    let html='';
-    if(alreadyReviewedCount){
-      html+='<div style="font-size:11px;color:var(--ink-faint);margin-bottom:12px;">'+alreadyReviewedCount+' contact'+(alreadyReviewedCount!==1?'s':'')+' already reviewed in a previous import — hidden. <span style="text-decoration:underline;cursor:pointer;" onclick="resetGmailContactDecisions()">Reset &amp; review everyone again</span></div>';
-    }
-    if(gmailContactMatches.length){
-      html+='<div style="font-size:13px;color:var(--ink-muted);margin-bottom:12px;">'+gmailContactMatches.length+' new match'+(gmailContactMatches.length!==1?'es':'')+' found:</div>'+
-        gmailContactMatches.map((m,i)=>'<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;">'+
-          '<input type="checkbox" id="gcc-'+i+'" checked style="accent-color:var(--ink);cursor:pointer;">'+
-          '<div style="flex:1;"><strong>'+m.student.first+' '+m.student.last+'</strong> <span style="color:var(--ink-muted);">← '+m.displayName+'</span><span style="font-size:10px;color:var(--ink-faint);margin-left:6px;">('+m.matchReason+(m.slot==='secondary'?' — 2nd contact':'')+')</span></div>'+
-          '<div style="font-size:12px;color:var(--ink-muted);">'+m.email+(m.phone?' · '+m.phone:'')+'</div>'+
-        '</div>').join('');
-    }else if(!alreadyReviewedCount){
-      html+='<div style="font-size:13px;font-weight:600;margin-bottom:6px;color:var(--ink);">No automatic student matches found</div>'+
-        '<div style="font-size:12px;color:var(--ink-muted);margin-bottom:14px;">Scanned '+allContacts.length+' Gmail contacts — none matched a name already on your roster.</div>';
-    }
-    if(gmailUnmatchedContacts.length){
-      html+='<div style="margin-top:'+(gmailContactMatches.length?'20px':'0')+';padding-top:'+(gmailContactMatches.length?'14px':'0')+';border-top:'+(gmailContactMatches.length?'1px solid var(--border)':'none')+';">'+
-        '<div style="font-size:13px;font-weight:600;margin-bottom:2px;color:var(--ink);">Not in your CRM ('+gmailUnmatchedContacts.length+')</div>'+
-        '<div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">Add any of these to your Prospects pipeline, or skip ones you don\'t need.</div>'+
-        gmailUnmatchedContacts.map((c,i)=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">'+
-          '<div style="flex:1;"><strong>'+(c.displayName||'(no name)')+'</strong></div>'+
-          '<div style="font-size:12px;color:var(--ink-muted);">'+c.email+(c.phone?' · '+c.phone:'')+'</div>'+
-          '<button class="btn small" onclick="addGmailContactAsProspect('+i+')">+ Add as Prospect</button>'+
-          '<button class="btn small ghost" onclick="skipGmailContact('+i+')" title="Don\'t show this contact again">Skip</button>'+
-        '</div>').join('');
-      html+='</div>';
-    }
-    if(!gmailContactMatches.length&&!gmailUnmatchedContacts.length&&!alreadyReviewedCount){
-      html+='<div style="font-size:12px;color:var(--ink-muted);">No Gmail contacts found.</div>';
-    }else if(!gmailContactMatches.length&&!gmailUnmatchedContacts.length&&alreadyReviewedCount){
-      html+='<div style="font-size:12px;color:var(--ink-muted);">Everyone in your Gmail contacts has already been reviewed.</div>';
-    }
-    body.innerHTML=html;
+    gmailAlreadyReviewedCount=alreadyReviewedCount;
+    renderGmailImportBody();
   }catch(e){
     body.innerHTML='<div style="color:var(--red);padding:20px;">Failed to load contacts: '+e.message+'</div>';
   }
+}
+
+function renderGmailImportBody(){
+  const body=$('gmail-contacts-body');if(!body)return;
+  const alreadyReviewedCount=gmailAlreadyReviewedCount;
+  let html='';
+  if(alreadyReviewedCount){
+    html+='<div style="font-size:11px;color:var(--ink-faint);margin-bottom:12px;">'+alreadyReviewedCount+' contact'+(alreadyReviewedCount!==1?'s':'')+' already reviewed in a previous import — hidden. <span style="text-decoration:underline;cursor:pointer;" onclick="resetGmailContactDecisions()">Reset &amp; review everyone again</span></div>';
+  }
+  if(gmailContactMatches.length){
+    html+='<div style="font-size:13px;color:var(--ink-muted);margin-bottom:12px;">'+gmailContactMatches.length+' new match'+(gmailContactMatches.length!==1?'es':'')+' found:</div>'+
+      gmailContactMatches.map((m,i)=>'<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;">'+
+        '<input type="checkbox" id="gcc-'+i+'" checked style="accent-color:var(--ink);cursor:pointer;">'+
+        '<div style="flex:1;"><strong>'+m.student.first+' '+m.student.last+'</strong> <span style="color:var(--ink-muted);">← '+m.displayName+'</span><span style="font-size:10px;color:var(--ink-faint);margin-left:6px;">('+m.matchReason+(m.slot==='secondary'?' — 2nd contact':'')+')</span></div>'+
+        '<div style="font-size:12px;color:var(--ink-muted);">'+m.email+(m.phone?' · '+m.phone:'')+'</div>'+
+      '</div>').join('');
+  }else if(!alreadyReviewedCount){
+    html+='<div style="font-size:13px;font-weight:600;margin-bottom:6px;color:var(--ink);">No automatic student matches found</div>'+
+      '<div style="font-size:12px;color:var(--ink-muted);margin-bottom:14px;">None of your Gmail contacts matched a name already on your roster.</div>';
+  }
+  if(gmailUnmatchedContacts.length){
+    html+='<div style="margin-top:'+(gmailContactMatches.length?'20px':'0')+';padding-top:'+(gmailContactMatches.length?'14px':'0')+';border-top:'+(gmailContactMatches.length?'1px solid var(--border)':'none')+';">'+
+      '<div style="font-size:13px;font-weight:600;margin-bottom:2px;color:var(--ink);">Not in your CRM ('+gmailUnmatchedContacts.length+')</div>'+
+      '<div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">Add any of these to your Prospects pipeline, or skip ones you don\'t need.</div>'+
+      gmailUnmatchedContacts.map((c,i)=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">'+
+        '<div style="flex:1;"><strong>'+(c.displayName||'(no name)')+'</strong></div>'+
+        '<div style="font-size:12px;color:var(--ink-muted);">'+c.email+(c.phone?' · '+c.phone:'')+'</div>'+
+        '<button class="btn small" onclick="addGmailContactAsProspect('+i+')">+ Add as Prospect</button>'+
+        '<button class="btn small ghost" onclick="skipGmailContact('+i+')" title="Don\'t show this contact again">Skip</button>'+
+      '</div>').join('');
+    html+='</div>';
+  }
+  if(!gmailContactMatches.length&&!gmailUnmatchedContacts.length&&!alreadyReviewedCount){
+    html+='<div style="font-size:12px;color:var(--ink-muted);">No Gmail contacts found.</div>';
+  }else if(!gmailContactMatches.length&&!gmailUnmatchedContacts.length&&alreadyReviewedCount){
+    html+='<div style="font-size:12px;color:var(--ink-muted);">Everyone in your Gmail contacts has already been reviewed.</div>';
+  }
+  body.innerHTML=html;
 }
 
 function resetGmailContactDecisions(){
@@ -4252,25 +4262,35 @@ function addGmailContactAsProspect(idx){
   if(!c)return;
   if(!DB.gmailContactDecisions)DB.gmailContactDecisions={};
   DB.gmailContactDecisions[c.email.toLowerCase()]={status:'prospect',date:new Date().toISOString()};
+  gmailUnmatchedContacts.splice(idx,1);
   save();
-  closeModal('modal-gmail-contacts');
-  nav('prospects');
-  setTimeout(function(){
-    openAddProspect();
-    if($('tr-name'))$('tr-name').value=c.displayName||'';
-    if($('tr-email'))$('tr-email').value=c.email||'';
-    if($('tr-phone'))$('tr-phone').value=c.phone||'';
-    if($('tr-notes'))$('tr-notes').value='Imported from Gmail contacts';
-  },80);
+  _gmailProspectFlowActive=true;
+  $('modal-prospect').style.zIndex='200';
+  openAddProspect();
+  if($('tr-name'))$('tr-name').value=c.displayName||'';
+  if($('tr-email'))$('tr-email').value=c.email||'';
+  if($('tr-phone'))$('tr-phone').value=c.phone||'';
+  if($('tr-notes'))$('tr-notes').value='Imported from Gmail contacts';
 }
+
+function cancelProspectModal(){
+  closeModal('modal-prospect');
+  if(_gmailProspectFlowActive){
+    _gmailProspectFlowActive=false;
+    $('modal-prospect').style.zIndex='';
+    renderGmailImportBody();
+  }
+}
+
 
 function skipGmailContact(idx){
   const c=gmailUnmatchedContacts[idx];
   if(!c)return;
   if(!DB.gmailContactDecisions)DB.gmailContactDecisions={};
   DB.gmailContactDecisions[c.email.toLowerCase()]={status:'skipped',date:new Date().toISOString()};
+  gmailUnmatchedContacts.splice(idx,1);
   save();
-  openContactsImportModal();
+  renderGmailImportBody();
 }
 
 
@@ -8264,6 +8284,11 @@ function saveProspect() {
   renderProspects();
   renderProspectPipeline();
   toast(_editingProspectId ? 'Prospect updated.' : 'Prospect added!');
+  if (_gmailProspectFlowActive) {
+    _gmailProspectFlowActive = false;
+    $('modal-prospect').style.zIndex = '';
+    renderGmailImportBody();
+  }
 }
 
 function deleteProspect(id) {
