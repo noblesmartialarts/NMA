@@ -378,6 +378,7 @@ tbody td{font-size:11px!important;}
   <div class="page-header"><div class="page-title">Dashboard</div><div class="page-subtitle" id="dash-date"></div></div>
   <div id="pl-dash-alert"></div>
   <div id="bb-test-alert"></div>
+  <div id="makeup-test-alert"></div>
   <div id="scoreboard-area"></div>
   <div class="stats-row" id="stats-row"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
@@ -778,6 +779,8 @@ tbody td{font-size:11px!important;}
   <div id="test-events-list" style="margin-bottom:20px;"></div>
   <div class="section-divider"><span>🥋 Black Belt Test Forecast</span></div>
   <div id="bb-forecast-area" style="margin-bottom:20px;"></div>
+  <div class="section-divider"><span>🔔 Make-Up Test Log</span></div>
+  <div class="table-wrap" style="margin-bottom:20px;"><table><thead><tr><th>Student</th><th>Missed Event</th><th>Date</th><th>Status</th><th></th></tr></thead><tbody id="makeup-test-tbody"></tbody></table></div>
   <div class="section-divider"><span>Eligibility &amp; fee tracking</span></div>
   <div class="table-wrap">
     <div class="table-toolbar">
@@ -2351,7 +2354,7 @@ const CURRICULUM={
 // ══════════════════════════════════════════════════════
 // DATABASE
 // ══════════════════════════════════════════════════════
-const DB={students:[],attendance:{},testEvents:[],testFees:[],inventory:[],orders:[],invoices:[],customEmailTemplates:[],promotions:[],monthHistory:[],classDates:[],commLog:[],challengeOfMonth:'',scoreboard:{label:'',fee:31.50,start:'',end:''},curriculumOverrides:{},nextId:1};
+const DB={students:[],attendance:{},testEvents:[],testFees:[],inventory:[],orders:[],invoices:[],customEmailTemplates:[],promotions:[],monthHistory:[],classDates:[],commLog:[],makeupTests:[],challengeOfMonth:'',scoreboard:{label:'',fee:31.50,start:'',end:''},curriculumOverrides:{},nextId:1};
 
 // ══════════════════════════════════════════════════════
 // ELEMENT HELPER (needed before Supabase sync badge)
@@ -2760,7 +2763,7 @@ function confirmAdvanceMonth(){
 // ══════════════════════════════════════════════════════
 function renderDashboard(){
   $('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  renderScoreboard('scoreboard-area');renderBBTestAlert();renderPLDashboardAlert();
+  renderScoreboard('scoreboard-area');renderBBTestAlert();renderPLDashboardAlert();renderMakeupTestAlert();
   const active=DB.students.filter(s=>s.status==='Active');
   const risk=active.filter(isAtRisk);const stripeReady=active.filter(stripeEligible);
   $('stats-row').innerHTML=`
@@ -2817,6 +2820,84 @@ function renderBBTestAlert(){
       ${next?`<div style="text-align:right;font-size:12px;"><div style="color:rgba(255,255,255,.5);">Next BB Test</div><div style="font-weight:600;">${fmtFull(next.date)}</div></div>`:'<span style="font-size:12px;color:rgba(255,255,255,.4);">No BB test scheduled</span>'}
     </div>`).join('')}
   </div>`;
+}
+
+// ══════════════════════════════════════════════════════
+// MAKE-UP TEST TRACKING
+// ══════════════════════════════════════════════════════
+if(!DB.makeupTests)DB.makeupTests=[];
+function checkMakeupTestsForEvent(evId){
+  const ev=DB.testEvents.find(e=>e.id===evId);if(!ev)return;
+  if(!DB.makeupTests)DB.makeupTests=[];
+  const attOnDate=DB.attendance[ev.date]||{};
+  let added=0;
+  DB.students.filter(s=>s.status==='Active'&&beltTestEligible(s)).forEach(s=>{
+    const status=attOnDate[s.id];
+    const wasAbsent=(status==='absent'||status===undefined);
+    if(!wasAbsent)return;
+    const already=DB.makeupTests.find(m=>m.studentId===s.id&&m.eventId===evId);
+    if(already)return;
+    DB.makeupTests.push({id:DB.nextId++,studentId:s.id,eventId:evId,eventName:ev.name,eventDate:ev.date,belt:s.belt,createdDate:new Date().toISOString().slice(0,10),resolved:false,resolvedDate:null});
+    added++;
+  });
+  return added;
+}
+function checkAllMakeupTests(){
+  const today=new Date().toISOString().slice(0,10);
+  const cutoff=new Date();cutoff.setDate(cutoff.getDate()-30);
+  const cutoffStr=cutoff.toISOString().slice(0,10);
+  let total=0;
+  DB.testEvents.filter(e=>e.date<=today&&e.date>=cutoffStr).forEach(e=>{total+=(checkMakeupTestsForEvent(e.id)||0);});
+  return total;
+}
+function resolveMakeupTest(id,note){
+  const m=(DB.makeupTests||[]).find(x=>x.id===id);if(!m)return;
+  m.resolved=true;m.resolvedDate=new Date().toISOString().slice(0,10);m.resolvedNote=note||'Marked complete';
+  save();renderMakeupTestAlert();renderDashboard();toast('Make-up test marked complete.');
+}
+function dismissMakeupTest(id){
+  if(!confirm('Remove this make-up test reminder without logging it as complete?'))return;
+  DB.makeupTests=(DB.makeupTests||[]).filter(x=>x.id!==id);
+  save();renderMakeupTestAlert();renderDashboard();toast('Reminder dismissed.');
+}
+function autoResolveMakeupTestsForStudent(sid,promoDate){
+  (DB.makeupTests||[]).forEach(m=>{
+    if(m.studentId===sid&&!m.resolved&&m.eventDate<=promoDate){
+      m.resolved=true;m.resolvedDate=promoDate;m.resolvedNote='Auto-resolved: promoted on '+fmtFull(promoDate);
+    }
+  });
+}
+function renderMakeupTestAlert(){
+  const el=$('makeup-test-alert');if(!el)return;
+  const pending=(DB.makeupTests||[]).filter(m=>!m.resolved).sort((a,b)=>a.eventDate.localeCompare(b.eventDate));
+  if(!pending.length){el.innerHTML='';return;}
+  el.innerHTML=`<div style="background:linear-gradient(135deg,#1a1440,#3d1a5c);color:#fff;border-radius:14px;padding:20px 24px;margin-bottom:20px;">
+    <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:14px;">🔔 Make-Up Tests Needed</div>
+    ${pending.map(m=>{
+      const s=DB.students.find(x=>x.id===m.studentId);
+      if(!s)return'';
+      return `<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.1);">
+        <div style="flex:1;"><div style="font-weight:500;">${s.first} ${s.last}</div><div style="font-size:11px;color:rgba(255,255,255,.5);">Missed "${m.eventName}" on ${fmtFull(m.eventDate)}</div></div>
+        <span class="belt-pill" style="${beltStyle(s.belt)};font-size:11px;">${s.belt}</span>
+        ${s.phone?`<button class="btn small" style="background:rgba(255,255,255,.15);color:#fff;border:none;" onclick="smsMakeupReminder(${m.id})">📱 Text</button>`:''}
+        <button class="btn small" style="background:rgba(255,255,255,.15);color:#fff;border:none;" onclick="resolveMakeupTest(${m.id})">✓ Made Up</button>
+        <button class="btn small" style="background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);border:none;" onclick="dismissMakeupTest(${m.id})">✕</button>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+function smsMakeupReminder(makeupId){
+  const m=(DB.makeupTests||[]).find(x=>x.id===makeupId);if(!m)return;
+  const s=DB.students.find(x=>x.id===m.studentId);if(!s||!s.phone)return;
+  const phone=smsGetPhone(s);if(!phone){toast('No valid phone number on file for '+s.first+'.');return;}
+  nav('sms');
+  setTimeout(function(){
+    _smsRecipients=[{id:s.id,name:s.first+' '+s.last,first:s.first,last:s.last,belt:s.belt,group:s.group,parent:s.parent,phone:phone}];
+    renderSmsRecipientSummary();
+    if($('sms-body'))$('sms-body').value=`Hi ${s.parent||'there'}! ${s.first} missed "${m.eventName}" on ${fmtFull(m.eventDate)}. We'll get them a make-up test at the next class — no need to do anything, just make sure they're there! 🥋`;
+    smsUpdateCount();
+    const compose=$('sms-compose-divider');if(compose)compose.scrollIntoView({behavior:'smooth',block:'start'});
+  },200);
 }
 
 // ══════════════════════════════════════════════════════
@@ -3256,8 +3337,12 @@ function saveAttendance(){
     _attStripeMode=false;
   }
   _attLeaderState = {};
-  save();renderClassDateChips();renderAttDateSelect();
-  toast('Attendance saved for '+fmtDate(date)+(assistIds.length?' · '+assistIds.length+' assist(s) logged.':''));
+  // Check if any belt test event happened on this date — flag absentees who were expected to test
+  const testEventsToday=DB.testEvents.filter(e=>e.date===date);
+  let makeupCount=0;
+  testEventsToday.forEach(e=>{makeupCount+=(checkMakeupTestsForEvent(e.id)||0);});
+  save();renderClassDateChips();renderAttDateSelect();renderDashboard();
+  toast('Attendance saved for '+fmtDate(date)+(assistIds.length?' · '+assistIds.length+' assist(s) logged.':'')+(makeupCount?' · '+makeupCount+' make-up test reminder(s) created.':''));
 }
 
 // ══════════════════════════════════════════════════════
@@ -3358,7 +3443,22 @@ function ciToggleLeader(id) {
 // ══════════════════════════════════════════════════════
 // BELT TESTING
 // ══════════════════════════════════════════════════════
-function renderTesting(){renderTestEvents();renderTestSelect();renderTestEligibility();renderBBForecast();}
+function renderTesting(){renderTestEvents();renderTestSelect();renderTestEligibility();renderBBForecast();renderMakeupTestLog();}
+function renderMakeupTestLog(){
+  const tbody=$('makeup-test-tbody');if(!tbody)return;
+  const all=(DB.makeupTests||[]).slice().sort((a,b)=>b.eventDate.localeCompare(a.eventDate));
+  if(!all.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--ink-muted);">No make-up tests logged.</td></tr>';return;}
+  tbody.innerHTML=all.map(m=>{
+    const s=DB.students.find(x=>x.id===m.studentId);
+    return `<tr>
+      <td>${s?`<strong>${s.first} ${s.last}</strong>`:'<span style="color:var(--ink-faint);">(removed student)</span>'}</td>
+      <td style="font-size:12px;">${m.eventName}</td>
+      <td style="font-size:12px;color:var(--ink-muted);">${fmtDate(m.eventDate)}</td>
+      <td>${m.resolved?`<span class="badge badge-green">✓ Made up</span>`:`<span class="badge badge-amber">Pending</span>`}</td>
+      <td>${!m.resolved?`<button class="btn small" onclick="resolveMakeupTest(${m.id})">Mark Done</button> <button class="btn small danger" onclick="dismissMakeupTest(${m.id})">✕</button>`:''}</td>
+    </tr>`;
+  }).join('');
+}
 
 // ══════════════════════════════════════════════════════
 // BLACK BELT TEST FORECAST (pace-based projection)
@@ -3569,7 +3669,9 @@ function logTestComplete(id){
     }
   });
   save();renderTesting();renderCurriculum();
-  toast(isStripeTest?'Stripe test logged!':'Belt test logged! Curriculum cycles advanced.');
+  const makeupCount=checkMakeupTestsForEvent(id)||0;
+  if(makeupCount){renderDashboard();renderMakeupTestAlert();}
+  toast(isStripeTest?'Stripe test logged!':'Belt test logged! Curriculum cycles advanced.'+(makeupCount?' '+makeupCount+' make-up reminder(s) created.':''));
 }
 
 // ══════════════════════════════════════════════════════
@@ -3583,6 +3685,7 @@ function promoteBelt(sid){
   if(!confirm(`Promote ${s.first} ${s.last}?\n${s.belt} → ${promo.belt}${cross?'\nGroup: '+s.group+' → '+promo.group:''}\n\nStripes reset to 0.`))return;
   DB.promotions.push({studentId:s.id,date:new Date().toISOString().slice(0,10),fromBelt:s.belt,fromGroup:s.group,toBelt:promo.belt,toGroup:promo.group});
   addHistory(s,'promo',`Promoted: ${s.belt} → ${promo.belt}${cross?' (→ '+promo.group+')':''}`);
+  autoResolveMakeupTestsForStudent(s.id,new Date().toISOString().slice(0,10));
   s.belt=promo.belt;s.group=promo.group;s.stripes=0;
   if(!NO_BELT_RANKS.has(promo.belt))consumeBeltStock(promo.belt,s.beltSize);
   save();
@@ -3634,6 +3737,7 @@ function runMassPromo(){
     if(isBlackBeltLetterCase(s))jrbbIds.push(s.id);
     DB.promotions.push({studentId:s.id,date:new Date().toISOString().slice(0,10),fromBelt:s.belt,fromGroup:s.group,toBelt:state.promo.belt,toGroup:state.promo.group});
     addHistory(s,'promo',`Promoted: ${s.belt} → ${state.promo.belt}`);
+    autoResolveMakeupTestsForStudent(s.id,new Date().toISOString().slice(0,10));
     s.belt=state.promo.belt;s.group=state.promo.group;s.stripes=0;count++;
     if(!NO_BELT_RANKS.has(state.promo.belt))consumeBeltStock(state.promo.belt,s.beltSize);
   });
@@ -4735,6 +4839,8 @@ if(!DB.classSchedule||!Array.isArray(DB.classSchedule)||!DB.classSchedule.length
   renderDashboard();updateBeltOptions();renderTestSelect();
   // Explicitly render pending absences on init (patch runs later in script)
   setTimeout(function(){ if(typeof renderPendingAbsences==='function') renderPendingAbsences(); }, 100);
+  // Backfill make-up test reminders for any past test events, then refresh alerts
+  setTimeout(function(){ if(typeof checkAllMakeupTests==='function'){const n=checkAllMakeupTests();if(n)save();renderMakeupTestAlert();} }, 150);
 
   // Restore Gmail token at startup so Inbox works without visiting Emails first
   if(DB.gmailToken&&DB.gmailToken.expires>(Date.now()+300000)){
@@ -11188,6 +11294,7 @@ function pushUndo(label) {
     testFees: JSON.stringify(DB.testFees),
     promotions: JSON.stringify(DB.promotions),
     commLog: JSON.stringify(DB.commLog||[]),
+    makeupTests: JSON.stringify(DB.makeupTests||[]),
     nextId: DB.nextId
   });
   if (_undoStack.length > MAX_UNDO) _undoStack.shift();
@@ -11202,6 +11309,7 @@ function undo() {
   DB.testFees = JSON.parse(state.testFees);
   DB.promotions = JSON.parse(state.promotions);
   DB.commLog = JSON.parse(state.commLog);
+  if(state.makeupTests)DB.makeupTests = JSON.parse(state.makeupTests);
   DB.nextId = state.nextId;
   save();
   renderRoster(); renderDashboard(); renderAttendance();
