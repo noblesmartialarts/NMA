@@ -343,7 +343,7 @@ tbody td{font-size:11px!important;}
     <div class="nav-item" data-page="invoices" onclick="nav('invoices')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span>Invoices</span></div>
     <div class="nav-item" data-page="emails" onclick="nav('emails')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><span>Emails</span></div>
     <div class="nav-item" data-page="sms" onclick="nav('sms')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>SMS</span></div>
-    <div class="nav-item" data-page="trials" onclick="nav('trials')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg><span>Trials</span></div>
+    <div class="nav-item" data-page="prospects" onclick="nav('prospects')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg><span>Prospects</span></div>
     <div class="nav-item" data-page="privatelessons" onclick="nav('privatelessons')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Private Lessons <span id="pl-nav-badge" style="display:none;background:#c8392b;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:2px;"></span></span></div>
     <div class="nav-section-label">Reference</div>
     <div class="nav-item" data-page="curriculum" onclick="nav('curriculum')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>Curriculum</span></div>
@@ -1136,22 +1136,22 @@ tbody td{font-size:11px!important;}
   <div id="sms-log"></div>
 </div>
 
-<!-- TRIAL TRACKER -->
-<div id="page-trials" class="page">
+<!-- PROSPECT TRACKER -->
+<div id="page-prospects" class="page">
   <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-    <div><div class="page-title">Trial Tracker</div><div class="page-subtitle">Prospects and trial students pipeline</div></div>
-    <button class="btn primary" onclick="openAddTrial()">+ Add Prospect</button>
+    <div><div class="page-title">Prospects</div><div class="page-subtitle">Leads and outreach pipeline — kids classes &amp; adult program</div></div>
+    <button class="btn primary" onclick="openAddProspect()">+ Add Prospect</button>
   </div>
   <!-- Pipeline summary -->
-  <div id="trial-pipeline" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;"></div>
+  <div id="prospect-pipeline" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;"></div>
   <!-- Filters -->
   <div class="table-toolbar" style="border-radius:12px 12px 0 0;margin-bottom:0;">
-    <input type="text" id="trial-search" placeholder="Search name…" oninput="renderTrials()" style="width:180px;">
-    <select id="trial-filter-status" class="form-select" style="width:160px;" onchange="renderTrials()">
+    <input type="text" id="prospect-search" placeholder="Search name…" oninput="renderProspects()" style="width:180px;">
+    <select id="prospect-filter-status" class="form-select" style="width:160px;" onchange="renderProspects()">
       <option value="">All prospects</option>
       <option value="new">New inquiry</option>
-      <option value="scheduled">Trial scheduled</option>
-      <option value="attended">Trial attended</option>
+      <option value="contacted">Contacted</option>
+      <option value="interested">Interested</option>
       <option value="enrolled">Enrolled ✓</option>
       <option value="lost">Not continuing</option>
     </select>
@@ -1160,36 +1160,37 @@ tbody td{font-size:11px!important;}
     <table>
       <thead><tr>
         <th>Name</th><th>Contact</th><th>Group interest</th>
-        <th>Trial date</th><th>Status</th><th>Follow-up</th><th>Actions</th>
+        <th>Date added</th><th>Status</th><th>Follow-up</th><th>Actions</th>
       </tr></thead>
-      <tbody id="trial-tbody"></tbody>
+      <tbody id="prospect-tbody"></tbody>
     </table>
   </div>
 </div>
 
-<!-- TRIAL MODAL -->
-<div class="modal-backdrop" id="modal-trial">
+<!-- PROSPECT MODAL -->
+<div class="modal-backdrop" id="modal-prospect">
   <div class="modal" style="max-width:520px;">
-    <div class="modal-header"><div class="modal-title" id="trial-modal-title">Add Prospect</div><button class="btn ghost" onclick="closeModal('modal-trial')">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="prospect-modal-title">Add Prospect</div><button class="btn ghost" onclick="closeModal('modal-prospect')">✕</button></div>
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group"><label class="form-label">Student name</label><input class="form-input" id="tr-name" placeholder="First Last"></div>
         <div class="form-group"><label class="form-label">Parent name</label><input class="form-input" id="tr-parent" placeholder="Parent name"></div>
         <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="tr-phone" type="tel" placeholder="(919) 555-0100"></div>
         <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="tr-email" type="email" placeholder="parent@email.com"></div>
-        <div class="form-group"><label class="form-label">Age / Group interest</label>
+        <div class="form-group"><label class="form-label">Class / Program interest</label>
           <select class="form-select" id="tr-group">
             <option value="">— Select —</option>
             <option>Little Dragons</option><option>Karate Kids</option>
-            <option>Black Belt Club</option><option>Master's Club</option>
+            <option>Black Belt Club</option><option>Master's Club</option><option>Legends Club</option>
+            <option>Adult Program</option>
           </select>
         </div>
-        <div class="form-group"><label class="form-label">Trial date</label><input class="form-input" id="tr-date" type="date"></div>
+        <div class="form-group"><label class="form-label">Date added</label><input class="form-input" id="tr-date" type="date"></div>
         <div class="form-group"><label class="form-label">Status</label>
           <select class="form-select" id="tr-status">
             <option value="new">New inquiry</option>
-            <option value="scheduled">Trial scheduled</option>
-            <option value="attended">Trial attended</option>
+            <option value="contacted">Contacted</option>
+            <option value="interested">Interested</option>
             <option value="enrolled">Enrolled ✓</option>
             <option value="lost">Not continuing</option>
           </select>
@@ -1199,10 +1200,10 @@ tbody td{font-size:11px!important;}
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn" onclick="closeModal('modal-trial')">Cancel</button>
+      <button class="btn" onclick="closeModal('modal-prospect')">Cancel</button>
       <div style="display:flex;gap:8px;">
-        <button class="btn" id="tr-enroll-btn" onclick="enrollTrial()" style="display:none;color:var(--green);">→ Enroll as Student</button>
-        <button class="btn primary" onclick="saveTrial()">Save</button>
+        <button class="btn" id="tr-enroll-btn" onclick="enrollProspect()" style="display:none;color:var(--green);">→ Enroll as Student</button>
+        <button class="btn primary" onclick="saveProspect()">Save</button>
       </div>
     </div>
   </div>
@@ -1740,6 +1741,9 @@ tbody td{font-size:11px!important;}
         <div class="form-group"><label class="form-label">Parent / Guardian</label><input class="form-input" id="f-parent"></div>
         <div class="form-group"><label class="form-label">Parent email</label><input class="form-input" id="f-email" type="email"></div>
         <div class="form-group"><label class="form-label">Parent phone</label><input class="form-input" id="f-phone"></div>
+        <div class="form-group"><label class="form-label">Secondary contact name</label><input class="form-input" id="f-parent2" placeholder="e.g. second parent, grandparent"></div>
+        <div class="form-group"><label class="form-label">Secondary contact email</label><input class="form-input" id="f-email2" type="email"></div>
+        <div class="form-group"><label class="form-label">Secondary contact phone</label><input class="form-input" id="f-phone2"></div>
         <div class="form-group"><label class="form-label">First class date</label><input class="form-input" id="f-firstdate" type="date"></div>
         <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-input" id="f-dob" type="date"></div>
         <div class="form-group"><label class="form-label">Class group</label><select class="form-select" id="f-group" onchange="updateBeltOptions()"><option>Little Dragons</option><option>Karate Kids</option><option>Black Belt Club</option><option>Master's Club</option><option>Legends Club</option></select></div>
@@ -2484,7 +2488,8 @@ if(!DB.classSchedule||!Array.isArray(DB.classSchedule)||!DB.classSchedule.length
   {id:5,day:1,time:'13:30',group:"Master's Club",dur:60}
 ];
 if(!DB.cancelledDays)DB.cancelledDays=[];
-if(!DB.trials)DB.trials=[];
+if(!DB.prospects)DB.prospects=[];
+if(!DB.gmailContactDecisions)DB.gmailContactDecisions={};
 if(!DB.smsLog)DB.smsLog=[];
 if(!DB.events)DB.events=[];
 if(!DB.eventRsvps)DB.eventRsvps=[];
@@ -2632,7 +2637,7 @@ function nav(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+page).classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,trials:initTrials,goodjob:initGoodJob,events:initEvents,privatelessons:initPrivateLessons};
+  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,prospects:initProspects,goodjob:initGoodJob,events:initEvents,privatelessons:initPrivateLessons};
   fns[page]?.();
 }
 
@@ -2947,7 +2952,7 @@ function renderRoster(){
     let regBadge=s.registered==='Yes'&&s.paidVenmo?'<span class="badge badge-venmo">Venmo</span>':s.registered==='Yes'?'<span class="badge badge-green">Yes</span>':s.omitFromReg?'<span class="badge badge-blue">Comp</span>':'<span class="badge badge-gray">No</span>';
     return `<tr>
       <td style="width:28px;"><input type="checkbox" class="student-row-check" data-id="${s.id}" onchange="toggleStudentRowSelect(${s.id})" style="accent-color:var(--ink);cursor:pointer;" ${_selectedStudentIds.has(s.id)?'checked':''}></td>
-      <td><span style="font-weight:500;color:var(--blue);text-decoration:underline;cursor:pointer;" onclick="openProfile(${s.id})">${s.first} ${s.last}</span><div style="font-size:11px;color:var(--ink-muted);">${s.parent||''}</div></td>
+      <td><span style="font-weight:500;color:var(--blue);text-decoration:underline;cursor:pointer;" onclick="openProfile(${s.id})">${s.first} ${s.last}</span><div style="font-size:11px;color:var(--ink-muted);">${s.parent||''}</div>${s.parent2?`<div style="font-size:10px;color:var(--ink-faint);">+ ${s.parent2}</div>`:''}</td>
       <td style="font-size:12px;color:var(--ink-muted);">${s.group}</td>
       <td><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></td>
       <td>${attSummaryBadge(s.id)}</td>
@@ -3042,7 +3047,7 @@ function updateBeltOptions(){
 }
 function openAddStudent(){
   editingStudentId=null;$('student-modal-title').textContent='Add Student';
-  ['f-first','f-last','f-parent','f-email','f-phone','f-notes','f-uniformsize'].forEach(id=>$(id).value='');
+  ['f-first','f-last','f-parent','f-email','f-phone','f-parent2','f-email2','f-phone2','f-notes','f-uniformsize'].forEach(id=>$(id).value='');
   $('f-firstdate').value=new Date().toISOString().slice(0,10);
   $('f-group').value='Little Dragons';$('f-status').value='Active';$('f-registered').value='No';
   $('f-stripes').value='0';$('f-beltsize').value='0';$('f-leader').checked=false;$('f-ai').checked=false;if($('f-instructor'))$('f-instructor').checked=false;if($('f-jrinstructor'))$('f-jrinstructor').checked=false;if($('f-masterinstructor'))$('f-masterinstructor').checked=false;
@@ -3062,6 +3067,7 @@ function openEditStudent(id){
   $('student-modal-title').textContent='Edit Student';
   $('f-first').value=s.first;$('f-last').value=s.last;$('f-parent').value=s.parent||'';
   $('f-email').value=s.email||'';$('f-phone').value=s.phone||'';$('f-notes').value=s.notes||'';
+  $('f-parent2').value=s.parent2||'';$('f-email2').value=s.email2||'';$('f-phone2').value=s.phone2||'';
   $('f-firstdate').value=s.firstDate||'';$('f-dob').value=s.dob||'';$('f-group').value=s.group;$('f-status').value=s.status;
   $('f-registered').value=s.registered;$('f-stripes').value=s.stripes;
   $('f-beltsize').value=s.beltSize||'0';$('f-uniformsize').value=s.uniformSize||'';
@@ -3074,7 +3080,7 @@ function openEditStudent(id){
 function saveStudent(){
   const first=$('f-first').value.trim(),last=$('f-last').value.trim();
   if(!first||!last){alert('First and last name required.');return;}
-  const data={first,last,parent:$('f-parent').value.trim(),email:$('f-email').value.trim(),phone:$('f-phone').value.trim(),group:$('f-group').value,belt:$('f-belt').value,stripes:parseInt($('f-stripes').value),beltSize:$('f-beltsize').value,uniformSize:$('f-uniformsize').value.trim(),status:$('f-status').value,registered:$('f-registered').value,leader:$('f-leader').checked,ai:$('f-ai').checked,instructor:$('f-instructor')&&$('f-instructor').checked,jrInstructor:$('f-jrinstructor')&&$('f-jrinstructor').checked,masterInstructor:$('f-masterinstructor')&&$('f-masterinstructor').checked,firstDate:$('f-firstdate').value,dob:$('f-dob').value,notes:$('f-notes').value.trim()};
+  const data={first,last,parent:$('f-parent').value.trim(),email:$('f-email').value.trim(),phone:$('f-phone').value.trim(),parent2:$('f-parent2').value.trim(),email2:$('f-email2').value.trim(),phone2:$('f-phone2').value.trim(),group:$('f-group').value,belt:$('f-belt').value,stripes:parseInt($('f-stripes').value),beltSize:$('f-beltsize').value,uniformSize:$('f-uniformsize').value.trim(),status:$('f-status').value,registered:$('f-registered').value,leader:$('f-leader').checked,ai:$('f-ai').checked,instructor:$('f-instructor')&&$('f-instructor').checked,jrInstructor:$('f-jrinstructor')&&$('f-jrinstructor').checked,masterInstructor:$('f-masterinstructor')&&$('f-masterinstructor').checked,firstDate:$('f-firstdate').value,dob:$('f-dob').value,notes:$('f-notes').value.trim()};
   if(editingStudentId){
     const idx=DB.students.findIndex(s=>s.id===editingStudentId);
     const ex=DB.students[idx];
@@ -3997,6 +4003,7 @@ function fillPlaceholders(tmpl,s){return(tmpl||'').replace(/\{first\}/g,s.first|
 let gmailToken=null;
 let bulkSelected=new Set();
 let gmailContactMatches=[];
+let gmailUnmatchedContacts=[];
 
 function initEmails(){
   // Restore token if not expired (with 5-min buffer)
@@ -4135,67 +4142,163 @@ async function openContactsImportModal(){
     const data=await res.json();
     const connections=data.connections||[];
     gmailContactMatches=[];
+    gmailUnmatchedContacts=[];
+    if(!DB.gmailContactDecisions)DB.gmailContactDecisions={};
+    const decisions=DB.gmailContactDecisions;
     const allContacts=[];
+    const matchedEmails=new Set();
+    const existingProspectEmails=new Set((DB.prospects||[]).map(p=>(p.email||'').toLowerCase()).filter(Boolean));
+    let alreadyReviewedCount=0;
     connections.forEach(person=>{
       const names=person.names||[];
       const emails=person.emailAddresses||[];
       const phones=person.phoneNumbers||[];
       if(!emails.length)return;
       const email=emails[0].value;
+      const emailLc=email.toLowerCase();
       const phone=phones[0]?.value||'';
       const displayName=names[0]?.displayName||'';
       const firstName=(names[0]?.givenName||'').toLowerCase();
       const lastName=(names[0]?.familyName||'').toLowerCase();
       allContacts.push({displayName,email,phone,firstName,lastName});
-      // Match against student names AND parent names
+      if(decisions[emailLc]){alreadyReviewedCount++;matchedEmails.add(emailLc);return;} // already reviewed — skip entirely
+      // Match against student names AND parent names, primary or secondary contact slot
+      let matchedThisContact=false;
       DB.students.forEach(s=>{
         const sFirst=s.first.toLowerCase();
         const sLast=s.last.toLowerCase();
         const sParent=(s.parent||'').toLowerCase();
+        const sParent2=(s.parent2||'').toLowerCase();
         const contactName=displayName.toLowerCase();
-        const match=(
-          (sFirst===firstName&&sLast===lastName)||
-          (sParent&&sParent===contactName)||
-          (sParent&&firstName&&sParent.startsWith(firstName))||
-          (contactName.includes(sFirst)&&sLast&&contactName.includes(sLast))||
-          (s.email&&s.email.toLowerCase()===email.toLowerCase())
-        );
+        const sEmailMatch=s.email&&s.email.toLowerCase()===emailLc;
+        const sEmail2Match=s.email2&&s.email2.toLowerCase()===emailLc;
+        const sParentMatch=sParent&&sParent===contactName;
+        const sParent2Match=sParent2&&sParent2===contactName;
+        const sParentStarts=sParent&&firstName&&sParent.startsWith(firstName);
+        const sParent2Starts=sParent2&&firstName&&sParent2.startsWith(firstName);
+        const studentNameMatch=sFirst===firstName&&sLast===lastName;
+        const nameContains=contactName.includes(sFirst)&&sLast&&contactName.includes(sLast);
+        const match=sEmailMatch||sEmail2Match||sParentMatch||sParent2Match||sParentStarts||sParent2Starts||studentNameMatch||nameContains;
         if(match&&!gmailContactMatches.find(m=>m.student.id===s.id&&m.email===email)){
-          const reason=s.email&&s.email.toLowerCase()===email.toLowerCase()?'Email match':
-            (sParent&&sParent===contactName)?'Parent name match':
-            (sFirst===firstName&&sLast===lastName)?'Student name match':'Name contains match';
-          gmailContactMatches.push({student:s,displayName,email,phone,matchReason:reason});
+          let slot='primary',reason='';
+          if(sEmailMatch){reason='Email match';slot='primary';}
+          else if(sEmail2Match){reason='Secondary contact email match';slot='secondary';}
+          else if(sParentMatch){reason='Parent name match';slot='primary';}
+          else if(sParent2Match){reason='Secondary contact name match';slot='secondary';}
+          else if(studentNameMatch){reason='Student name match';slot=s.email?'secondary':'primary';}
+          else if(sParentStarts){reason='Name contains match';slot='primary';}
+          else if(sParent2Starts){reason='Name contains match';slot='secondary';}
+          else{reason='Name contains match';slot=s.email?'secondary':'primary';}
+          gmailContactMatches.push({student:s,displayName,email,phone,matchReason:reason,slot});
+          matchedThisContact=true;
         }
       });
+      if(matchedThisContact)matchedEmails.add(emailLc);
     });
-    if(!gmailContactMatches.length){
-      const sample=allContacts.slice(0,5).map(c=>c.displayName+' ('+c.email+')').join(', ');
-      body.innerHTML='<div style="padding:16px;text-align:center;">'+
-        '<div style="font-size:14px;font-weight:600;margin-bottom:8px;color:var(--ink);">No automatic matches found</div>'+
-        '<div style="font-size:12px;color:var(--ink-muted);margin-bottom:12px;">Found '+allContacts.length+' Gmail contacts. Sample names: '+sample+'</div>'+
-        '<div style="font-size:12px;color:var(--ink-muted);">Make sure parent names in the roster match how they appear in your Gmail contacts, then try again.</div>'+
-        '</div>';
-      return;
+    // Unmatched = not matched to an existing student, not already a prospect, not already reviewed
+    allContacts.forEach(c=>{
+      const emailLc=c.email.toLowerCase();
+      if(!matchedEmails.has(emailLc)&&!existingProspectEmails.has(emailLc)&&!decisions[emailLc]&&c.displayName){
+        gmailUnmatchedContacts.push(c);
+      }
+    });
+    let html='';
+    if(alreadyReviewedCount){
+      html+='<div style="font-size:11px;color:var(--ink-faint);margin-bottom:12px;">'+alreadyReviewedCount+' contact'+(alreadyReviewedCount!==1?'s':'')+' already reviewed in a previous import — hidden. <span style="text-decoration:underline;cursor:pointer;" onclick="resetGmailContactDecisions()">Reset &amp; review everyone again</span></div>';
     }
-    body.innerHTML='<div style="font-size:13px;color:var(--ink-muted);margin-bottom:12px;">'+gmailContactMatches.length+' match'+(gmailContactMatches.length!==1?'es':'')+' found ('+allContacts.length+' total contacts scanned):</div>'+
-      gmailContactMatches.map((m,i)=>'<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;">'+
-        '<input type="checkbox" id="gcc-'+i+'" checked style="accent-color:var(--ink);cursor:pointer;">'+
-        '<div style="flex:1;"><strong>'+m.student.first+' '+m.student.last+'</strong> <span style="color:var(--ink-muted);">← '+m.displayName+'</span><span style="font-size:10px;color:var(--ink-faint);margin-left:6px;">('+m.matchReason+')</span></div>'+
-        '<div style="font-size:12px;color:var(--ink-muted);">'+m.email+(m.phone?' · '+m.phone:'')+'</div>'+
-      '</div>').join('');
+    if(gmailContactMatches.length){
+      html+='<div style="font-size:13px;color:var(--ink-muted);margin-bottom:12px;">'+gmailContactMatches.length+' new match'+(gmailContactMatches.length!==1?'es':'')+' found:</div>'+
+        gmailContactMatches.map((m,i)=>'<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;">'+
+          '<input type="checkbox" id="gcc-'+i+'" checked style="accent-color:var(--ink);cursor:pointer;">'+
+          '<div style="flex:1;"><strong>'+m.student.first+' '+m.student.last+'</strong> <span style="color:var(--ink-muted);">← '+m.displayName+'</span><span style="font-size:10px;color:var(--ink-faint);margin-left:6px;">('+m.matchReason+(m.slot==='secondary'?' — 2nd contact':'')+')</span></div>'+
+          '<div style="font-size:12px;color:var(--ink-muted);">'+m.email+(m.phone?' · '+m.phone:'')+'</div>'+
+        '</div>').join('');
+    }else if(!alreadyReviewedCount){
+      html+='<div style="font-size:13px;font-weight:600;margin-bottom:6px;color:var(--ink);">No automatic student matches found</div>'+
+        '<div style="font-size:12px;color:var(--ink-muted);margin-bottom:14px;">Scanned '+allContacts.length+' Gmail contacts — none matched a name already on your roster.</div>';
+    }
+    if(gmailUnmatchedContacts.length){
+      html+='<div style="margin-top:'+(gmailContactMatches.length?'20px':'0')+';padding-top:'+(gmailContactMatches.length?'14px':'0')+';border-top:'+(gmailContactMatches.length?'1px solid var(--border)':'none')+';">'+
+        '<div style="font-size:13px;font-weight:600;margin-bottom:2px;color:var(--ink);">Not in your CRM ('+gmailUnmatchedContacts.length+')</div>'+
+        '<div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">Add any of these to your Prospects pipeline, or skip ones you don\'t need.</div>'+
+        gmailUnmatchedContacts.map((c,i)=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">'+
+          '<div style="flex:1;"><strong>'+(c.displayName||'(no name)')+'</strong></div>'+
+          '<div style="font-size:12px;color:var(--ink-muted);">'+c.email+(c.phone?' · '+c.phone:'')+'</div>'+
+          '<button class="btn small" onclick="addGmailContactAsProspect('+i+')">+ Add as Prospect</button>'+
+          '<button class="btn small ghost" onclick="skipGmailContact('+i+')" title="Don\'t show this contact again">Skip</button>'+
+        '</div>').join('');
+      html+='</div>';
+    }
+    if(!gmailContactMatches.length&&!gmailUnmatchedContacts.length&&!alreadyReviewedCount){
+      html+='<div style="font-size:12px;color:var(--ink-muted);">No Gmail contacts found.</div>';
+    }else if(!gmailContactMatches.length&&!gmailUnmatchedContacts.length&&alreadyReviewedCount){
+      html+='<div style="font-size:12px;color:var(--ink-muted);">Everyone in your Gmail contacts has already been reviewed.</div>';
+    }
+    body.innerHTML=html;
   }catch(e){
     body.innerHTML='<div style="color:var(--red);padding:20px;">Failed to load contacts: '+e.message+'</div>';
   }
 }
 
+function resetGmailContactDecisions(){
+  if(!confirm('Forget which Gmail contacts have already been reviewed? The next import will show everyone again.'))return;
+  DB.gmailContactDecisions={};
+  save();
+  openContactsImportModal();
+}
+
+function addGmailContactAsProspect(idx){
+  const c=gmailUnmatchedContacts[idx];
+  if(!c)return;
+  if(!DB.gmailContactDecisions)DB.gmailContactDecisions={};
+  DB.gmailContactDecisions[c.email.toLowerCase()]={status:'prospect',date:new Date().toISOString()};
+  save();
+  closeModal('modal-gmail-contacts');
+  nav('prospects');
+  setTimeout(function(){
+    openAddProspect();
+    if($('tr-name'))$('tr-name').value=c.displayName||'';
+    if($('tr-email'))$('tr-email').value=c.email||'';
+    if($('tr-phone'))$('tr-phone').value=c.phone||'';
+    if($('tr-notes'))$('tr-notes').value='Imported from Gmail contacts';
+  },80);
+}
+
+function skipGmailContact(idx){
+  const c=gmailUnmatchedContacts[idx];
+  if(!c)return;
+  if(!DB.gmailContactDecisions)DB.gmailContactDecisions={};
+  DB.gmailContactDecisions[c.email.toLowerCase()]={status:'skipped',date:new Date().toISOString()};
+  save();
+  openContactsImportModal();
+}
+
+
 function applyGmailContacts(){
   let applied=0;
+  if(!DB.gmailContactDecisions)DB.gmailContactDecisions={};
   gmailContactMatches.forEach((m,i)=>{
-    const cb=document.getElementById('gcc-'+i);if(!cb||!cb.checked)return;
-    const s=DB.students.find(x=>x.id===m.student.id);if(!s)return;
-    if(!s.email&&m.email)s.email=m.email;
-    if(!s.phone&&m.phone)s.phone=m.phone;
-    applied++;
+    const cb=document.getElementById('gcc-'+i);
+    const emailLc=m.email.toLowerCase();
+    if(!cb||!cb.checked){
+      // Explicitly unchecked — remember so it doesn't resurface as a false match
+      DB.gmailContactDecisions[emailLc]={status:'skipped',date:new Date().toISOString()};
+      return;
+    }
+    const s=DB.students.find(x=>x.id===m.student.id);
+    if(s){
+      if(m.slot==='secondary'){
+        if(!s.parent2&&m.displayName)s.parent2=m.displayName;
+        if(!s.email2&&m.email)s.email2=m.email;
+        if(!s.phone2&&m.phone)s.phone2=m.phone;
+      }else{
+        if(!s.parent&&m.displayName)s.parent=m.displayName;
+        if(!s.email&&m.email)s.email=m.email;
+        if(!s.phone&&m.phone)s.phone=m.phone;
+      }
+      applied++;
+    }
+    DB.gmailContactDecisions[emailLc]={status:'matched',date:new Date().toISOString()};
   });
   save();closeModal('modal-gmail-contacts');renderRoster();
   toast('Applied contact info to '+applied+' student'+(applied!==1?'s':'')+'!');
@@ -4798,7 +4901,8 @@ if(!DB.gearSheetSources)DB.gearSheetSources=[];
 if(!DB.classPlans)DB.classPlans=[];
 if(!DB.classLibrary)DB.classLibrary={warmups:[],activities:[]};
 if(!DB.cancelledDays)DB.cancelledDays=[];
-if(!DB.trials)DB.trials=[];
+if(!DB.prospects)DB.prospects=[];
+if(!DB.gmailContactDecisions)DB.gmailContactDecisions={};
 if(!DB.smsLog)DB.smsLog=[];
 if(!DB.twilioConfig)DB.twilioConfig={sid:'',token:'',from:''};
 if(!DB.curriculumData)DB.curriculumData={};
@@ -8028,31 +8132,31 @@ function renderSmsLog() {
 }
 
 // ══════════════════════════════════════════════════════
-// TRIAL TRACKER
+// PROSPECT TRACKER
 // ══════════════════════════════════════════════════════
-var _editingTrialId = null;
+var _editingProspectId = null;
 
-var TRIAL_STATUS_LABELS = {
+var PROSPECT_STATUS_LABELS = {
   new: {label:'New inquiry', color:'var(--blue)', bg:'var(--blue-light)'},
-  scheduled: {label:'Trial scheduled', color:'var(--indigo)', bg:'var(--indigo-light)'},
-  attended: {label:'Trial attended', color:'var(--amber)', bg:'var(--amber-light)'},
+  contacted: {label:'Contacted', color:'var(--indigo)', bg:'var(--indigo-light)'},
+  interested: {label:'Interested', color:'var(--amber)', bg:'var(--amber-light)'},
   enrolled: {label:'Enrolled ✓', color:'var(--green)', bg:'var(--green-light)'},
   lost: {label:'Not continuing', color:'var(--ink-muted)', bg:'var(--surface)'}
 };
 
-function initTrials() {
-  if (!DB.trials) DB.trials = [];
-  renderTrials();
-  renderTrialPipeline();
+function initProspects() {
+  if (!DB.prospects) DB.prospects = [];
+  renderProspects();
+  renderProspectPipeline();
   checkFollowUps();
 }
 
-function renderTrialPipeline() {
-  var el = $('trial-pipeline'); if (!el) return;
-  var counts = {new:0, scheduled:0, attended:0, enrolled:0, lost:0};
-  (DB.trials||[]).forEach(function(t) { if(counts[t.status]!==undefined) counts[t.status]++; });
-  el.innerHTML = Object.keys(TRIAL_STATUS_LABELS).map(function(key) {
-    var s = TRIAL_STATUS_LABELS[key];
+function renderProspectPipeline() {
+  var el = $('prospect-pipeline'); if (!el) return;
+  var counts = {new:0, contacted:0, interested:0, enrolled:0, lost:0};
+  (DB.prospects||[]).forEach(function(t) { if(counts[t.status]!==undefined) counts[t.status]++; });
+  el.innerHTML = Object.keys(PROSPECT_STATUS_LABELS).map(function(key) {
+    var s = PROSPECT_STATUS_LABELS[key];
     return '<div style="background:' + s.bg + ';border:1px solid ' + s.color + ';border-radius:10px;padding:10px 16px;min-width:110px;text-align:center;">' +
       '<div style="font-size:22px;font-weight:800;color:' + s.color + ';">' + counts[key] + '</div>' +
       '<div style="font-size:11px;color:' + s.color + ';font-weight:600;">' + s.label + '</div>' +
@@ -8062,37 +8166,37 @@ function renderTrialPipeline() {
 
 function checkFollowUps() {
   var today = todayStr();
-  var due = (DB.trials||[]).filter(function(t) {
+  var due = (DB.prospects||[]).filter(function(t) {
     return t.followup && t.followup <= today && t.status !== 'enrolled' && t.status !== 'lost';
   });
   if (due.length) {
-    toast('📞 ' + due.length + ' trial follow-up(s) due today!');
+    toast('📞 ' + due.length + ' prospect follow-up(s) due today!');
   }
 }
 
-function renderTrials() {
-  var tbody = $('trial-tbody'); if (!tbody) return;
-  var search = ($('trial-search') && $('trial-search').value || '').toLowerCase();
-  var filterStatus = $('trial-filter-status') && $('trial-filter-status').value || '';
-  var trials = (DB.trials||[]).slice().sort(function(a,b) { return b.date.localeCompare(a.date); });
-  if (search) trials = trials.filter(function(t) {
+function renderProspects() {
+  var tbody = $('prospect-tbody'); if (!tbody) return;
+  var search = ($('prospect-search') && $('prospect-search').value || '').toLowerCase();
+  var filterStatus = $('prospect-filter-status') && $('prospect-filter-status').value || '';
+  var prospects = (DB.prospects||[]).slice().sort(function(a,b) { return b.date.localeCompare(a.date); });
+  if (search) prospects = prospects.filter(function(t) {
     return (t.name||'').toLowerCase().includes(search) || (t.parent||'').toLowerCase().includes(search);
   });
-  if (filterStatus) trials = trials.filter(function(t) { return t.status === filterStatus; });
+  if (filterStatus) prospects = prospects.filter(function(t) { return t.status === filterStatus; });
 
-  if (!trials.length) {
+  if (!prospects.length) {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--ink-muted);">' +
-      (DB.trials&&DB.trials.length ? 'No results match filter.' : 'No prospects yet — click "+ Add Prospect" to start tracking.') + '</td></tr>';
+      (DB.prospects&&DB.prospects.length ? 'No results match filter.' : 'No prospects yet — click "+ Add Prospect" to start tracking.') + '</td></tr>';
     return;
   }
 
   var today = todayStr();
-  tbody.innerHTML = trials.map(function(t) {
-    var st = TRIAL_STATUS_LABELS[t.status] || TRIAL_STATUS_LABELS.new;
+  tbody.innerHTML = prospects.map(function(t) {
+    var st = PROSPECT_STATUS_LABELS[t.status] || PROSPECT_STATUS_LABELS.new;
     var badge = '<span style="background:' + st.bg + ';color:' + st.color + ';border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;">' + st.label + '</span>';
     var followupFlag = t.followup && t.followup <= today && t.status !== 'enrolled' && t.status !== 'lost'
       ? '<span style="background:var(--red-light);color:var(--red);border-radius:20px;padding:2px 8px;font-size:10px;margin-left:4px;">Follow up!</span>' : '';
-    var smsBtn = t.phone ? '<button class="btn small" onclick="smsOneTrial(' + t.id + ')" title="Send SMS">📱</button>' : '';
+    var smsBtn = t.phone ? '<button class="btn small" onclick="smsOneProspect(' + t.id + ')" title="Send SMS">📱</button>' : '';
     return '<tr>' +
       '<td><strong style="font-size:13px;">' + (t.name||'—') + '</strong>' + (t.group ? '<div style="font-size:11px;color:var(--ink-muted);">' + t.group + '</div>' : '') + '</td>' +
       '<td style="font-size:12px;">' + (t.parent||'') + (t.phone ? '<div style="font-size:11px;color:var(--ink-faint);">' + t.phone + '</div>' : '') + '</td>' +
@@ -8100,28 +8204,28 @@ function renderTrials() {
       '<td style="font-size:12px;">' + (t.date ? fmtDate(t.date) : '—') + '</td>' +
       '<td>' + badge + '</td>' +
       '<td style="font-size:12px;">' + (t.followup ? fmtDate(t.followup) : '—') + followupFlag + '</td>' +
-      '<td style="white-space:nowrap;">' + smsBtn + ' <button class="btn small" onclick="editTrial(' + t.id + ')">Edit</button> <button class="btn small" onclick="deleteTrial(' + t.id + ')">✕</button></td>' +
+      '<td style="white-space:nowrap;">' + smsBtn + ' <button class="btn small" onclick="editProspect(' + t.id + ')">Edit</button> <button class="btn small" onclick="deleteProspect(' + t.id + ')">✕</button></td>' +
     '</tr>';
   }).join('');
 }
 
-function openAddTrial() {
-  _editingTrialId = null;
-  $('trial-modal-title').textContent = 'Add Prospect';
+function openAddProspect() {
+  _editingProspectId = null;
+  $('prospect-modal-title').textContent = 'Add Prospect';
   ['tr-name','tr-parent','tr-phone','tr-email','tr-notes'].forEach(function(id) { if($(id)) $(id).value = ''; });
   if ($('tr-group')) $('tr-group').value = '';
   if ($('tr-status')) $('tr-status').value = 'new';
   if ($('tr-date')) $('tr-date').value = new Date().toISOString().slice(0,10);
   if ($('tr-followup')) $('tr-followup').value = '';
   if ($('tr-enroll-btn')) $('tr-enroll-btn').style.display = 'none';
-  $('modal-trial').classList.add('open');
+  $('modal-prospect').classList.add('open');
 }
 
-function editTrial(id) {
-  var t = (DB.trials||[]).find(function(x){return x.id===id;});
+function editProspect(id) {
+  var t = (DB.prospects||[]).find(function(x){return x.id===id;});
   if (!t) return;
-  _editingTrialId = id;
-  $('trial-modal-title').textContent = 'Edit Prospect';
+  _editingProspectId = id;
+  $('prospect-modal-title').textContent = 'Edit Prospect';
   if ($('tr-name')) $('tr-name').value = t.name||'';
   if ($('tr-parent')) $('tr-parent').value = t.parent||'';
   if ($('tr-phone')) $('tr-phone').value = t.phone||'';
@@ -8131,13 +8235,13 @@ function editTrial(id) {
   if ($('tr-date')) $('tr-date').value = t.date||'';
   if ($('tr-followup')) $('tr-followup').value = t.followup||'';
   if ($('tr-notes')) $('tr-notes').value = t.notes||'';
-  if ($('tr-enroll-btn')) $('tr-enroll-btn').style.display = t.status==='attended'||t.status==='enrolled' ? 'block' : 'none';
-  $('modal-trial').classList.add('open');
+  if ($('tr-enroll-btn')) $('tr-enroll-btn').style.display = t.status==='interested'||t.status==='enrolled' ? 'block' : 'none';
+  $('modal-prospect').classList.add('open');
 }
 
-function saveTrial() {
-  var trial = {
-    id: _editingTrialId || Date.now(),
+function saveProspect() {
+  var prospect = {
+    id: _editingProspectId || Date.now(),
     name: ($('tr-name')&&$('tr-name').value)||'',
     parent: ($('tr-parent')&&$('tr-parent').value)||'',
     phone: ($('tr-phone')&&$('tr-phone').value)||'',
@@ -8148,32 +8252,32 @@ function saveTrial() {
     followup: ($('tr-followup')&&$('tr-followup').value)||'',
     notes: ($('tr-notes')&&$('tr-notes').value)||''
   };
-  if (!DB.trials) DB.trials = [];
-  if (_editingTrialId) {
-    var idx = DB.trials.findIndex(function(x){return x.id===_editingTrialId;});
-    if (idx >= 0) DB.trials[idx] = trial;
+  if (!DB.prospects) DB.prospects = [];
+  if (_editingProspectId) {
+    var idx = DB.prospects.findIndex(function(x){return x.id===_editingProspectId;});
+    if (idx >= 0) DB.prospects[idx] = prospect;
   } else {
-    DB.trials.unshift(trial);
+    DB.prospects.unshift(prospect);
   }
   save();
-  closeModal('modal-trial');
-  renderTrials();
-  renderTrialPipeline();
-  toast(_editingTrialId ? 'Prospect updated.' : 'Prospect added!');
+  closeModal('modal-prospect');
+  renderProspects();
+  renderProspectPipeline();
+  toast(_editingProspectId ? 'Prospect updated.' : 'Prospect added!');
 }
 
-function deleteTrial(id) {
+function deleteProspect(id) {
   if (!confirm('Remove this prospect?')) return;
-  DB.trials = DB.trials.filter(function(x){return x.id!==id;});
-  save(); renderTrials(); renderTrialPipeline();
+  DB.prospects = DB.prospects.filter(function(x){return x.id!==id;});
+  save(); renderProspects(); renderProspectPipeline();
 }
 
-function enrollTrial() {
-  // Pre-fill the add student form with trial data and nav to roster
-  var t = (DB.trials||[]).find(function(x){return x.id===_editingTrialId;});
+function enrollProspect() {
+  // Pre-fill the add student form with prospect data and nav to roster
+  var t = (DB.prospects||[]).find(function(x){return x.id===_editingProspectId;});
   if (!t) return;
-  closeModal('modal-trial');
-  // Update trial status to enrolled
+  closeModal('modal-prospect');
+  // Update prospect status to enrolled
   if (t) { t.status = 'enrolled'; save(); }
   nav('roster');
   // Open add student modal with pre-filled data
@@ -8186,7 +8290,7 @@ function enrollTrial() {
     if ($('f-email')) $('f-email').value = t.email||'';
     if ($('f-group')) $('f-group').value = t.group||'Little Dragons';
     if ($('modal-add-student')) $('modal-add-student').classList.add('open');
-    toast('Trial data pre-filled — choose belt and save!');
+    toast('Prospect data pre-filled — choose belt and save!');
   }, 300);
 }
 
@@ -8207,17 +8311,17 @@ function smsOneStudent(id) {
   }, 200);
 }
 
-function smsOneTrial(id) {
-  var t = (DB.trials||[]).find(function(x){return x.id===id;});
+function smsOneProspect(id) {
+  var t = (DB.prospects||[]).find(function(x){return x.id===id;});
   if (!t || !t.phone) return;
   nav('sms');
   setTimeout(function() {
     var digits = t.phone.replace(/\D/g,'');
     var e164 = digits.length===10 ? '+1'+digits : (digits.length===11?'+'+digits:null);
     if (e164) {
-      _smsRecipients = [{id:'trial-'+t.id, name:t.name, first:(t.name||'').split(' ')[0], last:'', belt:'', group:'Trial', parent:t.name, phone:e164}];
+      _smsRecipients = [{id:'prospect-'+t.id, name:t.name, first:(t.name||'').split(' ')[0], last:'', belt:'', group:'Prospect', parent:t.name, phone:e164}];
       renderSmsRecipientSummary();
-      if ($('sms-body')) $('sms-body').value = "Hi! This is Noble's Martial Arts following up on " + (t.name||'your student') + "'s trial class. We'd love to have them join us! Any questions?";
+      if ($('sms-body')) $('sms-body').value = "Hi! This is Noble's Martial Arts following up after your visit. We'd love to have you join us! Any questions?";
       smsUpdateCount();
     }
   }, 200);
