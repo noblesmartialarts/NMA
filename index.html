@@ -955,6 +955,9 @@ tbody td{font-size:11px!important;}
     <div id="quick-add-belts" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
   </div>
   <div class="table-wrap" style="margin-bottom:20px;"><table><thead><tr><th>Type</th><th>Item</th><th>Size</th><th>Qty</th><th>Wholesale</th><th>Sell price</th><th>Margin</th><th></th></tr></thead><tbody id="belt-inv-tbody"></tbody></table></div>
+  <div class="section-divider"><span>🏷️ Website Sale Items <span id="sale-items-badge" style="font-weight:400;color:var(--ink-faint);font-size:11px;"></span></span></div>
+  <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">Items currently posted for sale on the Parent Hub — post/edit/archive on the website admin panel; mark sold here to track revenue and keep counts in sync.</div>
+  <div class="table-wrap" style="margin-bottom:20px;"><table><thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Reserved</th><th>Available</th><th>Status</th><th></th></tr></thead><tbody id="sale-items-tbody"><tr><td colspan="7" style="text-align:center;padding:16px;color:var(--ink-muted);">Loading…</td></tr></tbody></table></div>
   <div class="section-divider"><span>Order log</span></div>
   <div class="table-wrap"><table><thead><tr><th>Student</th><th>Item</th><th>Date</th><th>Cost</th><th>Charged</th><th>Margin</th><th>Notes</th></tr></thead><tbody id="order-tbody"></tbody></table></div>
   <div style="margin-top:10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px;" id="inv-profit-summary"></div>
@@ -3912,7 +3915,7 @@ function renderInventory(){
     const label=isWeapon?`<span class="badge badge-gray">${item.weaponName||'Weapon'}</span>`:isUniform?`<span class="badge badge-gray">${item.uniformName||'Uniform'}</span>`:`<span class="belt-pill" style="${beltStyle(item.color)}">${item.color}</span>`;
     const icon=isWeapon?'🥢':isUniform?'👕':'🥋';
     const low=item.qty>0&&item.qty<=2;
-    return `<tr${item.qty===0?' style="opacity:.55;"':''}><td style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;">${icon}</td><td>${label}</td><td style="color:var(--ink-muted);">${item.size}</td><td><div style="display:flex;align-items:center;gap:5px;"><button class="btn ghost" onclick="adjustInv(${item.id},-1)">−</button><strong style="min-width:16px;text-align:center;display:inline-block;${item.qty===0?'color:var(--red);':low?'color:#b45309;':''}">${item.qty}</strong><button class="btn ghost" onclick="adjustInv(${item.id},1)">+</button></div></td><td><input type="number" step="0.01" class="inv-price-input" value="${item.cost||''}" placeholder="0.00" onchange="updateInvPrice(${item.id},'cost',this.value)"></td><td><input type="number" step="0.01" class="inv-price-input" value="${item.sell||''}" placeholder="0.00" onchange="updateInvPrice(${item.id},'sell',this.value)"></td><td><span class="badge ${m>0?'badge-green':m<0?'badge-red':'badge-gray'}">${m>=0?'+':''}${fmt$(m)}</span></td><td><button class="btn small" onclick="deleteInv(${item.id})">✕</button></td></tr>`;
+    return `<tr${item.qty===0?' style="opacity:.55;"':''}><td style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;">${icon}</td><td>${label}</td><td style="color:var(--ink-muted);">${item.size}</td><td><div style="display:flex;align-items:center;gap:5px;"><button class="btn ghost" onclick="adjustInv(${item.id},-1)">−</button><strong style="min-width:16px;text-align:center;display:inline-block;${item.qty===0?'color:var(--red);':low?'color:#b45309;':''}">${item.qty}</strong><button class="btn ghost" onclick="adjustInv(${item.id},1)">+</button></div></td><td><input type="number" step="0.01" class="inv-price-input" value="${item.cost||''}" placeholder="0.00" onchange="updateInvPrice(${item.id},'cost',this.value)"></td><td><input type="number" step="0.01" class="inv-price-input" value="${item.sell||''}" placeholder="0.00" onchange="updateInvPrice(${item.id},'sell',this.value)"></td><td><span class="badge ${m>0?'badge-green':m<0?'badge-red':'badge-gray'}">${m>=0?'+':''}${fmt$(m)}</span></td><td style="white-space:nowrap;">${(isWeapon||isUniform)?`<button class="btn small success" onclick="sellInventoryItem(${item.id})" title="Log a sale and remove 1 from stock">💰 Sold</button> `:''}<button class="btn small" onclick="deleteInv(${item.id})">✕</button></td></tr>`;
   };
   const sectionRow=(label,count)=>`<tr class="inv-section-row"><td colspan="8" style="padding:9px 8px 5px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted);border-top:1px solid var(--border);">${label} <span style="font-weight:400;color:var(--ink-faint);">(${count})</span></td></tr>`;
   let html='';
@@ -3924,6 +3927,7 @@ function renderInventory(){
   const tC=DB.orders.reduce((a,o)=>a+(+o.cost||0),0),tR=DB.orders.reduce((a,o)=>a+(+o.charged||0),0);
   $('inv-profit-summary').innerHTML=`<div style="display:flex;gap:26px;flex-wrap:wrap;"><div><div style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Total cost paid</div><div style="font-family:var(--font-display);font-size:19px;font-weight:700;color:var(--red);">${fmt$(tC)}</div></div><div><div style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Total charged</div><div style="font-family:var(--font-display);font-size:19px;font-weight:700;color:var(--green);">${fmt$(tR)}</div></div><div><div style="font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Net margin</div><div style="font-family:var(--font-display);font-size:19px;font-weight:700;color:${tR-tC>=0?'var(--green)':'var(--red)'};">${tR-tC>=0?'+':''}${fmt$(tR-tC)}</div></div></div>`;
   $('ord-student').innerHTML=DB.students.filter(s=>s.status==='Active').map(s=>`<option value="${s.id}">${s.first} ${s.last}</option>`).join('');
+  loadWebsiteSaleItems();
 }
 const WEAPON_SIZES={'Nunchaku':['One Size'],'Bo Staff':['3ft','4ft','4.5ft','5ft','5.5ft','6ft'],'Escrima Sticks':['One Size (pair)']};
 const BELT_UNIFORM_SIZES=['000','00','0','1','2','3','4','5','6','7'];
@@ -3964,6 +3968,62 @@ function saveInvItem(){
   save();closeModal('modal-inv');renderInventory();
 }
 function adjustInv(id,delta){const item=DB.inventory.find(i=>i.id===id);if(!item)return;item.qty=Math.max(0,item.qty+delta);save();renderInventory();}
+function sellInventoryItem(id){
+  const item=DB.inventory.find(i=>i.id===id);if(!item)return;
+  if(item.qty<=0){toast('None in stock to sell.');return;}
+  const label=item.weaponName||item.uniformName||item.color;
+  if(!confirm(`Log a sale of 1 ${label}${item.size&&item.size!=='0'?' ('+item.size+')':''} for ${fmt$(item.sell||0)}?\n\nThis will remove 1 from stock and add it to the Order log.`))return;
+  item.qty=Math.max(0,item.qty-1);
+  DB.orders.push({id:DB.nextId++,studentId:null,item:`${label}${item.size&&item.size!=='0'?' ('+item.size+')':''} — sold`,date:new Date().toISOString().slice(0,10),cost:item.cost||0,charged:item.sell||0,notes:'Logged via Inventory sale'});
+  save();renderInventory();
+  toast(`Sale logged: ${label} — ${fmt$(item.sell||0)}`);
+}
+
+// ══════════════════════════════════════════════════════
+// WEBSITE SALE ITEMS — reads/writes the public site's nma_sale_items table
+// so gear posted for sale on the Parent Hub shows up in the CRM too.
+// ══════════════════════════════════════════════════════
+let _websiteSaleItems=[];
+async function loadWebsiteSaleItems(){
+  const tbody=$('sale-items-tbody');if(!tbody)return;
+  try{
+    const{data,error}=await supa.from('nma_sale_items').select('*').order('created_at',{ascending:false});
+    if(error)throw error;
+    _websiteSaleItems=data||[];
+    renderWebsiteSaleItems();
+  }catch(e){
+    console.warn('Could not load website sale items:',e.message);
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--ink-muted);">Could not load website sale items.</td></tr>';
+  }
+}
+function renderWebsiteSaleItems(){
+  const tbody=$('sale-items-tbody');if(!tbody)return;
+  const badge=$('sale-items-badge');
+  const activeCount=_websiteSaleItems.filter(i=>i.active).length;
+  if(badge)badge.textContent=activeCount?`(${activeCount} active)`:'';
+  if(!_websiteSaleItems.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--ink-muted);">No items posted on the website yet.</td></tr>';return;}
+  tbody.innerHTML=_websiteSaleItems.map(it=>{
+    const available=Math.max(0,(it.quantity||0)-(it.reserved||0));
+    const status=!it.active?{label:'Archived',cls:'badge-gray'}:available<=0?{label:'Sold Out',cls:'badge-red'}:it.reserved>0?{label:'Pending Request',cls:'badge-amber'}:{label:'Available',cls:'badge-green'};
+    return `<tr${!it.active?' style="opacity:.5;"':''}><td>${it.title||'Item'}</td><td>${fmt$(it.price||0)}</td><td>${it.quantity||0}</td><td>${it.reserved||0}</td><td>${available}</td><td><span class="badge ${status.cls}">${status.label}</span></td><td>${it.active&&(it.quantity||0)>0?`<button class="btn small success" onclick="markSaleItemSold('${it.id}')" title="Log this sale and reduce website quantity by 1">💰 Mark Sold</button>`:''}</td></tr>`;
+  }).join('');
+}
+async function markSaleItemSold(id){
+  const it=_websiteSaleItems.find(x=>x.id===id);if(!it)return;
+  if(!confirm(`Mark 1 "${it.title}" as sold for ${fmt$(it.price||0)}?\n\nThis reduces the website listing's quantity by 1 and logs the sale in your Order log.`))return;
+  const newQty=Math.max(0,(it.quantity||0)-1);
+  const newReserved=Math.max(0,(it.reserved||0)-(it.reserved>0?1:0));
+  try{
+    const{error}=await supa.from('nma_sale_items').update({quantity:newQty,reserved:newReserved,updated_at:new Date().toISOString()}).eq('id',id);
+    if(error)throw error;
+    it.quantity=newQty;it.reserved=newReserved;
+    DB.orders.push({id:DB.nextId++,studentId:null,item:`${it.title} — sold (website)`,date:new Date().toISOString().slice(0,10),cost:0,charged:it.price||0,notes:'Website Sale Item, logged via Inventory'});
+    save();renderWebsiteSaleItems();renderInventory();
+    toast(`Sale logged: ${it.title} — ${fmt$(it.price||0)}`);
+  }catch(e){
+    toast('Could not update the website listing — check your connection and try again.');
+  }
+}
 function deleteInv(id){DB.inventory=DB.inventory.filter(i=>i.id!==id);save();renderInventory();}
 function updateInvPrice(id,field,val){
   const item=DB.inventory.find(i=>i.id===id);if(!item)return;
