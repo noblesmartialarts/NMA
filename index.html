@@ -943,7 +943,7 @@ tbody td{font-size:11px!important;}
 <div id="page-inventory" class="page">
   <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
     <div><div class="page-title">Inventory</div><div class="page-subtitle">Belts, uniforms &amp; weapons, gear orders with wholesale cost &amp; margin tracking</div></div>
-    <div style="display:flex;gap:8px;"><button class="btn" onclick="openInvModal()">+ Add Item</button><button class="btn primary" onclick="openOrderModal()">+ Log Order</button></div>
+    <div style="display:flex;gap:8px;"><button class="btn" style="border-color:var(--amber);color:var(--amber);" onclick="restoreBeltInventorySnapshot()" title="One-time recovery of belt counts lost to a stale-tab overwrite — safe to click, won't overwrite anything already re-entered">↺ Restore Belt Counts</button><button class="btn" onclick="openInvModal()">+ Add Item</button><button class="btn primary" onclick="openOrderModal()">+ Log Order</button></div>
   </div>
   <div class="section-divider"><span>Belt, uniform &amp; weapon inventory</span></div>
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
@@ -4066,6 +4066,60 @@ function openOrderModal(){['ord-item','ord-cost','ord-charged','ord-notes'].forE
 function saveOrder(){const sid=parseInt($('ord-student').value),item=$('ord-item').value.trim();if(!item){alert('Item required.');return;}DB.orders.push({id:DB.nextId++,studentId:sid,item,date:$('ord-date').value,cost:parseFloat($('ord-cost').value)||0,charged:parseFloat($('ord-charged').value)||0,notes:$('ord-notes').value.trim()});save();closeModal('modal-order');renderInventory();toast('Order logged!');}
 // Belt stock lookup used by the Belt Order page and by auto-consume on promotion
 function findBeltStock(belt,size){return DB.inventory.find(i=>(i.type||'belt')==='belt'&&i.color===belt&&i.size===(size||'0'));}
+// ══════════════════════════════════════════════════════
+// ONE-TIME BELT INVENTORY RESTORE — reconstructed from screenshots
+// taken before a stale-tab overwrite wiped these counts (see chat, Aug 2026).
+// Safe to run more than once: only fills rows that are missing or still at 0,
+// never overwrites anything already re-entered above 0.
+// ══════════════════════════════════════════════════════
+const BELT_INVENTORY_SNAPSHOT=[
+  {belt:'LD White',size:'0',qty:2,cost:1.99,sell:0},
+  {belt:'LD White',size:'00',qty:1,cost:1.99,sell:0},
+  {belt:'LD Yellow',size:'1',qty:4,cost:4.49,sell:8},
+  {belt:'LD Orange',size:'1',qty:1,cost:4.49,sell:8},
+  {belt:'LD Purple',size:'1',qty:1,cost:4.49,sell:8},
+  {belt:'LD Green',size:'1',qty:1,cost:4.49,sell:8},
+  {belt:'LD Brown',size:'1',qty:1,cost:4.49,sell:8},
+  {belt:'LD Red',size:'1',qty:2,cost:4.49,sell:8},
+  {belt:'White',size:'1',qty:5,cost:1.99,sell:8},
+  {belt:'White',size:'2',qty:3,cost:1.99,sell:8},
+  {belt:'White',size:'3',qty:1,cost:1.99,sell:8},
+  {belt:'Yellow',size:'1',qty:1,cost:1.99,sell:8},
+  {belt:'Yellow',size:'4',qty:1,cost:1.99,sell:8},
+  {belt:'Orange',size:'2',qty:1,cost:1.99,sell:8},
+  {belt:'Purple',size:'2',qty:2,cost:1.99,sell:8},
+  {belt:'Purple',size:'3',qty:2,cost:1.99,sell:8},
+  {belt:'Purple',size:'4',qty:1,cost:1.99,sell:8},
+  {belt:'Purple II',size:'2',qty:1,cost:1.99,sell:8},
+  {belt:'Purple II',size:'3',qty:1,cost:1.99,sell:8},
+  {belt:'Purple II',size:'4',qty:1,cost:1.99,sell:8},
+  {belt:'Blue',size:'2',qty:1,cost:1.99,sell:8},
+  {belt:'Green',size:'2',qty:2,cost:1.99,sell:8},
+  {belt:'Green II',size:'2',qty:1,cost:1.99,sell:8},
+  {belt:'Brown III',size:'2',qty:1,cost:3.49,sell:8},
+  {belt:'Red',size:'2',qty:1,cost:1.99,sell:8},
+  {belt:'Red II',size:'2',qty:3,cost:3.49,sell:8},
+  {belt:'Red II',size:'3',qty:1,cost:1.99,sell:8}
+];
+function restoreBeltInventorySnapshot(){
+  if(!confirm(`Restore ${BELT_INVENTORY_SNAPSHOT.length} belt inventory rows from your screenshots?\n\nThis only fills in rows that are missing or currently at 0 — it will NOT overwrite any counts you've already re-entered above 0.`))return;
+  let restored=0,skipped=0;
+  BELT_INVENTORY_SNAPSHOT.forEach(s=>{
+    const existing=findBeltStock(s.belt,s.size);
+    if(existing){
+      if((existing.qty||0)>0){skipped++;return;}
+      existing.qty=s.qty;
+      if(!existing.cost)existing.cost=s.cost;
+      if(!existing.sell)existing.sell=s.sell;
+      restored++;
+    }else{
+      DB.inventory.push({id:DB.nextId++,type:'belt',color:s.belt,size:s.size,qty:s.qty,cost:s.cost,sell:s.sell});
+      restored++;
+    }
+  });
+  save();renderInventory();
+  toast(`Restored ${restored} row(s)${skipped?', skipped '+skipped+' already re-entered':''}.`);
+}
 function receiveBeltOrder(belt,size,qty){
   qty=parseInt(qty)||0;if(qty<=0)return;
   const item=findBeltStock(belt,size);
