@@ -957,7 +957,7 @@ tbody td{font-size:11px!important;}
   <div class="table-wrap" style="margin-bottom:20px;"><table><thead><tr><th>Type</th><th>Item</th><th>Size</th><th>Qty</th><th>Wholesale</th><th>Sell price</th><th>Margin</th><th></th></tr></thead><tbody id="belt-inv-tbody"></tbody></table></div>
   <div class="section-divider"><span>🏷️ Website Sale Items <span id="sale-items-badge" style="font-weight:400;color:var(--ink-faint);font-size:11px;"></span></span></div>
   <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">Items currently posted for sale on the Parent Hub — post/edit/archive on the website admin panel; mark sold here to track revenue and keep counts in sync.</div>
-  <div class="table-wrap" style="margin-bottom:20px;"><table><thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Reserved</th><th>Available</th><th>Status</th><th></th></tr></thead><tbody id="sale-items-tbody"><tr><td colspan="7" style="text-align:center;padding:16px;color:var(--ink-muted);">Loading…</td></tr></tbody></table></div>
+  <div class="table-wrap" style="margin-bottom:20px;"><table><thead><tr><th>Item</th><th>Category</th><th>Size/Color</th><th>Price</th><th>Qty</th><th>Reserved</th><th>Available</th><th>Status</th><th></th></tr></thead><tbody id="sale-items-tbody"><tr><td colspan="9" style="text-align:center;padding:16px;color:var(--ink-muted);">Loading…</td></tr></tbody></table></div>
   <div class="section-divider"><span>Order log</span></div>
   <div class="table-wrap"><table><thead><tr><th>Student</th><th>Item</th><th>Date</th><th>Cost</th><th>Charged</th><th>Margin</th><th>Notes</th></tr></thead><tbody id="order-tbody"></tbody></table></div>
   <div style="margin-top:10px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px;" id="inv-profit-summary"></div>
@@ -4001,25 +4001,59 @@ function renderWebsiteSaleItems(){
   const badge=$('sale-items-badge');
   const activeCount=_websiteSaleItems.filter(i=>i.active).length;
   if(badge)badge.textContent=activeCount?`(${activeCount} active)`:'';
-  if(!_websiteSaleItems.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--ink-muted);">No items posted on the website yet.</td></tr>';return;}
-  tbody.innerHTML=_websiteSaleItems.map(it=>{
-    const available=Math.max(0,(it.quantity||0)-(it.reserved||0));
-    const status=!it.active?{label:'Archived',cls:'badge-gray'}:available<=0?{label:'Sold Out',cls:'badge-red'}:it.reserved>0?{label:'Pending Request',cls:'badge-amber'}:{label:'Available',cls:'badge-green'};
-    return `<tr${!it.active?' style="opacity:.5;"':''}><td>${it.title||'Item'}</td><td>${fmt$(it.price||0)}</td><td>${it.quantity||0}</td><td>${it.reserved||0}</td><td>${available}</td><td><span class="badge ${status.cls}">${status.label}</span></td><td>${it.active&&(it.quantity||0)>0?`<button class="btn small success" onclick="markSaleItemSold('${it.id}')" title="Log this sale and reduce website quantity by 1">💰 Mark Sold</button>`:''}</td></tr>`;
-  }).join('');
+  if(!_websiteSaleItems.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:16px;color:var(--ink-muted);">No items posted on the website yet.</td></tr>';return;}
+  const statusFor=(qty,reserved,active)=>{
+    const available=Math.max(0,(qty||0)-(reserved||0));
+    return !active?{label:'Archived',cls:'badge-gray'}:available<=0?{label:'Sold Out',cls:'badge-red'}:reserved>0?{label:'Pending Request',cls:'badge-amber'}:{label:'Available',cls:'badge-green'};
+  };
+  let rows='';
+  _websiteSaleItems.forEach(it=>{
+    const hasVariants=Array.isArray(it.variants)&&it.variants.length>0;
+    const dim=!it.active?' style="opacity:.5;"':'';
+    if(hasVariants){
+      it.variants.forEach((v,i)=>{
+        const vAvail=Math.max(0,(v.quantity||0)-(v.reserved||0));
+        const st=statusFor(v.quantity,v.reserved,it.active);
+        const label=[v.size,v.color].filter(Boolean).join(' / ')||'One size';
+        rows+=`<tr${dim}>${i===0?`<td rowspan="${it.variants.length}">${it.title||'Item'}</td><td rowspan="${it.variants.length}">${it.category||'—'}</td>`:''}<td>${label}</td><td>${i===0?fmt$(it.price||0):''}</td><td>${v.quantity||0}</td><td>${v.reserved||0}</td><td>${vAvail}</td><td><span class="badge ${st.cls}">${st.label}</span></td><td>${it.active&&(v.quantity||0)>0?`<button class="btn small success" onclick="markSaleItemSold('${it.id}','${v.id}')" title="Log this sale and reduce this variant's quantity by 1">💰 Mark Sold</button>`:''}</td></tr>`;
+      });
+    }else{
+      const available=Math.max(0,(it.quantity||0)-(it.reserved||0));
+      const st=statusFor(it.quantity,it.reserved,it.active);
+      rows+=`<tr${dim}><td>${it.title||'Item'}</td><td>${it.category||'—'}</td><td>—</td><td>${fmt$(it.price||0)}</td><td>${it.quantity||0}</td><td>${it.reserved||0}</td><td>${available}</td><td><span class="badge ${st.cls}">${st.label}</span></td><td>${it.active&&(it.quantity||0)>0?`<button class="btn small success" onclick="markSaleItemSold('${it.id}',null)" title="Log this sale and reduce website quantity by 1">💰 Mark Sold</button>`:''}</td></tr>`;
+    }
+  });
+  tbody.innerHTML=rows;
 }
-async function markSaleItemSold(id){
+async function markSaleItemSold(id,variantId){
   const it=_websiteSaleItems.find(x=>x.id===id);if(!it)return;
-  if(!confirm(`Mark 1 "${it.title}" as sold for ${fmt$(it.price||0)}?\n\nThis reduces the website listing's quantity by 1 and logs the sale in your Order log.`))return;
-  const newQty=Math.max(0,(it.quantity||0)-1);
-  const newReserved=Math.max(0,(it.reserved||0)-(it.reserved>0?1:0));
+  let updatePayload,label,price,orderNote;
+  if(variantId){
+    const variants=(it.variants||[]).map(v=>({...v}));
+    const v=variants.find(x=>x.id===variantId);if(!v){toast('Variant not found — try refreshing the Inventory page.');return;}
+    label=[v.size,v.color].filter(Boolean).join(' / ')||'One size';
+    if(!confirm(`Mark 1 "${it.title}" (${label}) as sold for ${fmt$(it.price||0)}?\n\nThis reduces that size/color's quantity by 1 and logs the sale in your Order log.`))return;
+    v.quantity=Math.max(0,(v.quantity||0)-1);
+    const newTotalQty=variants.reduce((a,x)=>a+(x.quantity||0),0);
+    const newTotalReserved=variants.reduce((a,x)=>a+(x.reserved||0),0);
+    updatePayload={variants,quantity:newTotalQty,reserved:newTotalReserved,updated_at:new Date().toISOString()};
+    price=it.price||0;
+    orderNote=`${it.title} (${label}) — sold (website)`;
+  }else{
+    if(!confirm(`Mark 1 "${it.title}" as sold for ${fmt$(it.price||0)}?\n\nThis reduces the website listing's quantity by 1 and logs the sale in your Order log.`))return;
+    const newQty=Math.max(0,(it.quantity||0)-1);
+    const newReserved=Math.max(0,(it.reserved||0)-(it.reserved>0?1:0));
+    updatePayload={quantity:newQty,reserved:newReserved,updated_at:new Date().toISOString()};
+    price=it.price||0;
+    orderNote=`${it.title} — sold (website)`;
+  }
   try{
-    const{error}=await supa.from('nma_sale_items').update({quantity:newQty,reserved:newReserved,updated_at:new Date().toISOString()}).eq('id',id);
+    const{error}=await supa.from('nma_sale_items').update(updatePayload).eq('id',id);
     if(error)throw error;
-    it.quantity=newQty;it.reserved=newReserved;
-    DB.orders.push({id:DB.nextId++,studentId:null,item:`${it.title} — sold (website)`,date:new Date().toISOString().slice(0,10),cost:0,charged:it.price||0,notes:'Website Sale Item, logged via Inventory'});
+    Object.assign(it,updatePayload);
+    DB.orders.push({id:DB.nextId++,studentId:null,item:orderNote,date:new Date().toISOString().slice(0,10),cost:0,charged:price,notes:'Website Sale Item, logged via Inventory'});
     save();renderWebsiteSaleItems();renderInventory();
-    toast(`Sale logged: ${it.title} — ${fmt$(it.price||0)}`);
+    toast(`Sale logged: ${it.title}${label?' ('+label+')':''} — ${fmt$(price)}`);
   }catch(e){
     toast('Could not update the website listing — check your connection and try again.');
   }
