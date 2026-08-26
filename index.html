@@ -2408,6 +2408,26 @@ function save(){
   showSync('saving','Saving…');
   _saveTimer=setTimeout(async()=>{
     try{
+      // Guard against a stale tab silently wiping rows another tab/device added since this tab last loaded.
+      // Before writing, pull the current cloud copy of id-keyed collections and re-add anything present
+      // in the cloud but missing locally (i.e. added elsewhere after this tab's last sync).
+      try{
+        const{data:cloudRow}=await supa.from('crm_data').select('data').eq('id','main').single();
+        const cloudData=cloudRow?.data;
+        if(cloudData&&typeof cloudData==='object'){
+          ['inventory','testFees','testEvents','promotions','makeupTests'].forEach(key=>{
+            const cloudArr=cloudData[key];
+            if(!Array.isArray(cloudArr)||!Array.isArray(DB[key]))return;
+            const localIds=new Set(DB[key].map(x=>x.id));
+            cloudArr.forEach(item=>{
+              if(item&&item.id!=null&&!localIds.has(item.id)){
+                DB[key].push(item);
+                localIds.add(item.id);
+              }
+            });
+          });
+        }
+      }catch(mergeErr){console.warn('Pre-save merge check failed, saving as-is:',mergeErr.message);}
       const{error}=await supa.from('crm_data').upsert({id:'main',data:DB});
       if(error)throw error;
       showSync('saved','Saved to cloud ✓');
