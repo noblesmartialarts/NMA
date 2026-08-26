@@ -1018,6 +1018,9 @@ tbody td{font-size:11px!important;}
       <button class="btn small" onclick="bulkSelectGroup('Master&#39;s Club')">Master's</button>
       <button class="btn small" onclick="bulkSelectGroup('Legends Club')">Legends</button>
       <button class="btn small" onclick="bulkSelectUnregistered()">Unregistered</button>
+      <span style="width:1px;background:var(--border);align-self:stretch;"></span>
+      <button class="btn small" style="border-color:var(--amber);color:var(--amber);" onclick="bulkSelectInactive()">⊘ Former students</button>
+      <button class="btn small" style="border-color:var(--purple);color:var(--purple);" onclick="bulkSelectProspectsGroup()">☆ Prospects</button>
       <button class="btn small" onclick="bulkClearAll()">Clear</button>
     </div>
     <div id="bulk-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;"></div>
@@ -2959,7 +2962,7 @@ function renderRoster(){
       <td><div style="display:flex;align-items:center;gap:4px;">${stripeDots(s.stripes,maxStripes(s))}<button class="btn ghost" style="font-size:11px;padding:2px 4px;" onclick="adjustStripe(${s.id},-1)">−</button><button class="btn ghost" style="font-size:11px;padding:2px 4px;" onclick="adjustStripe(${s.id},1)">+</button></div></td>
       <td><div class="flags">${flags.join('')}</div></td>
       <td>${regBadge}</td>
-      <td style="white-space:nowrap;">${promo?`<button class="btn small success" onclick="promoteBelt(${s.id})" title="→ ${promo.belt}">→ ${promo.belt}</button> `:''}  <button class="btn small" onclick="toggleStudentActive(${s.id})" style="font-size:10px;">${s.status==='Active'?'⊘ Inactive':'↺ Reactivate'}</button> <button class="btn small" onclick="openEditStudent(${s.id})">Edit</button> <button class="btn small" onclick="openMergeStudent(${s.id})" title="Merge">⇔</button> <button class="btn small" onclick="deleteStudent(${s.id})">✕</button></td>
+      <td style="white-space:nowrap;">${promo?`<button class="btn small success" onclick="promoteBelt(${s.id})" title="→ ${promo.belt}">→ ${promo.belt}</button> `:''}  <button class="btn small" onclick="toggleStudentActive(${s.id})" style="font-size:10px;">${s.status==='Active'?'⊘ Inactive':'↺ Reactivate'}</button> ${s.status==='Inactive'&&s.email?`<button class="btn small" onclick="openQuickEmail('${emailKey('s',s.id)}')" title="Email ${s.first}">✉</button> `:''}<button class="btn small" onclick="openEditStudent(${s.id})">Edit</button> <button class="btn small" onclick="openMergeStudent(${s.id})" title="Merge">⇔</button> <button class="btn small" onclick="deleteStudent(${s.id})">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -3995,10 +3998,25 @@ const BUILTIN_TEMPLATES=[
   {id:'missed_reg',name:'Missed registration',subject:s=>`${s.first} — ${DB.scoreboard.label||'This Month'}'s NMA Registration`,body:s=>`Dear NMA Parents,\n\nI hope this message finds you well! If you're receiving this automated email, it's because your student's name(s) weren't on the roster that I received from the Town of Wake Forest for our ${DB.scoreboard.label||'upcoming'} session.\n\nIf this was simply an oversight or something slipped through the cracks, no worries at all — just let me know and we can work together on next steps. I understand how busy things can get and I'm always happy to help. Also, if you already told me that you were taking the month off or something similar, you're good!\n\nIf your child isn't planning on continuing at this time, that's completely okay as well. We've truly enjoyed having them in class, and if you're open to it, I'd love to hear your thoughts on the program and what influenced the decision. Your feedback is always appreciated and helps us continue to grow and improve.\n\nPlease feel free to reply to this email whenever it's convenient for you.\n\nThank you for your continued support for Noble's Martial Arts!\n\nWarm regards,\nSensei Brandon\nNoble's Martial Arts`},
   {id:'stripe',name:'Stripe earned!',subject:s=>`${s.first} earned a stripe today! 🎉`,body:s=>`Hi ${s.parent||'there'},\n\n${s.first} earned a stripe today! They're now at ${s.stripes} stripe(s) on their ${s.belt} belt.\n\n${s.stripes>=maxStripes(s)?`With ${s.stripes} stripes, ${s.first} is now eligible for their next test!`:'They are building momentum!'}\n\nCelebrate with them tonight — they earned it!\n\n— Sensei Brandon`},
   {id:'belt_test',name:'Belt test invitation',subject:s=>`${s.first} is eligible to test for their next belt!`,body:(s,events)=>{const next=events.filter(e=>e.type==='Belt Test'&&e.date>=new Date().toISOString().slice(0,10)).sort((a,b)=>a.date.localeCompare(b.date))[0];return `Hi ${s.parent||'there'},\n\n${s.first} is eligible to test for their next belt!\n\n${next?`The upcoming belt test is on ${fmtFull(next.date)}${next.fee>0?' — test fee is '+fmt$(next.fee)+' due on the day':''}.`:'Keep an eye out for the next belt test date.'}\n\nI'm proud of ${s.first}'s progress!\n\n— Sensei Brandon`;}},
-  {id:'at_risk',name:'Attendance check-in',subject:s=>`Checking in on ${s.first}`,body:s=>`Hi ${s.parent||'there'},\n\nI wanted to personally check in on ${s.first}. I've noticed some recent absences and wanted to make sure everything is okay.\n\n${s.first} is a ${s.belt} belt with real potential. I'd love to see them back soon!\n\n— Sensei Brandon`}
+  {id:'at_risk',name:'Attendance check-in',subject:s=>`Checking in on ${s.first}`,body:s=>`Hi ${s.parent||'there'},\n\nI wanted to personally check in on ${s.first}. I've noticed some recent absences and wanted to make sure everything is okay.\n\n${s.first} is a ${s.belt} belt with real potential. I'd love to see them back soon!\n\n— Sensei Brandon`},
+  {id:'winback',name:'Former student — Thinking of you',subject:s=>`Thinking of you and ${s.first}`,body:s=>`Hi ${s.parent||'there'},\n\nIt's been a while, and I hope you and ${s.first} have been doing well.\n\nI think about our former students often, and wanted to reach out just to say we're thinking about you. If ${s.first} has been missing martial arts, or has ever mentioned wanting to give it another try, we're here — and always happy to have you back on the mat, whenever the timing is right.\n\nNo pressure at all. Just wanted you to know the door's open.\n\nTake care,\nSensei Brandon Noble\nNoble's Martial Arts\nnoblesmartialarts.com`}
 ];
 function getAllTemplates(){return [...BUILTIN_TEMPLATES,...(DB.customEmailTemplates||[]).map(t=>({id:'custom_'+t.id,name:t.name+' ✦',custom:true,subject:s=>fillPlaceholders(t.subject,s),body:s=>fillPlaceholders(t.body,s)}))];}
 function fillPlaceholders(tmpl,s){return(tmpl||'').replace(/\{first\}/g,s.first||'').replace(/\{last\}/g,s.last||'').replace(/\{parent\}/g,s.parent||'').replace(/\{belt\}/g,s.belt||'').replace(/\{group\}/g,s.group||'').replace(/\{stripes\}/g,s.stripes||0);}
+// ── Unified recipient pool: Active/Inactive students + Prospects, all normalized to the {first,last,parent,belt,group,stripes,email} shape templates expect
+function emailKey(type,id){return type+'_'+id;}
+function emailNormStudent(s){return {key:emailKey('s',s.id),type:'s',id:s.id,first:s.first,last:s.last,parent:s.parent||'',belt:s.belt||'',group:s.group||'',stripes:s.stripes||0,email:s.email||'',label:s.first+' '+s.last,tag:s.status==='Inactive'?'Former':''};}
+function emailNormProspect(p){const parts=(p.name||'').trim().split(/\s+/);return {key:emailKey('p',p.id),type:'p',id:p.id,first:parts[0]||p.name||'',last:parts.slice(1).join(' ')||'',parent:p.parent||'',belt:'',group:p.group||'',stripes:0,email:p.email||'',label:p.name||'(no name)',tag:'Prospect'};}
+function resolveEmailRecipient(key){
+  if(!key)return null;
+  const us=key.indexOf('_');const type=key.slice(0,us),id=parseInt(key.slice(us+1));
+  if(type==='s'){const s=DB.students.find(x=>x.id===id);return s?emailNormStudent(s):null;}
+  if(type==='p'){const p=(DB.prospects||[]).find(x=>x.id===id);return p?emailNormProspect(p):null;}
+  return null;
+}
+function emailPoolActive(){return DB.students.filter(s=>s.status==='Active').map(emailNormStudent);}
+function emailPoolInactive(){return DB.students.filter(s=>s.status==='Inactive').map(emailNormStudent);}
+function emailPoolProspects(){return (DB.prospects||[]).filter(p=>p.email).map(emailNormProspect);}
 // ── Gmail OAuth state
 let gmailToken=null;
 let bulkSelected=new Set();
@@ -4014,8 +4032,10 @@ function initEmails(){
     gmailToken=null;delete DB.gmailToken;updateGmailBtn(false);
     toast('Gmail session expired — please reconnect Gmail on the Emails tab.');
   }
-  $('em-student').innerHTML='<option value="">Select student…</option>'+
-    DB.students.filter(s=>s.status==='Active').map(s=>'<option value="'+s.id+'">'+s.first+' '+s.last+'</option>').join('');
+  $('em-student').innerHTML='<option value="">Select recipient…</option>'+
+    '<optgroup label="Active students">'+emailPoolActive().map(r=>'<option value="'+r.key+'">'+r.label+'</option>').join('')+'</optgroup>'+
+    (emailPoolInactive().length?'<optgroup label="Former students">'+emailPoolInactive().map(r=>'<option value="'+r.key+'">'+r.label+'</option>').join('')+'</optgroup>':'')+
+    (emailPoolProspects().length?'<optgroup label="Prospects">'+emailPoolProspects().map(r=>'<option value="'+r.key+'">'+r.label+'</option>').join('')+'</optgroup>':'');
   $('em-template').innerHTML=getAllTemplates().map(t=>'<option value="'+t.id+'">'+t.name+'</option>').join('');
   renderMissedRegPanel();renderBulkChips();renderEmailPreview();
 }
@@ -4046,61 +4066,196 @@ function connectGmail(){
   }).requestAccessToken();
 }
 
-// ── Bulk recipient selection
+// ── Bulk recipient selection (composite keys: 's_'+id for students, 'p_'+id for prospects)
 function renderBulkChips(){
   const chips=$('bulk-chips');const countEl=$('bulk-count');const sendBtn=$('send-btn');const sendCount=$('send-count');
   if(!chips)return;
-  const active=DB.students.filter(s=>s.status==='Active');
-  chips.innerHTML=active.map(s=>{
-    const sel=bulkSelected.has(s.id);
-    return '<span class="bulk-chip'+(sel?' selected':'')+'" onclick="toggleBulkStudent('+s.id+')" title="'+s.group+' · '+s.belt+'">'+s.first+' '+s.last+(s.email?'':' ⚠')+' </span>';
+  const active=emailPoolActive();
+  const activeKeys=new Set(active.map(r=>r.key));
+  // Always-visible active roster chips
+  let html=active.map(r=>{
+    const sel=bulkSelected.has(r.key);
+    return '<span class="bulk-chip'+(sel?' selected':'')+'" onclick="toggleBulkRecipient(\''+r.key+'\')" title="'+r.group+' · '+r.belt+'">'+r.label+(r.email?'':' ⚠')+' </span>';
   }).join('');
+  // Any selected Former/Prospect recipients aren't in the always-visible grid — show them as extra removable chips
+  const extra=[...bulkSelected].filter(k=>!activeKeys.has(k)).map(resolveEmailRecipient).filter(Boolean);
+  if(extra.length){
+    html+=extra.map(r=>'<span class="bulk-chip selected" style="border-color:'+(r.type==='p'?'var(--purple)':'var(--amber)')+';" onclick="toggleBulkRecipient(\''+r.key+'\')" title="'+(r.tag||'')+'">'+r.label+' ('+r.tag+')'+(r.email?'':' ⚠')+' </span>').join('');
+  }
+  chips.innerHTML=html;
   const n=bulkSelected.size;
-  if(countEl)countEl.textContent=n?n+' recipient'+(n!==1?'s':'')+' selected'+(active.filter(s=>bulkSelected.has(s.id)&&!s.email).length?' · ⚠ some have no email':''):'No recipients selected — use the group buttons or click names above';
+  const noEmailCount=[...bulkSelected].map(resolveEmailRecipient).filter(r=>r&&!r.email).length;
+  if(countEl)countEl.textContent=n?n+' recipient'+(n!==1?'s':'')+' selected'+(noEmailCount?' · ⚠ some have no email':''):'No recipients selected — use the group buttons or click names above';
   if(sendBtn){sendBtn.style.display=n?'inline-flex':'none';}
   if(sendCount)sendCount.textContent=n;
 }
-function toggleBulkStudent(id){if(bulkSelected.has(id))bulkSelected.delete(id);else bulkSelected.add(id);renderBulkChips();}
+function toggleBulkRecipient(key){if(bulkSelected.has(key))bulkSelected.delete(key);else bulkSelected.add(key);renderBulkChips();}
+function toggleBulkStudent(id){toggleBulkRecipient(emailKey('s',id));} // legacy alias, still used by a couple call sites
 function bulkSelectGroup(group){
-  DB.students.filter(s=>s.status==='Active'&&(group===''||s.group===group)).forEach(s=>bulkSelected.add(s.id));
+  DB.students.filter(s=>s.status==='Active'&&(group===''||s.group===group)).forEach(s=>bulkSelected.add(emailKey('s',s.id)));
   renderBulkChips();
 }
 function bulkSelectUnregistered(){
-  DB.students.filter(s=>s.status==='Active'&&s.registered!=='Yes'&&!s.omitFromReg).forEach(s=>bulkSelected.add(s.id));
+  DB.students.filter(s=>s.status==='Active'&&s.registered!=='Yes'&&!s.omitFromReg).forEach(s=>bulkSelected.add(emailKey('s',s.id)));
   renderBulkChips();
+}
+function bulkSelectInactive(){
+  const pool=emailPoolInactive();
+  if(!pool.length){toast('No former (inactive) students on file.');return;}
+  pool.forEach(r=>bulkSelected.add(r.key));
+  renderBulkChips();
+  toast(pool.length+' former student'+(pool.length!==1?'s':'')+' added.');
+}
+function bulkSelectProspectsGroup(){
+  const pool=emailPoolProspects();
+  if(!pool.length){toast('No prospects with an email on file.');return;}
+  pool.forEach(r=>bulkSelected.add(r.key));
+  renderBulkChips();
+  toast(pool.length+' prospect'+(pool.length!==1?'s':'')+' added.');
 }
 function bulkClearAll(){bulkSelected.clear();renderBulkChips();}
 
 // ── Send emails
-async function sendEmails(){
-  const recipients=[...bulkSelected].map(id=>DB.students.find(s=>s.id===id)).filter(Boolean);
+// ── Send emails: step 1 resolves + validates + shows a mandatory preview, step 2 (after explicit confirm) actually sends
+function sendEmails(){
+  const recipients=[...bulkSelected].map(resolveEmailRecipient).filter(Boolean);
   const noEmail=recipients.filter(s=>!s.email);
   if(!recipients.length){toast('No recipients selected.');return;}
   const tmplId=$('em-template').value;
   const t=getAllTemplates().find(x=>x.id===tmplId);
   if(!t){toast('Select a template.');return;}
   const withEmail=recipients.filter(s=>s.email);
-  if(!withEmail.length){alert('None of the selected students have email addresses on file.');return;}
-  if(noEmail.length){
-    const skipMsg=withEmail.length+' will receive this email. '+noEmail.length+' have no email and will be skipped: '+noEmail.map(s=>s.first+' '+s.last).join(', ')+'. Continue?';if(!confirm(skipMsg))return;
-  }
+  if(!withEmail.length){alert('None of the selected recipients have email addresses on file.');return;}
   if(!gmailToken){
     alert('Connect Gmail first using the "Connect Gmail" button at the top.');return;
   }
+  openSendConfirmModal(withEmail,noEmail,t);
+}
+
+function openSendConfirmModal(withEmail,noEmail,t){
+  let modal=$('modal-send-confirm');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='modal-send-confirm';
+    modal.className='modal-backdrop';
+    document.body.appendChild(modal);
+  }
+  const first=withEmail[0];
+  const subject=t.subject(first),body=typeof t.body==='function'?(t.body.length>1?t.body(first,DB.testEvents):t.body(first)):t.body;
+  modal.innerHTML=`<div class="modal modal-lg">
+    <div class="modal-header"><div class="modal-title">✉ Preview &amp; Confirm Send</div><button class="btn ghost" onclick="closeModal('modal-send-confirm')">✕</button></div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--ink-muted);margin-bottom:14px;">
+        Sending to <strong>${withEmail.length}</strong> recipient${withEmail.length!==1?'s':''}${noEmail.length?' · <span style="color:var(--red);">'+noEmail.length+' skipped (no email on file)</span>':''}. Each recipient gets their own name filled in — shown below is exactly what <strong>${first.label}</strong> will receive.
+      </div>
+      <div class="email-card" style="margin-bottom:14px;">
+        <div class="email-hdr">
+          <div>
+            <div style="font-weight:600;font-size:14px;">${t.name}</div>
+            <div style="font-size:12px;color:var(--ink-muted);margin-top:1px;">To: ${first.parent||first.first} &lt;${first.email}&gt;</div>
+          </div>
+        </div>
+        <div style="padding:12px 16px;border-top:1px solid var(--border);font-size:13px;"><strong>Subject:</strong> ${subject}</div>
+        <pre style="padding:14px 16px;font-size:12px;font-family:Georgia,serif;line-height:1.7;white-space:pre-wrap;color:var(--ink);margin:0;border-top:1px solid var(--border);">${body.replace(/</g,'&lt;')}</pre>
+      </div>
+      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-muted);margin-bottom:6px;">Full recipient list</div>
+      <div style="max-height:120px;overflow-y:auto;font-size:12px;color:var(--ink-muted);line-height:1.8;">${withEmail.map(r=>r.label+(r.tag?' <span style="color:var(--ink-faint);">('+r.tag+')</span>':'')).join(', ')}</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-send-confirm')">Cancel</button>
+      <button class="btn success" onclick="confirmSendEmails()">✓ Confirm &amp; Send to ${withEmail.length}</button>
+    </div>
+  </div>`;
+  window._pendingSend={withEmail,t};
+  modal.classList.add('open');
+}
+
+async function confirmSendEmails(){
+  const pending=window._pendingSend;if(!pending)return;
+  const {withEmail,t}=pending;
+  closeModal('modal-send-confirm');
   const prog=$('send-progress');
   if(prog)prog.innerHTML='<div class="send-progress">Sending… 0 / '+withEmail.length+'</div>';
   let sent=0,failed=[];
-  for(const s of withEmail){
-    const subject=typeof t.subject==='function'?t.subject(s):t.subject;
-    const body=typeof t.body==='function'?(t.body.length>1?t.body(s,DB.testEvents):t.body(s)):t.body;
-    const ok=await sendGmailMessage(s.email,subject,body);
-    if(ok){sent++;addHistory(s,'reg','Missed registration email sent');}
-    else failed.push(s.first+' '+s.last);
+  for(const r of withEmail){
+    const subject=typeof t.subject==='function'?t.subject(r):t.subject;
+    const body=typeof t.body==='function'?(t.body.length>1?t.body(r,DB.testEvents):t.body(r)):t.body;
+    const ok=await sendGmailMessage(r.email,subject,body);
+    if(ok){
+      sent++;
+      if(r.type==='s'){const rec=DB.students.find(x=>x.id===r.id);if(rec)addHistory(rec,'reg',t.name+' email sent');}
+      else if(r.type==='p'){const rec=(DB.prospects||[]).find(x=>x.id===r.id);if(rec)rec.notes=(rec.notes?rec.notes+'\n':'')+'['+todayStr()+'] '+t.name+' email sent';}
+    }
+    else failed.push(r.label);
     if(prog)prog.innerHTML='<div class="send-progress">Sending… '+sent+' / '+withEmail.length+(failed.length?' · '+failed.length+' failed':'')+'</div>';
   }
   save();
+  window._pendingSend=null;
   if(prog)prog.innerHTML='<div class="send-progress" style="background:var(--green-light);border-color:var(--green);color:var(--green);">✓ Sent '+sent+' email'+(sent!==1?'s':'')+(failed.length?' · Failed: '+failed.join(', '):'')+'</div>';
   toast('Done! '+sent+' email'+(sent!==1?'s':'')+' sent.');
+}
+
+// ── Quick single send (non-bulk): one recipient, own modal, editable preview before sending
+function openQuickEmail(key){
+  const r=resolveEmailRecipient(key);
+  if(!r){toast('Recipient not found.');return;}
+  if(!r.email){alert(r.label+' has no email on file.');return;}
+  if(!gmailToken){alert('Connect Gmail first using the "Connect Gmail" button on the Emails tab.');return;}
+  let modal=$('modal-quick-email');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='modal-quick-email';
+    modal.className='modal-backdrop';
+    document.body.appendChild(modal);
+  }
+  const templates=getAllTemplates();
+  const defaultT=templates.find(x=>x.id==='winback')||templates[0];
+  modal.innerHTML=`<div class="modal modal-lg">
+    <div class="modal-header"><div class="modal-title">✉ Email ${r.label}</div><button class="btn ghost" onclick="closeModal('modal-quick-email')">✕</button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--ink-muted);margin-bottom:12px;">To: ${r.parent||r.first} &lt;${r.email}&gt;</div>
+      <div class="form-group"><label class="form-label">Template</label>
+        <select class="form-select" id="qe-template" onchange="renderQuickEmailPreview('${key}')">
+          ${templates.map(t=>'<option value="'+t.id+'" '+(t.id===defaultT.id?'selected':'')+'>'+t.name+'</option>').join('')}
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Subject</label><input type="text" class="form-input" id="qe-subject"></div>
+      <div class="form-group"><label class="form-label">Body</label><textarea class="form-input" id="qe-body" rows="10" style="resize:vertical;font-family:Georgia,serif;line-height:1.7;"></textarea></div>
+      <div style="font-size:11px;color:var(--ink-faint);">This is exactly what will be sent — edit freely before confirming.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-quick-email')">Cancel</button>
+      <button class="btn success" id="qe-send-btn" onclick="sendQuickEmail('${key}')">✓ Send</button>
+    </div>
+  </div>`;
+  modal.classList.add('open');
+  renderQuickEmailPreview(key);
+}
+function renderQuickEmailPreview(key){
+  const r=resolveEmailRecipient(key);if(!r)return;
+  const tmplId=$('qe-template').value;
+  const t=getAllTemplates().find(x=>x.id===tmplId);if(!t)return;
+  const subject=t.subject(r),body=typeof t.body==='function'?(t.body.length>1?t.body(r,DB.testEvents):t.body(r)):t.body;
+  $('qe-subject').value=subject;
+  $('qe-body').value=body;
+}
+async function sendQuickEmail(key){
+  const r=resolveEmailRecipient(key);if(!r)return;
+  const subject=$('qe-subject').value.trim();
+  const body=$('qe-body').value;
+  if(!subject){alert('Subject required.');return;}
+  const btn=$('qe-send-btn');if(btn){btn.disabled=true;btn.textContent='Sending…';}
+  const ok=await sendGmailMessage(r.email,subject,body);
+  if(ok){
+    if(r.type==='s'){const rec=DB.students.find(x=>x.id===r.id);if(rec)addHistory(rec,'reg','Email sent: '+subject);}
+    else if(r.type==='p'){const rec=(DB.prospects||[]).find(x=>x.id===r.id);if(rec)rec.notes=(rec.notes?rec.notes+'\n':'')+'['+todayStr()+'] Email sent: '+subject;}
+    save();
+    closeModal('modal-quick-email');
+    toast('Email sent to '+r.label+'.');
+  } else {
+    if(btn){btn.disabled=false;btn.textContent='✓ Send';}
+    alert('Send failed. Check your Gmail connection and try again.');
+  }
 }
 
 async function sendGmailMessage(to,subject,body){
@@ -4356,7 +4511,7 @@ function emailMissedSelected(){
   $('em-template').value='missed_reg';
   if(students.length===1){
     // Single student — load in the preview
-    $('em-student').value=String(students[0].id);
+    $('em-student').value=emailKey('s',students[0].id);
     renderEmailTemplates();
     if(noEmail.length)toast(`Note: ${noEmail.map(s=>s.first).join(', ')} has no email on file.`);
   } else {
@@ -4404,9 +4559,9 @@ function showBulkEmailModal(students){
   modal.classList.add('open');
 }
 function renderEmailTemplates(){
-  const sid=parseInt($('em-student').value)||null,tmplId=$('em-template').value,out=$('email-output');
-  if(!sid){out.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:34px;text-align:center;color:var(--ink-muted);">Select a student above to preview template.</div>';return;}
-  const s=DB.students.find(x=>x.id===sid);if(!s)return;
+  const key=$('em-student').value||null,tmplId=$('em-template').value,out=$('email-output');
+  if(!key){out.innerHTML='<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:34px;text-align:center;color:var(--ink-muted);">Select a recipient above to preview template.</div>';return;}
+  const s=resolveEmailRecipient(key);if(!s)return;
   const t=getAllTemplates().find(x=>x.id===tmplId);if(!t)return;
   const subject=t.subject(s),body=typeof t.body==='function'?(t.body.length>1?t.body(s,DB.testEvents):t.body(s)):'';
   // Build Gmail compose URL (works when Gmail is default or when logged into gmail.com)
@@ -7475,7 +7630,7 @@ function openBulkActions(){
 function bulkMarkRegistered(){const n=_selectedStudentIds.size;_selectedStudentIds.forEach(id=>{const s=DB.students.find(x=>x.id===id);if(s)s.registered='Yes';});save();closeModal('modal-bulk');renderRoster();toast(n+' students marked registered.');}
 function bulkMarkUnregistered(){const n=_selectedStudentIds.size;_selectedStudentIds.forEach(id=>{const s=DB.students.find(x=>x.id===id);if(s)s.registered='No';});save();closeModal('modal-bulk');renderRoster();toast(n+' students marked unregistered.');}
 function bulkMarkInactive(){if(!confirm('Mark '+_selectedStudentIds.size+' students as Inactive?'))return;const n=_selectedStudentIds.size;_selectedStudentIds.forEach(id=>{const s=DB.students.find(x=>x.id===id);if(s)s.status='Inactive';});save();closeModal('modal-bulk');renderRoster();toast(n+' students marked inactive.');}
-function bulkSendEmail(){closeModal('modal-bulk');_selectedStudentIds.forEach(id=>bulkSelected.add(id));renderBulkChips();nav('emails');toast('Students loaded in Email tab.');}
+function bulkSendEmail(){closeModal('modal-bulk');_selectedStudentIds.forEach(id=>bulkSelected.add(emailKey('s',id)));renderBulkChips();nav('emails');toast('Students loaded in Email tab.');}
 
 // ══════════════════════════════════════════════════════
 // INACTIVE STUDENT ALERT (dashboard)
@@ -8217,6 +8372,7 @@ function renderProspects() {
     var followupFlag = t.followup && t.followup <= today && t.status !== 'enrolled' && t.status !== 'lost'
       ? '<span style="background:var(--red-light);color:var(--red);border-radius:20px;padding:2px 8px;font-size:10px;margin-left:4px;">Follow up!</span>' : '';
     var smsBtn = t.phone ? '<button class="btn small" onclick="smsOneProspect(' + t.id + ')" title="Send SMS">📱</button>' : '';
+    var mailBtn = t.email ? '<button class="btn small" onclick="openQuickEmail(\'' + emailKey('p',t.id) + '\')" title="Send Email">✉</button>' : '';
     return '<tr>' +
       '<td><strong style="font-size:13px;">' + (t.name||'—') + '</strong>' + (t.group ? '<div style="font-size:11px;color:var(--ink-muted);">' + t.group + '</div>' : '') + '</td>' +
       '<td style="font-size:12px;">' + (t.parent||'') + (t.phone ? '<div style="font-size:11px;color:var(--ink-faint);">' + t.phone + '</div>' : '') + '</td>' +
@@ -8224,7 +8380,7 @@ function renderProspects() {
       '<td style="font-size:12px;">' + (t.date ? fmtDate(t.date) : '—') + '</td>' +
       '<td>' + badge + '</td>' +
       '<td style="font-size:12px;">' + (t.followup ? fmtDate(t.followup) : '—') + followupFlag + '</td>' +
-      '<td style="white-space:nowrap;">' + smsBtn + ' <button class="btn small" onclick="editProspect(' + t.id + ')">Edit</button> <button class="btn small" onclick="deleteProspect(' + t.id + ')">✕</button></td>' +
+      '<td style="white-space:nowrap;">' + smsBtn + ' ' + mailBtn + ' <button class="btn small" onclick="editProspect(' + t.id + ')">Edit</button> <button class="btn small" onclick="deleteProspect(' + t.id + ')">✕</button></td>' +
     '</tr>';
   }).join('');
 }
