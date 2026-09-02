@@ -5476,6 +5476,12 @@ if(!DB.classSchedule||!Array.isArray(DB.classSchedule)||!DB.classSchedule.length
     return;
   }
 
+  // Workshop leads now live in their own table (shared with Luther's
+  // tool) instead of the DB blob — migrate anything already entered,
+  // then fetch fresh data before the dashboard renders.
+  await migrateWorkshopsToTable();
+  await refreshWorkshopLeads();
+
   // Render
   renderDashboard();updateBeltOptions();renderTestSelect();
   // Explicitly render pending absences on init (patch runs later in script)
@@ -8907,6 +8913,7 @@ const WORKSHOP_TIER_DEFAULTS={'Starter $300':300,'Standard $450':450,'Expanded $
 let _editingWorkshopId=null;
 let _workshopFilter=null;
 let _workshopSort={field:'session_date',dir:'desc'};
+let _workshopLeads=[]; // live cache fetched from the workshop_leads table — replaces DB.workshops
 
 function workshopNetRevenue(w){return (+w.amount_charged||0)-(+w.assistant_pay||0);}
 
@@ -8919,8 +8926,55 @@ function applyWorkshopTierDefault(){
   }
 }
 
-function renderWorkshops(){
-  if(!DB.workshops)DB.workshops=[];
+// One-time migration: move any workshops already sitting in the old
+// shared DB.workshops blob into the real workshop_leads table, so
+// nothing entered before this change gets lost. Safe to run every
+// load — it no-ops once DB._workshopsMigratedToTable is set.
+async function migrateWorkshopsToTable(){
+  if(!DB.workshops || !DB.workshops.length || DB._workshopsMigratedToTable) return;
+  try{
+    const payload=DB.workshops.map(w=>({
+      organization:w.organization_name||'',
+      contact_name:w.contact_name||'',
+      contact_email:w.contact_email||'',
+      contact_phone:w.contact_phone||'',
+      type:w.type||'',
+      status:w.status||'Not Contacted',
+      source:w.source||'',
+      date_contacted:w.date_contacted||null,
+      session_date:w.session_date||null,
+      tier:w.tier||'',
+      amount_charged:w.amount_charged!=null?w.amount_charged:null,
+      assistant_name:w.assistant_instructor||'',
+      assistant_pay:w.assistant_pay!=null?w.assistant_pay:null,
+      testimonial_obtained:!!w.testimonial_obtained,
+      photo_obtained:!!w.photo_video_obtained,
+      notes:w.notes||''
+    }));
+    const res=await supa.from('workshop_leads').insert(payload);
+    if(res.error){ console.error('Workshop migration failed, will retry next load:',res.error); return; }
+    DB._workshopsMigratedToTable=true;
+    DB._workshopsLegacyBackup=DB.workshops; // kept as a safety net, no longer read from
+    DB.workshops=[];
+    save();
+    toast(`Migrated ${payload.length} workshop lead${payload.length!==1?'s':''} to the new shared table.`);
+  }catch(e){
+    console.error('Workshop migration error, will retry next load:',e);
+  }
+}
+
+async function refreshWorkshopLeads(){
+  try{
+    const res=await supa.from('workshop_leads').select('*').order('created_at',{ascending:false});
+    if(res.error){ console.error('Failed to load workshop leads:',res.error); return; }
+    _workshopLeads=res.data||[];
+  }catch(e){
+    console.error('Connection error loading workshop leads:',e);
+  }
+}
+
+async function renderWorkshops(){
+  await refreshWorkshopLeads();
   renderWorkshopPipeline();
   renderWorkshopRevenueStats();
   renderWorkshopTable();
@@ -8931,10 +8985,10 @@ function renderWorkshopPipeline(){
   const el=$('workshop-pipeline');if(!el)return;
   const counts={};
   Object.keys(WORKSHOP_STATUS_LABELS).forEach(k=>counts[k]=0);
-  (DB.workshops||[]).forEach(w=>{if(counts[w.status]!==undefined)counts[w.status]++;});
+  (_workshopLeads||[]).forEach(w=>{if(counts[w.status]!==undefined)counts[w.status]++;});
   const allActive=_workshopFilter===null;
   el.innerHTML=`<div onclick="setWorkshopFilter(null)" style="cursor:pointer;background:${allActive?'var(--ink)':'var(--surface)'};border:1px solid var(--border-strong);border-radius:10px;padding:10px 16px;min-width:90px;text-align:center;">
-      <div style="font-size:22px;font-weight:800;color:${allActive?'#fff':'var(--ink)'};">${(DB.workshops||[]).length}</div>
+      <div style="font-size:22px;font-weight:800;color:${allActive?'#fff':'var(--ink)'};">${(_workshopLeads||[]).length}</div>
       <div style="font-size:11px;color:${allActive?'#fff':'var(--ink)'};font-weight:600;">All</div>
     </div>`+
     Object.keys(WORKSHOP_STATUS_LABELS).map(key=>{
@@ -8951,7 +9005,7 @@ function setWorkshopFilter(status){_workshopFilter=status;renderWorkshopPipeline
 
 function renderWorkshopRevenueStats(){
   const el=$('workshop-revenue-stats');if(!el)return;
-  const completed=(DB.workshops||[]).filter(w=>w.status==='Completed');
+  const completed=(_workshopLeads||[]).filter(w=>w.status==='Completed');
   const today=new Date();
   const thisMonth=completed.filter(w=>{const d=w.session_date?new Date(w.session_date):null;return d&&d.getFullYear()===today.getFullYear()&&d.getMonth()===today.getMonth();});
   const qStart=Math.floor(today.getMonth()/3)*3;
@@ -8972,7 +9026,7 @@ function sortWorkshops(field){
 
 function renderWorkshopTable(){
   const tbody=$('workshop-tbody');if(!tbody)return;
-  let rows=(DB.workshops||[]).slice();
+  let rows=(_workshopLeads||[]).slice();
   if(_workshopFilter)rows=rows.filter(w=>w.status===_workshopFilter);
   const{field,dir}=_workshopSort;
   rows.sort((a,b)=>{
@@ -8983,16 +9037,16 @@ function renderWorkshopTable(){
     return 0;
   });
   if(!rows.length){
-    tbody.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--ink-muted);">${(DB.workshops||[]).length?'No workshops match this filter.':'No workshop leads yet — click "+ Add Workshop Lead" to start tracking.'}</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--ink-muted);">${(_workshopLeads||[]).length?'No workshops match this filter.':'No workshop leads yet — click "+ Add Workshop Lead" to start tracking.'}</td></tr>`;
     return;
   }
   tbody.innerHTML=rows.map(w=>{
     const st=WORKSHOP_STATUS_LABELS[w.status]||WORKSHOP_STATUS_LABELS['Not Contacted'];
     const net=workshopNetRevenue(w);
-    const assistant=w.assistant_instructor?`${w.assistant_instructor}${w.assistant_pay?' ('+fmt$(w.assistant_pay)+')':''}`:'<span style="color:var(--ink-faint);">Solo</span>';
-    const marks=(w.testimonial_obtained?'💬':'')+(w.photo_video_obtained?'📷':'');
+    const assistant=w.assistant_name?`${w.assistant_name}${w.assistant_pay?' ('+fmt$(w.assistant_pay)+')':''}`:'<span style="color:var(--ink-faint);">Solo</span>';
+    const marks=(w.testimonial_obtained?'💬':'')+(w.photo_obtained?'📷':'');
     return `<tr>
-      <td><strong>${w.organization_name||'—'}</strong><div style="font-size:11px;color:var(--ink-muted);">${w.type||''}</div></td>
+      <td><strong>${w.organization||'—'}</strong><div style="font-size:11px;color:var(--ink-muted);">${w.type||''}</div></td>
       <td style="font-size:12px;">${w.contact_name||''}${w.contact_email?'<div style="font-size:11px;color:var(--ink-faint);">'+w.contact_email+'</div>':''}${w.contact_phone?'<div style="font-size:11px;color:var(--ink-faint);">'+w.contact_phone+'</div>':''}</td>
       <td><span class="badge" style="background:${st.bg};color:${st.color};">${w.status}</span></td>
       <td style="font-size:12px;">${w.date_contacted?'Contacted: '+fmtDate(w.date_contacted):''}${w.session_date?'<div>Session: '+fmtDate(w.session_date)+'</div>':''}</td>
@@ -9001,7 +9055,7 @@ function renderWorkshopTable(){
       <td><strong style="color:${net>=0?'var(--green)':'var(--red)'};">${fmt$(net)}</strong></td>
       <td style="font-size:12px;color:var(--ink-muted);">${w.source||''}</td>
       <td style="font-size:14px;">${marks}</td>
-      <td style="white-space:nowrap;"><button class="btn small" onclick="editWorkshop(${w.id})">Edit</button> <button class="btn small danger" onclick="deleteWorkshop(${w.id})">✕</button></td>
+      <td style="white-space:nowrap;"><button class="btn small" onclick="editWorkshop('${w.id}')">Edit</button> <button class="btn small danger" onclick="deleteWorkshop('${w.id}')">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -9023,10 +9077,10 @@ function openAddWorkshop(){
 }
 
 function editWorkshop(id){
-  const w=(DB.workshops||[]).find(x=>x.id===id);if(!w)return;
+  const w=(_workshopLeads||[]).find(x=>x.id===id);if(!w)return;
   _editingWorkshopId=id;
   $('workshop-modal-title').textContent='Edit Workshop Lead';
-  $('wk-org').value=w.organization_name||'';
+  $('wk-org').value=w.organization||'';
   $('wk-contact-name').value=w.contact_name||'';
   $('wk-contact-email').value=w.contact_email||'';
   $('wk-contact-phone').value=w.contact_phone||'';
@@ -9038,51 +9092,63 @@ function editWorkshop(id){
   $('wk-tier').value=w.tier||'Starter $300';
   $('wk-amount').value=w.amount_charged!=null?w.amount_charged:'';
   $('wk-amount').dataset.autoFilled='';
-  $('wk-assistant-name').value=w.assistant_instructor||'';
+  $('wk-assistant-name').value=w.assistant_name||'';
   $('wk-assistant-pay').value=w.assistant_pay!=null?w.assistant_pay:'';
   $('wk-notes').value=w.notes||'';
   $('wk-testimonial').checked=!!w.testimonial_obtained;
-  $('wk-photo').checked=!!w.photo_video_obtained;
+  $('wk-photo').checked=!!w.photo_obtained;
   $('modal-workshop').classList.add('open');
 }
 
-function saveWorkshop(){
+async function saveWorkshop(){
   const org=$('wk-org').value.trim();
   if(!org){alert('Organization name is required.');return;}
-  const workshop={
-    id:_editingWorkshopId||DB.nextId++,
-    organization_name:org,
+  const payload={
+    organization:org,
     contact_name:$('wk-contact-name').value.trim(),
     contact_email:$('wk-contact-email').value.trim(),
     contact_phone:$('wk-contact-phone').value.trim(),
     type:$('wk-type').value,
     status:$('wk-status').value,
-    date_contacted:$('wk-date-contacted').value,
-    session_date:$('wk-session-date').value,
+    date_contacted:$('wk-date-contacted').value||null,
+    session_date:$('wk-session-date').value||null,
     tier:$('wk-tier').value,
     amount_charged:parseFloat($('wk-amount').value)||0,
-    assistant_instructor:$('wk-assistant-name').value.trim(),
+    assistant_name:$('wk-assistant-name').value.trim(),
     assistant_pay:parseFloat($('wk-assistant-pay').value)||0,
     notes:$('wk-notes').value.trim(),
     testimonial_obtained:$('wk-testimonial').checked,
-    photo_video_obtained:$('wk-photo').checked,
+    photo_obtained:$('wk-photo').checked,
     source:$('wk-source').value
   };
-  if(!DB.workshops)DB.workshops=[];
-  if(_editingWorkshopId){
-    const idx=DB.workshops.findIndex(x=>x.id===_editingWorkshopId);
-    if(idx>=0)DB.workshops[idx]=workshop;
-  }else{
-    DB.workshops.unshift(workshop);
+  try{
+    let res;
+    if(_editingWorkshopId){
+      payload.updated_at=new Date().toISOString();
+      res=await supa.from('workshop_leads').update(payload).eq('id',_editingWorkshopId);
+    }else{
+      res=await supa.from('workshop_leads').insert(payload);
+    }
+    if(res.error){ alert('Save failed: '+res.error.message); return; }
+    closeModal('modal-workshop');
+    await refreshWorkshopLeads();
+    renderWorkshops();renderDashboard();
+    toast(_editingWorkshopId?'Workshop updated.':'Workshop lead added!');
+  }catch(e){
+    alert('Connection error — check your internet and try again.');
   }
-  save();closeModal('modal-workshop');renderWorkshops();renderDashboard();
-  toast(_editingWorkshopId?'Workshop updated.':'Workshop lead added!');
 }
 
-function deleteWorkshop(id){
+async function deleteWorkshop(id){
   if(!confirm('Remove this workshop lead? This cannot be undone.'))return;
-  DB.workshops=(DB.workshops||[]).filter(x=>x.id!==id);
-  save();renderWorkshops();renderDashboard();
+  try{
+    const res=await supa.from('workshop_leads').delete().eq('id',id);
+    if(res.error){ alert('Delete failed: '+res.error.message); return; }
+    await refreshWorkshopLeads();
+    renderWorkshops();renderDashboard();
+  }catch(e){
+    alert('Connection error — check your internet and try again.');
+  }
 }
 
 function renderTotalBizRevenue(){
@@ -9090,7 +9156,7 @@ function renderTotalBizRevenue(){
   const active=DB.students.filter(s=>s.status==='Active');
   const tuitionThisMonth=active.filter(s=>s.registered==='Yes'&&!s.omitFromReg).length*(+DB.scoreboard.fee||31.50);
   const today=new Date();
-  const workshopThisMonth=(DB.workshops||[]).filter(w=>{
+  const workshopThisMonth=(_workshopLeads||[]).filter(w=>{
     if(w.status!=='Completed'||!w.session_date)return false;
     const d=new Date(w.session_date);
     return d.getFullYear()===today.getFullYear()&&d.getMonth()===today.getMonth();
@@ -9104,7 +9170,7 @@ function renderTotalBizRevenue(){
 
 function renderWorkshopChart(){
   const el=$('workshop-chart-area');if(!el)return;
-  const completed=(DB.workshops||[]).filter(w=>w.status==='Completed'&&w.session_date);
+  const completed=(_workshopLeads||[]).filter(w=>w.status==='Completed'&&w.session_date);
   if(completed.length<1){el.innerHTML='<div style="text-align:center;padding:28px;color:var(--ink-muted);font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:12px;">No completed workshops yet — this fills in as sessions wrap up.</div>';return;}
   const byMonth={};
   completed.forEach(w=>{
