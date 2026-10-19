@@ -2525,41 +2525,151 @@ function showSync(state,msg){
 // SAVE — local cache + debounced cloud write
 // ══════════════════════════════════════════════════════
 let _saveTimer=null;
+// ── Cross-device sync state ──
+// _baseDB is the last copy this device knows matched the cloud. Comparing base / local / cloud
+// (a three-way merge) lets two devices edit at the same time without one wiping the other's work.
+let _baseDB=null;
+let _cloudUpdatedAt=null;
+let _saving=false,_saveQueued=false,_unsynced=false,_pulling=false,_renderPending=false;
+const _CLIENT_ID=Math.random().toString(36).slice(2)+Date.now().toString(36);
+
+function _stable(v){
+  if(v===undefined)return 'undefined';
+  if(v===null||typeof v!=='object')return JSON.stringify(v);
+  if(Array.isArray(v))return '['+v.map(_stable).join(',')+']';
+  return '{'+Object.keys(v).filter(k=>v[k]!==undefined).sort().map(k=>JSON.stringify(k)+':'+_stable(v[k])).join(',')+'}';
+}
+function _plain(o){return JSON.parse(JSON.stringify(o));}
+function _cleanCloud(d){const c=_plain(d||{});delete c._writer;return c;}
+function _isObj(o){return !!o&&typeof o==='object'&&!Array.isArray(o);}
+function _isIdArr(a){return Array.isArray(a)&&a.every(x=>_isObj(x)&&x.id!=null);}
+
+function _merge3(base,local,cloud,ctx,key){
+  const sb=_stable(base),sl=_stable(local),sc=_stable(cloud);
+  if(sl===sb||sl===sc)return cloud;   // only the cloud changed (or both made the same change)
+  if(sc===sb)return local;            // only this device changed
+  // Both sides changed — merge deeper where the shape allows it
+  if(key==='nextId')return Math.max(Number(local)||0,Number(cloud)||0);
+  if(_isObj(local)&&_isObj(cloud)&&(base===undefined||_isObj(base))){
+    const b=base||{},out={};
+    new Set([...Object.keys(local),...Object.keys(cloud)]).forEach(k=>{
+      const v=_merge3(b[k],local[k],cloud[k],ctx,k);
+      if(v!==undefined)out[k]=v;
+    });
+    return out;
+  }
+  if(_isIdArr(local)&&_isIdArr(cloud)&&(base===undefined||_isIdArr(base))){
+    const bm=new Map((base||[]).map(x=>[String(x.id),x]));
+    const lm=new Map(local.map(x=>[String(x.id),x]));
+    const cm=new Map(cloud.map(x=>[String(x.id),x]));
+    const out=[],used=new Set(),collided=[];
+    cloud.forEach(c=>{
+      const id=String(c.id);
+      if(lm.has(id)){
+        const l=lm.get(id);
+        if(base!==undefined&&!bm.has(id)&&_stable(l)!==_stable(c)){out.push(c);collided.push(l);} // same new id on two devices
+        else out.push(_merge3(bm.get(id),l,c,ctx));
+        used.add(id);
+      }else if(!bm.has(id)){out.push(c);used.add(id);}            // added on another device
+      // else: deleted on this device — leave it out
+    });
+    local.forEach(l=>{
+      const id=String(l.id);
+      if(used.has(id)||cm.has(id))return;
+      if(!bm.has(id))out.push(l);                                   // added on this device
+      else if(_stable(l)!==_stable(bm.get(id)))out.push(l);          // deleted elsewhere but edited here — keep
+    });
+    collided.forEach(l=>{
+      const ids=new Set(out.map(x=>String(x.id)));
+      let nid=ctx.next++;while(ids.has(String(nid)))nid=ctx.next++;
+      out.push(Object.assign({},l,{id:nid}));
+    });
+    return out;
+  }
+  return local; // can't merge this shape — this device's edit wins
+}
+
+function _mergeDB(base,local,cloud){
+  const ctx={next:Math.max(Number(local.nextId)||1,Number(cloud.nextId)||1)};
+  const out=_merge3(base||{},local,cloud,ctx)||{};
+  out.nextId=Math.max(Number(out.nextId)||1,ctx.next);
+  return out;
+}
+function _replaceDB(out){
+  Object.keys(DB).forEach(k=>{if(!(k in out))delete DB[k];});
+  Object.assign(DB,out);
+  try{localStorage.setItem('nma_v4',JSON.stringify(DB));}catch(e){}
+}
+
+function _refreshUI(){
+  const busy=document.querySelector('.modal-backdrop.open');
+  const ae=document.activeElement;
+  const typing=ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.tagName==='SELECT'||ae.isContentEditable);
+  if(busy||typing){ // don't yank the page out from under someone mid-edit
+    if(!_renderPending){_renderPending=true;setTimeout(()=>{_renderPending=false;_refreshUI();},2000);}
+    return;
+  }
+  Object.entries(DB.curriculumOverrides||{}).forEach(([k,v])=>{if(CURRICULUM[k])CURRICULUM[k].currentCycle=v;});
+  const active=document.querySelector('.nav-item.active');
+  if(active){const page=active.getAttribute('data-page');if(page)nav(page);}
+  if(typeof renderPendingAbsences==='function')renderPendingAbsences();
+}
+
+// ══════════════════════════════════════════════════════
+// SAVE — local cache + debounced, merge-safe cloud write
+// ══════════════════════════════════════════════════════
 function save(){
   if(!_initComplete)return;
+  _unsynced=true;
   try{localStorage.setItem('nma_v4',JSON.stringify(DB));}catch(e){}
   clearTimeout(_saveTimer);
   showSync('saving','Saving…');
-  _saveTimer=setTimeout(async()=>{
-    try{
-      // Guard against a stale tab silently wiping rows another tab/device added since this tab last loaded.
-      // Before writing, pull the current cloud copy of id-keyed collections and re-add anything present
-      // in the cloud but missing locally (i.e. added elsewhere after this tab's last sync).
-      try{
-        const{data:cloudRow}=await supa.from('crm_data').select('data').eq('id','main').single();
-        const cloudData=cloudRow?.data;
-        if(cloudData&&typeof cloudData==='object'){
-          ['inventory','testFees','testEvents','promotions','makeupTests','workshops'].forEach(key=>{
-            const cloudArr=cloudData[key];
-            if(!Array.isArray(cloudArr)||!Array.isArray(DB[key]))return;
-            const localIds=new Set(DB[key].map(x=>x.id));
-            cloudArr.forEach(item=>{
-              if(item&&item.id!=null&&!localIds.has(item.id)){
-                DB[key].push(item);
-                localIds.add(item.id);
-              }
-            });
-          });
-        }
-      }catch(mergeErr){console.warn('Pre-save merge check failed, saving as-is:',mergeErr.message);}
-      const{error}=await supa.from('crm_data').upsert({id:'main',data:DB});
-      if(error)throw error;
-      showSync('saved','Saved to cloud ✓');
-    }catch(e){
-      console.warn('Supabase save failed:',e.message);
-      showSync('error','Saved locally (offline)');
+  _saveTimer=setTimeout(()=>{_saveTimer=null;_pushToCloud();},900);
+}
+
+async function _pushToCloud(){
+  if(_saving){_saveQueued=true;return;}
+  _saving=true;
+  try{
+    let mergedRemote=false;
+    for(let attempt=0;attempt<4;attempt++){
+      const{data:row,error:readErr}=await supa.from('crm_data').select('data,updated_at').eq('id','main').maybeSingle();
+      if(readErr)throw readErr;
+      let out=_plain(DB);
+      if(row&&row.data&&row.updated_at!==_cloudUpdatedAt){
+        // Someone else saved since this device last synced — fold their changes in instead of overwriting them
+        out=_mergeDB(_baseDB,out,_cleanCloud(row.data));
+        _replaceDB(out);
+        mergedRemote=true;
+      }
+      const snap=_plain(out); // what this write contains — becomes the new shared base on success
+      const payload=Object.assign({},snap,{_writer:_CLIENT_ID});
+      let res;
+      if(row){
+        // Only write if nobody else saved in the moments since we read (optimistic lock on updated_at)
+        res=await supa.from('crm_data').update({data:payload}).eq('id','main').eq('updated_at',row.updated_at).select('updated_at');
+      }else{
+        res=await supa.from('crm_data').upsert({id:'main',data:payload}).select('updated_at');
+      }
+      if(res.error)throw res.error;
+      if(res.data&&res.data.length){
+        _cloudUpdatedAt=res.data[0].updated_at;
+        _baseDB=snap;
+        _unsynced=false;
+        showSync('saved',mergedRemote?'Saved + merged other device ✓':'Saved to cloud ✓');
+        if(mergedRemote)_refreshUI();
+        return;
+      }
+      // 0 rows updated → another device wrote in between; loop and merge again
     }
-  },900);
+    throw new Error('Could not save after repeated conflicts');
+  }catch(e){
+    console.warn('Supabase save failed:',e.message);
+    showSync('error','Saved locally (offline)');
+  }finally{
+    _saving=false;
+    if(_saveQueued){_saveQueued=false;_pushToCloud();}
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -2575,15 +2685,46 @@ async function load(){
   }catch(e){}
   // Step 2: cloud is source of truth
   try{
-    const{data,error}=await supa.from('crm_data').select('data').eq('id','main').single();
+    const{data,error}=await supa.from('crm_data').select('data,updated_at').eq('id','main').single();
     if(error)throw error;
     if(data?.data&&typeof data.data==='object'){
       _cloudLoadedSuccessfully=true;
-      Object.assign(DB,data.data);
+      const cloud=_cleanCloud(data.data);
+      Object.assign(DB,cloud);
+      _baseDB=_plain(cloud);
+      _cloudUpdatedAt=data.updated_at;
       try{localStorage.setItem('nma_v4',JSON.stringify(DB));}catch(e){}
     }
   }catch(e){
     console.warn('Supabase load failed — using local cache:',e.message);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// PULL — fetch what other devices saved and merge it in
+// ══════════════════════════════════════════════════════
+async function _pullFromCloud(){
+  if(!_initComplete||_pulling)return;
+  if(_saveTimer||_saving)return; // a save is about to run and will merge the cloud copy itself
+  _pulling=true;
+  try{
+    const{data:row,error}=await supa.from('crm_data').select('data,updated_at').eq('id','main').single();
+    if(error||!row||!row.data)return;
+    if(row.updated_at===_cloudUpdatedAt)return;          // nothing new
+    if(_saveTimer||_saving)return;                        // user edited while we were fetching
+    const cloud=_cleanCloud(row.data);
+    if(row.data._writer===_CLIENT_ID){_cloudUpdatedAt=row.updated_at;_baseDB=cloud;return;} // our own write
+    const out=_mergeDB(_baseDB,_plain(DB),cloud);
+    _replaceDB(_plain(out));
+    _baseDB=cloud;
+    _cloudUpdatedAt=row.updated_at;
+    showSync('saved','Synced from another device ✓');
+    _refreshUI();
+    if(_unsynced||_stable(out)!==_stable(cloud))save();      // this device had unsynced changes — push the merged copy
+  }catch(e){
+    console.warn('Cloud pull failed:',e.message);
+  }finally{
+    _pulling=false;
   }
 }
 
@@ -2593,22 +2734,19 @@ async function load(){
 supa.channel('crm_realtime')
   .on('postgres_changes',{event:'UPDATE',schema:'public',table:'crm_data'},
     payload=>{
-      if(document.hasFocus())return; // This tab just saved — skip
-      const fresh=payload.new?.data;
-      if(!fresh||Object.keys(fresh).length<2)return;
-      Object.assign(DB,fresh);
-      try{localStorage.setItem('nma_v4',JSON.stringify(DB));}catch(e){}
-      // Apply curriculum overrides
-      Object.entries(DB.curriculumOverrides||{}).forEach(([k,v])=>{if(CURRICULUM[k])CURRICULUM[k].currentCycle=v;});
-      showSync('saved','Synced from another device ✓');
-      // Refresh whatever page is currently open
-      const active=document.querySelector('.nav-item.active');
-      if(active){const page=active.getAttribute('data-page');if(page)nav(page);}
-      // Always refresh pending absences
-      if(typeof renderPendingAbsences==='function') renderPendingAbsences();
+      const n=payload.new||{};
+      if(n.updated_at&&n.updated_at===_cloudUpdatedAt)return;
+      if(n.data&&n.data._writer===_CLIENT_ID)return; // echo of this tab's own save
+      _pullFromCloud(); // always re-fetch — large rows can arrive truncated over realtime
     }
   )
   .subscribe();
+
+// Phones and backgrounded tabs drop the live connection, so also catch up whenever the app comes back
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){_unsynced&&!_saveTimer?_pushToCloud():_pullFromCloud();}});
+window.addEventListener('focus',()=>_pullFromCloud());
+window.addEventListener('online',()=>{_unsynced?_pushToCloud():_pullFromCloud();});
+setInterval(()=>{if(document.visibilityState==='visible')_pullFromCloud();},60000);
 
 // Safe defaults for new fields
 if(!DB.scoreboard)DB.scoreboard={label:'',fee:31.50,start:'',end:''};
