@@ -6873,66 +6873,162 @@ async function openThread(threadId) {
 }
 
 // ══════════════════════════════════════════════════════
-// EMAIL PROMOTE LETTERS — send as HTML email
+// EMAIL PROMOTE LETTERS — each letter sent as an attached PDF
 // ══════════════════════════════════════════════════════
+// PDF libraries are loaded on demand the first time letters are emailed.
+const _nmaLibCache = {};
+function loadScriptOnce(src) {
+  if (!_nmaLibCache[src]) {
+    _nmaLibCache[src] = new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = src; el.async = true;
+      el.onload = () => resolve();
+      el.onerror = () => { delete _nmaLibCache[src]; reject(new Error('Could not load ' + src)); };
+      document.head.appendChild(el);
+    });
+  }
+  return _nmaLibCache[src];
+}
+async function ensurePdfLibs() {
+  await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  if (!window.html2canvas || !window.jspdf || !window.jspdf.jsPDF) throw new Error('PDF libraries failed to initialize');
+}
+
+// Render one or more on-screen .letter-page elements into a US Letter PDF.
+// Returns the PDF as a base64 string (no data: prefix).
+async function lettersToPdfBase64(pageEls) {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+  const PW = 612, PH = 792, M = 28; // page size + margin in points
+  // Offscreen stage so dark mode / screen styling doesn't leak into the PDF
+  const stage = document.createElement('div');
+  stage.style.cssText = 'position:fixed;left:-10000px;top:0;width:816px;background:#fff;color:#111;z-index:-1;';
+  document.body.appendChild(stage);
+  try {
+    if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) {} }
+    for (let i = 0; i < pageEls.length; i++) {
+      const clone = pageEls[i].cloneNode(true);
+      clone.removeAttribute('id');
+      clone.style.cssText += ';width:816px;max-width:none;margin:0;border:none;border-radius:0;box-shadow:none;padding:48px 56px;background:#fff;color:#111;box-sizing:border-box;';
+      stage.innerHTML = '';
+      stage.appendChild(clone);
+      const canvas = await window.html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+      const img = canvas.toDataURL('image/jpeg', 0.9);
+      // Fit to page inside margins, keeping aspect ratio
+      let w = PW - M * 2, h = w * canvas.height / canvas.width;
+      if (h > PH - M * 2) { h = PH - M * 2; w = h * canvas.width / canvas.height; }
+      if (i > 0) pdf.addPage();
+      pdf.addImage(img, 'JPEG', (PW - w) / 2, M, w, h);
+    }
+  } finally {
+    stage.remove();
+  }
+  return pdf.output('datauristring').split(',')[1];
+}
+
+function mimeEncodeHeader(str) {
+  return /[^\x20-\x7E]/.test(str) ? '=?UTF-8?B?' + btoa(unescape(encodeURIComponent(str))) + '?=' : str;
+}
+function wrapBase64(b64) { return b64.replace(/.{1,76}/g, '$&\r\n'); }
+
 async function emailLetters() {
   const lsel = $('letter-event-sel');
   const evId = parseInt(lsel?.value) || null;
   const ev = evId ? DB.testEvents.find(e => e.id === evId) : null;
   if (!ev) { alert('Select a test event first.'); return; }
   if (!gmailToken) { alert('Connect Gmail first on the Emails tab.'); return; }
-  const eligible = DB.students.filter(s => s.status === 'Active' && intentToPromoteEligible(s) && s.email);
-  const noEmail = DB.students.filter(s => s.status === 'Active' && intentToPromoteEligible(s) && !s.email);
-  if (!eligible.length) { alert('No eligible students with email addresses on file.'); return; }
-  const msg = 'Send Intent to Promote letters to ' + eligible.length + ' parent' + (eligible.length!==1?'s':'') + '?' +
-    (noEmail.length ? '\n\n' + noEmail.length + ' eligible student(s) have no email and will be skipped: ' + noEmail.map(s=>s.first+' '+s.last).join(', ') : '');
+
+  // Same selection the tab shows (respects manual checkboxes + Black Belt letters)
+  const selected = DB.students.filter(s => s.status === 'Active' && getPromotion(s) && letterEligible(s));
+  const eligible = selected.filter(s => s.email);
+  const noEmail = selected.filter(s => !s.email);
+  if (!eligible.length) { alert('No selected students with email addresses on file.'); return; }
+  const msg = 'Email Intent to Promote letters (PDF attachment) to ' + eligible.length + ' parent' + (eligible.length !== 1 ? 's' : '') + '?' +
+    (noEmail.length ? '\n\n' + noEmail.length + ' selected student(s) have no email and will be skipped: ' + noEmail.map(s => s.first + ' ' + s.last).join(', ') : '');
   if (!confirm(msg)) return;
-  let sent = 0, failed = [];
+
+  // Make sure the letters on screen are current for this event before capturing them
+  generateLetters();
+  try {
+    toast('Preparing PDF letters…');
+    await ensurePdfLibs();
+  } catch (e) {
+    alert('Could not load the PDF generator. Check your internet connection and try again.\n\n' + e.message);
+    return;
+  }
+
+  let sent = 0;
+  const failed = [];
   for (const s of eligible) {
-    const promo = getPromotion(s);
-    const nextBelt = promo ? promo.belt : 'Next Rank';
-    const subject = 'Noble\'s Martial Arts — Intent to Promote: ' + s.first + ' ' + s.last;
-    const htmlBody = '<!DOCTYPE html><html><body style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:20px;">' +
-      '<div style="text-align:center;margin-bottom:20px;border-bottom:2px solid #1a1a1a;padding-bottom:16px;">' +
-        '<div style="font-family:Arial,sans-serif;font-size:22px;font-weight:800;">NOBLE\'S MARTIAL ARTS</div>' +
-        '<div style="font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:#555;margin-top:4px;">Intent to Promote</div>' +
-      '</div>' +
-      '<h2 style="font-size:28px;text-align:center;">Congratulations!</h2>' +
-      '<p style="font-size:15px;line-height:1.9;">' + fmtFull(ev.date) + ' is your belt test/promotion with Noble\'s Martial Arts!!!</p>' +
-      '<p style="font-size:16px;"><strong>Student\'s Name:</strong> ' + s.first + ' ' + s.last + '</p>' +
-      '<p style="font-size:16px;"><strong>Rank Promoting To:</strong> ' + nextBelt + '</p>' +
-      '<p style="font-size:14px;line-height:1.8;">One objective of Noble\'s Martial Arts is to develop well-rounded students. Through martial arts, students learn to thrive at home and at school! I believe the winning success formula is parents, teachers and martial arts instructors all on the same page to provide an amazing support system for our children.</p>' +
-      '<p style="font-size:14px;line-height:1.8;">If your student does not meet the following qualifications, either at home or during school activities, we may withhold belt promotion until there has been satisfactory improvement.</p>' +
-      '<table border="1" cellpadding="8" cellspacing="0" width="100%" style="border-collapse:collapse;font-size:13px;margin:16px 0;">' +
-        '<tr style="background:#1e5fa8;color:#fff;"><td colspan="6" style="text-align:center;font-weight:700;padding:10px;font-size:15px;">Parent/Teacher Evaluation — Answer Yes or No</td></tr>' +
-        '<tr><td>Practices martial arts at home</td><td>Yes</td><td>No</td><td>Listens to parents "the first time"</td><td>Yes</td><td>No</td></tr>' +
-        '<tr><td>Does not "talk back" or interrupt parents</td><td>Yes</td><td>No</td><td>Goes to bed when they are supposed to</td><td>Yes</td><td>No</td></tr>' +
-        '<tr><td>Shares with friends, siblings and family members</td><td>Yes</td><td>No</td><td>Is honest with parents, family members and friends</td><td>Yes</td><td>No</td></tr>' +
-        '<tr><td>Completes chores and duties</td><td>Yes</td><td>No</td><td>Demonstrates respectful behavior</td><td>Yes</td><td>No</td></tr>' +
-        '<tr><td>Pays attention during school activities</td><td>Yes</td><td>No</td><td>Meets or exceeds academic expectations</td><td>Yes</td><td>No</td></tr>' +
-      '</table>' +
-      '<div style="border:2px dashed #aaa;padding:14px;min-height:80px;margin:16px 0;font-size:13px;">Anything noteworthy to include? (Exceptionally good behavior, challenges, improvements, etc):<br><br><br></div>' +
-      '<p style="font-size:13px;text-align:right;color:#555;">Belt Testing Fee: $10 — Cash or Venmo @BNobleFamily</p>' +
-    '</body></html>';
-    const CRLF = '\r\n';
-    const boundary = 'boundary_nma_' + Date.now();
-    const raw = 'To: ' + s.email + CRLF +
-      'Subject: ' + subject + CRLF +
-      'MIME-Version: 1.0' + CRLF +
-      'Content-Type: text/html; charset=utf-8' + CRLF + CRLF +
-      htmlBody;
-    const encoded = btoa(unescape(encodeURIComponent(raw))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    const name = s.first + ' ' + s.last;
     try {
+      const bb = isBlackBeltLetterCase(s);
+      const pageEls = bb
+        ? [$('bb-letter-' + s.id + '-p1'), $('bb-letter-' + s.id + '-p2')].filter(Boolean)
+        : [$('letter-student-' + s.id)].filter(Boolean);
+      if (!pageEls.length) throw new Error('letter not rendered');
+      toast('Creating PDF ' + (sent + failed.length + 1) + ' of ' + eligible.length + ' — ' + name);
+      const pdfB64 = await lettersToPdfBase64(pageEls);
+
+      const promo = getPromotion(s);
+      const nextBelt = promo ? promo.belt : 'their next rank';
+      const greeting = 'Hi ' + (s.parent || 'there') + ',';
+      const intro = bb
+        ? s.first + ' has been selected as a Black Belt Candidate for the Noble\'s Martial Arts Black Belt Test on ' + fmtFull(ev.date) + '!'
+        : 'Congratulations! ' + s.first + ' is scheduled to test for ' + nextBelt + ' on ' + fmtFull(ev.date) + '.';
+      const ask = bb
+        ? 'Attached is the Intent to Promote – Black Belt Candidate letter. Please print it, complete the Parent/Guardian Affirmation and Student Commitment, and return it to me before test day.'
+        : 'Attached is ' + s.first + '\'s Intent to Promote letter. Please print it, complete the Parent/Teacher Evaluation, and return it to me before test day. The belt testing fee is $10 (cash or Venmo @BNobleFamily).';
+      const textBody = greeting + '\n\n' + intro + '\n\n' + ask + '\n\nAny questions — just reply here.\n\n— Sensei Brandon\nNoble\'s Martial Arts';
+      const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#222;">' +
+        esc(textBody).replace(/\n/g, '<br>') + '</div>';
+
+      const subject = 'Noble\'s Martial Arts — Intent to Promote: ' + name;
+      const fileName = (bb ? 'Black-Belt-Intent-to-Promote-' : 'Intent-to-Promote-') +
+        (s.first + '-' + s.last).replace(/[^A-Za-z0-9-]+/g, '-') + '.pdf';
+      const CRLF = '\r\n';
+      const mixed = 'nma_mixed_' + Date.now() + '_' + s.id;
+      const alt = 'nma_alt_' + Date.now() + '_' + s.id;
+      const b64utf8 = t => wrapBase64(btoa(unescape(encodeURIComponent(t))));
+      const raw =
+        'To: ' + s.email + CRLF +
+        'Subject: ' + mimeEncodeHeader(subject) + CRLF +
+        'MIME-Version: 1.0' + CRLF +
+        'Content-Type: multipart/mixed; boundary="' + mixed + '"' + CRLF + CRLF +
+        '--' + mixed + CRLF +
+        'Content-Type: multipart/alternative; boundary="' + alt + '"' + CRLF + CRLF +
+        '--' + alt + CRLF +
+        'Content-Type: text/plain; charset=UTF-8' + CRLF +
+        'Content-Transfer-Encoding: base64' + CRLF + CRLF +
+        b64utf8(textBody) + CRLF +
+        '--' + alt + CRLF +
+        'Content-Type: text/html; charset=UTF-8' + CRLF +
+        'Content-Transfer-Encoding: base64' + CRLF + CRLF +
+        b64utf8(htmlBody) + CRLF +
+        '--' + alt + '--' + CRLF +
+        '--' + mixed + CRLF +
+        'Content-Type: application/pdf; name="' + fileName + '"' + CRLF +
+        'Content-Disposition: attachment; filename="' + fileName + '"' + CRLF +
+        'Content-Transfer-Encoding: base64' + CRLF + CRLF +
+        wrapBase64(pdfB64) + CRLF +
+        '--' + mixed + '--';
+      // raw is pure ASCII at this point, so plain btoa is safe
+      const encoded = btoa(raw).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
       const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + gmailToken, 'Content-Type': 'application/json' },
         body: JSON.stringify({ raw: encoded })
       });
       if (res.ok) sent++;
-      else failed.push(s.first + ' ' + s.last);
-    } catch(e) { failed.push(s.first + ' ' + s.last); }
+      else failed.push(name);
+    } catch (e) {
+      console.error('Promote letter email failed for ' + name, e);
+      failed.push(name);
+    }
   }
-  toast('Sent ' + sent + ' promote letter' + (sent!==1?'s':'') + (failed.length?' · Failed: '+failed.join(', '):'') + '!');
+  toast('Sent ' + sent + ' promote letter PDF' + (sent !== 1 ? 's' : '') + (failed.length ? ' · Failed: ' + failed.join(', ') : '') + '!');
 }
 
 // ══════════════════════════════════════════════════════
