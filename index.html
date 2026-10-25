@@ -6973,13 +6973,17 @@ async function emailLetters() {
 
       const promo = getPromotion(s);
       const nextBelt = promo ? promo.belt : 'their next rank';
-      const greeting = 'Hi ' + (s.parent || 'there') + ',';
+      const greeting = 'Hi there,';
       const intro = bb
         ? s.first + ' has been selected as a Black Belt Candidate for the Noble\'s Martial Arts Black Belt Test on ' + fmtFull(ev.date) + '!'
         : 'Congratulations! ' + s.first + ' is scheduled to test for ' + nextBelt + ' on ' + fmtFull(ev.date) + '.';
+      const returnOptions = 'You can return it whichever way is easiest for you:\n' +
+        '  • Print it, fill it out, and bring it to class\n' +
+        '  • Complete it digitally and reply to this email with it attached\n\n' +
+        'Please return it by ' + s.first + '\'s belt test class.';
       const ask = bb
-        ? 'Attached is the Intent to Promote – Black Belt Candidate letter. Please print it, complete the Parent/Guardian Affirmation and Student Commitment, and return it to me before test day.'
-        : 'Attached is ' + s.first + '\'s Intent to Promote letter. Please print it, complete the Parent/Teacher Evaluation, and return it to me before test day. The belt testing fee is $10 (cash or Venmo @BNobleFamily).';
+        ? 'Attached is the Intent to Promote – Black Belt Candidate letter. Please complete the Parent/Guardian Affirmation and Student Commitment.\n\n' + returnOptions
+        : 'Attached is ' + s.first + '\'s Intent to Promote letter. Please complete the Parent/Teacher Evaluation.\n\n' + returnOptions + ' The belt testing fee is $10 (cash or Venmo @BNobleFamily).';
       const textBody = greeting + '\n\n' + intro + '\n\n' + ask + '\n\nAny questions — just reply here.\n\n— Sensei Brandon\nNoble\'s Martial Arts';
       const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       const htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#222;">' +
