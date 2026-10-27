@@ -9864,7 +9864,7 @@ function gjBuildMessage(fromS, toS, msg) {
   var senderLine = isSensei
     ? 'Sensei Brandon at Noble\'s Martial Arts wanted to send a personal message to '+toS.first+':'
     : fromS.first+' '+fromS.last+', one of our '+rolePlural+' at Noble\'s Martial Arts, wanted to send a personal message to '+toS.first+':';
-  return 'Dear '+(toS.parent||(toS.first+"'s family"))+',\n\n'
+  return 'To the family of '+(toS.first+' '+(toS.last||'')).trim()+',\n\n'
     +senderLine+'\n\n'
     +'"'+msg.trim()+'"\n\n'
     +'We\'re proud of the hard work and dedication '+toS.first+' shows in class. '
@@ -9897,7 +9897,7 @@ async function sendGoodJobNote() {
     } catch(e) { toast('Email failed: '+(e.message||e)+'. Note still saved.'); }
   } else { toast('No email on file — note saved but not emailed.'); }
   if(!DB.goodJobNotes) DB.goodJobNotes = [];
-  var note = {id:Date.now(), date:new Date().toISOString().slice(0,10),
+  var note = {id:Date.now(), date:localToday(),
     fromId:fromId, fromName:fromS.first+' '+fromS.last,
     toId:toId, toName:toS.first+' '+toS.last, message:msg, emailed:emailed};
   DB.goodJobNotes.unshift(note);
