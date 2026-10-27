@@ -2918,7 +2918,7 @@ function getPromotion(s){
 }
 function addHistory(s,type,note,date){
   if(!s.history)s.history=[];
-  s.history.push({type,note,date:date||new Date().toISOString().slice(0,10)});
+  s.history.push({type,note,date:date||localToday()});
 }
 
 // ══════════════════════════════════════════════════════
@@ -3154,33 +3154,82 @@ function renderBBTestAlert(){
 // MAKE-UP TEST TRACKING
 // ══════════════════════════════════════════════════════
 if(!DB.makeupTests)DB.makeupTests=[];
+// Local (Eastern) calendar date as YYYY-MM-DD. toISOString() is UTC, which
+// rolls over to "tomorrow" at 8pm ET and made future tests look like past ones.
+function localToday(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function localDateOffset(days){
+  const d=new Date();d.setDate(d.getDate()+days);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function isPromotionEvent(ev){return !!ev&&ev.type!=='Stripe Test';}
+// Black Belt Candidates only advance to BB White at a Black Belt Test.
+function canPromoteAtEvent(s,ev){
+  if(!getPromotion(s))return false;
+  if(s.belt==='Black Belt Candidate'&&(!ev||ev.type!=='Black Belt Test'))return false;
+  return true;
+}
+function promotedAtEvent(sid,ev){
+  return (DB.promotions||[]).some(p=>p.studentId===sid&&(p.eventId===ev.id||(p.eventId==null&&p.date>=ev.date)));
+}
+// Students expected to test at this event: active, full stripes (or manual
+// "Test" override), and allowed to promote at this event type.
+function expectedTesters(ev){
+  return DB.students.filter(s=>s.status==='Active'&&beltTestEligible(s)&&canPromoteAtEvent(s,ev));
+}
+function attendanceTaken(date){
+  const rec=DB.attendance[date];
+  return !!rec&&Object.keys(rec).length>0;
+}
 function checkMakeupTestsForEvent(evId){
-  const ev=DB.testEvents.find(e=>e.id===evId);if(!ev)return;
+  const ev=DB.testEvents.find(e=>e.id===evId);if(!ev)return 0;
   if(!DB.makeupTests)DB.makeupTests=[];
+  if(!isPromotionEvent(ev))return 0;
   const attOnDate=DB.attendance[ev.date]||{};
+  // Self-heal: drop open reminders for anyone actually marked present.
+  DB.makeupTests=DB.makeupTests.filter(m=>!(m.eventId===evId&&!m.resolved&&attOnDate[m.studentId]==='present'));
+  // Only flag misses once the test date has arrived AND attendance was taken —
+  // otherwise there's no way to know who was there.
+  if(ev.date>localToday()||!attendanceTaken(ev.date))return 0;
   let added=0;
-  DB.students.filter(s=>s.status==='Active'&&beltTestEligible(s)).forEach(s=>{
-    const status=attOnDate[s.id];
-    const wasAbsent=(status==='absent'||status===undefined);
-    if(!wasAbsent)return;
-    const already=DB.makeupTests.find(m=>m.studentId===s.id&&m.eventId===evId);
-    if(already)return;
-    DB.makeupTests.push({id:DB.nextId++,studentId:s.id,eventId:evId,eventName:ev.name,eventDate:ev.date,belt:s.belt,createdDate:new Date().toISOString().slice(0,10),resolved:false,resolvedDate:null});
+  expectedTesters(ev).forEach(s=>{
+    if(attOnDate[s.id]==='present')return;
+    if(promotedAtEvent(s.id,ev))return;
+    if(DB.makeupTests.find(m=>m.studentId===s.id&&m.eventId===evId))return;
+    DB.makeupTests.push({id:DB.nextId++,studentId:s.id,eventId:evId,eventName:ev.name,eventDate:ev.date,belt:s.belt,createdDate:localToday(),resolved:false,resolvedDate:null});
     added++;
   });
   return added;
 }
 function checkAllMakeupTests(){
-  const today=new Date().toISOString().slice(0,10);
-  const cutoff=new Date();cutoff.setDate(cutoff.getDate()-30);
-  const cutoffStr=cutoff.toISOString().slice(0,10);
+  const today=localToday();
+  const cutoffStr=localDateOffset(-30);
   let total=0;
   DB.testEvents.filter(e=>e.date<=today&&e.date>=cutoffStr).forEach(e=>{total+=(checkMakeupTestsForEvent(e.id)||0);});
   return total;
 }
+// Belt-test day promotions: present + expected testers not yet promoted.
+function pendingPromotionsForEvent(ev){
+  if(!isPromotionEvent(ev)||ev.promotionsReviewed)return [];
+  if(ev.date>localToday()||!attendanceTaken(ev.date))return [];
+  const att=DB.attendance[ev.date]||{};
+  return expectedTesters(ev).filter(s=>att[s.id]==='present'&&!promotedAtEvent(s.id,ev));
+}
+function eventsAwaitingPromotion(){
+  const cutoff=localDateOffset(-30);
+  return DB.testEvents.filter(e=>e.date>=cutoff&&pendingPromotionsForEvent(e).length)
+    .sort((a,b)=>a.date.localeCompare(b.date));
+}
+function dismissEventPromotions(evId){
+  const ev=DB.testEvents.find(e=>e.id===evId);if(!ev)return;
+  if(!confirm('Hide the promotion prompt for "'+ev.name+'"? You can still run promotions from Belt Testing.'))return;
+  ev.promotionsReviewed=true;save();renderMakeupTestAlert();
+}
 function resolveMakeupTest(id,note){
   const m=(DB.makeupTests||[]).find(x=>x.id===id);if(!m)return;
-  m.resolved=true;m.resolvedDate=new Date().toISOString().slice(0,10);m.resolvedNote=note||'Marked complete';
+  m.resolved=true;m.resolvedDate=localToday();m.resolvedNote=note||'Marked complete';
   save();renderMakeupTestAlert();renderDashboard();toast('Make-up test marked complete.');
 }
 function dismissMakeupTest(id){
@@ -3198,8 +3247,18 @@ function autoResolveMakeupTestsForStudent(sid,promoDate){
 function renderMakeupTestAlert(){
   const el=$('makeup-test-alert');if(!el)return;
   const pending=(DB.makeupTests||[]).filter(m=>!m.resolved).sort((a,b)=>a.eventDate.localeCompare(b.eventDate));
-  if(!pending.length){el.innerHTML='';return;}
-  el.innerHTML=`<div style="background:linear-gradient(135deg,#1a1440,#3d1a5c);color:#fff;border-radius:14px;padding:20px 24px;margin-bottom:20px;">
+  const promoEvents=eventsAwaitingPromotion();
+  const promoCard=promoEvents.map(ev=>{
+    const list=pendingPromotionsForEvent(ev);
+    return `<div style="background:linear-gradient(135deg,#0f3d2e,#1d6b4f);color:#fff;border-radius:14px;padding:18px 22px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:220px;"><div style="font-family:var(--font-display);font-size:16px;font-weight:700;">🎖 Promotions ready — ${ev.name}</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:3px;">${list.length} student${list.length!==1?'s were':' was'} present on ${fmtFull(ev.date)} and ready to promote.</div></div>
+      <button class="btn small" style="background:#fff;color:#0f3d2e;border:none;font-weight:600;" onclick="openMassPromoModal(${ev.id})">Review &amp; Promote</button>
+      <button class="btn small" style="background:rgba(255,255,255,.12);color:rgba(255,255,255,.75);border:none;" onclick="dismissEventPromotions(${ev.id})" title="Hide this prompt">✕</button>
+    </div>`;
+  }).join('');
+  if(!pending.length){el.innerHTML=promoCard;return;}
+  el.innerHTML=promoCard+`<div style="background:linear-gradient(135deg,#1a1440,#3d1a5c);color:#fff;border-radius:14px;padding:20px 24px;margin-bottom:20px;">
     <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:14px;">🔔 Make-Up Tests Needed</div>
     ${pending.map(m=>{
       const s=DB.students.find(x=>x.id===m.studentId);
@@ -3670,8 +3729,12 @@ function saveAttendance(){
   const testEventsToday=DB.testEvents.filter(e=>e.date===date);
   let makeupCount=0;
   testEventsToday.forEach(e=>{makeupCount+=(checkMakeupTestsForEvent(e.id)||0);});
-  save();renderClassDateChips();renderAttDateSelect();renderDashboard();
+  save();renderClassDateChips();renderAttDateSelect();renderDashboard();renderMakeupTestAlert();
   toast('Attendance saved for '+fmtDate(date)+(assistIds.length?' · '+assistIds.length+' assist(s) logged.':'')+(makeupCount?' · '+makeupCount+' make-up test reminder(s) created.':''));
+  // Belt test day: present students who were set to test get promoted —
+  // open the review list pre-checked so you can confirm in one click.
+  const promoEv=testEventsToday.find(e=>pendingPromotionsForEvent(e).length);
+  if(promoEv)setTimeout(()=>openMassPromoModal(promoEv.id),350);
 }
 
 // ══════════════════════════════════════════════════════
@@ -3815,9 +3878,34 @@ function studentAvgPromoIntervalDays(s){
   if(!diffs.length)return null;
   return diffs.reduce((a,b)=>a+b,0)/diffs.length;
 }
+// Black Belt Tests only run in February and August. Use the scheduled
+// event for that month when one exists; otherwise estimate the 4th Monday
+// (matches the Aug 24 2026 / Feb 22 2027 pattern).
+function fourthMondayISO(y,m){ // m = 0-based month
+  const d=new Date(y,m,1);const off=(8-d.getDay())%7; // days to first Monday
+  const day=1+off+21;
+  return y+'-'+String(m+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+}
+// First BB test strictly after `afterISO` (or on/after when inclusive).
+// Returns {date, scheduled, label}.
+function bbTestOnOrAfter(afterISO,inclusive){
+  const [y0,m0]=afterISO.split('-').map(Number);
+  for(let i=0;i<60;i++){
+    const y=y0+Math.floor((m0-1+i)/12), m=(m0-1+i)%12;
+    if(m!==1&&m!==7)continue; // Feb or Aug only
+    const ym=y+'-'+String(m+1).padStart(2,'0');
+    const ev=DB.testEvents.find(e=>e.type==='Black Belt Test'&&e.date.slice(0,7)===ym);
+    const date=ev?ev.date:fourthMondayISO(y,m);
+    if(inclusive?date>=afterISO:date>afterISO){
+      const label=new Date(date+'T00:00:00').toLocaleDateString('en-US',{month:'short',year:'numeric'});
+      return {date,scheduled:!!ev,label};
+    }
+  }
+  return null;
+}
 function renderBBForecast(){
   const el=$('bb-forecast-area');if(!el)return;
-  const today=new Date().toISOString().slice(0,10);
+  const today=localToday();
   const nextBB=DB.testEvents.filter(e=>e.type==='Black Belt Test'&&e.date>=today).sort((a,b)=>a.date.localeCompare(b.date))[0];
   const globalAvg=computeGlobalAvgPromoIntervalDays();
   const mPath=BELT_PATHS["Master's Club"];
@@ -3840,28 +3928,38 @@ function renderBBForecast(){
     }
     const pace=studentAvgPromoIntervalDays(s)||globalAvg;
     const projDays=Math.round(remaining*pace);
-    const projDate=new Date();projDate.setDate(projDate.getDate()+projDays);
-    const projDateStr=projDate.toISOString().slice(0,10);
+    const projDateStr=localDateOffset(projDays);
+    // Already a candidate → next BB test (today counts). Otherwise they become a
+    // candidate at a regular belt test, then test at the following Feb/Aug BB test.
+    const bbTest=remaining<=0?bbTestOnOrAfter(today,true):bbTestOnOrAfter(projDateStr,false);
+    const upcoming=bbTestOnOrAfter(today,true);
+    let testsAway=0;
+    if(bbTest&&upcoming){
+      const [ya,ma]=upcoming.date.split('-').map(Number),[yb,mb]=bbTest.date.split('-').map(Number);
+      testsAway=Math.round(((yb-ya)*12+(mb-ma))/6);
+    }
     let status,badgeClass;
-    if(remaining<=0){status='Ready now';badgeClass='badge-green';}
-    else if(nextBB&&projDateStr<=nextBB.date){status='On pace';badgeClass='badge-green';}
-    else if(nextBB){status='Behind pace';badgeClass='badge-amber';}
-    else {status='Pace only — no BB test scheduled';badgeClass='badge-gray';}
-    return {s,remaining,projDateStr,status,badgeClass};
+    if(!bbTest){status='—';badgeClass='badge-gray';}
+    else if(testsAway===0){status=remaining<=0?'Testing next':'On pace for next test';badgeClass='badge-green';}
+    else if(testsAway===1){status='Following test';badgeClass='badge-blue';}
+    else {status=testsAway+' tests out';badgeClass='badge-gray';}
+    return {s,remaining,projDateStr,bbTest,status,badgeClass};
   }).sort((a,b)=>a.remaining-b.remaining);
   el.innerHTML=`
     <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">
-      ${nextBB?`Next Black Belt Test: <strong>${fmtFull(nextBB.date)}</strong>`:'No upcoming Black Belt Test scheduled — projections show estimated readiness only.'}
+      ${nextBB?`Next Black Belt Test: <strong>${fmtFull(nextBB.date)}</strong>`:'No upcoming Black Belt Test scheduled.'}
+      · Black Belt Tests run in <strong>February and August</strong>. <em>Eligible</em> is the projected date a student reaches Black Belt Candidate; <em>Expected BB Test</em> is the first Feb/Aug test after that. Months marked “est.” aren't scheduled yet.
       · Pace estimated from each student's own promotion history, falling back to the school average of ${Math.round(globalAvg)} days/rank when a student doesn't have enough history yet.
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>Student</th><th>Current Belt</th><th>Stripes</th><th>Ranks to go</th><th>Est. ready date</th><th>Status</th></tr></thead>
+      <thead><tr><th>Student</th><th>Current Belt</th><th>Stripes</th><th>Ranks to go</th><th>Eligible</th><th>Expected BB Test</th><th>Status</th></tr></thead>
       <tbody>${rows.map(r=>`<tr>
         <td><strong>${r.s.first} ${r.s.last}</strong><div style="font-size:11px;color:var(--ink-muted);">${r.s.group}</div></td>
         <td><span class="belt-pill" style="${beltStyle(r.s.belt)}">${r.s.belt}</span></td>
         <td>${stripeDots(r.s.stripes,maxStripes(r.s))}</td>
         <td>${r.remaining<=0?'—':r.remaining.toFixed(1)}</td>
-        <td style="font-size:12px;">${r.remaining<=0?'Now':fmtDate(r.projDateStr)}</td>
+        <td style="font-size:12px;">${r.remaining<=0?'Now':new Date(r.projDateStr+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
+        <td style="font-size:12px;font-weight:600;">${r.bbTest?(r.bbTest.scheduled?fmtFull(r.bbTest.date):r.bbTest.label+' <span style="font-weight:400;color:var(--ink-muted);">(est.)</span>'):'—'}</td>
         <td><span class="badge ${r.badgeClass}">${r.status}</span></td>
       </tr>`).join('')}</tbody>
     </table></div>`;
@@ -4012,10 +4110,11 @@ function promoteBelt(sid){
   const cross=promo.group!==s.group;
   const isJrBB=isBlackBeltLetterCase(s);
   if(!confirm(`Promote ${s.first} ${s.last}?\n${s.belt} → ${promo.belt}${cross?'\nGroup: '+s.group+' → '+promo.group:''}\n\nStripes reset to 0.`))return;
-  DB.promotions.push({studentId:s.id,date:new Date().toISOString().slice(0,10),fromBelt:s.belt,fromGroup:s.group,toBelt:promo.belt,toGroup:promo.group});
-  addHistory(s,'promo',`Promoted: ${s.belt} → ${promo.belt}${cross?' (→ '+promo.group+')':''}`);
-  autoResolveMakeupTestsForStudent(s.id,new Date().toISOString().slice(0,10));
+  DB.promotions.push({studentId:s.id,date:localToday(),fromBelt:s.belt,fromGroup:s.group,toBelt:promo.belt,toGroup:promo.group});
+  addHistory(s,'promo',`Promoted: ${s.belt} → ${promo.belt}${cross?' (→ '+promo.group+')':''}`,localToday());
+  autoResolveMakeupTestsForStudent(s.id,localToday());
   s.belt=promo.belt;s.group=promo.group;s.stripes=0;
+  s.testEligibleOverride=null;s.intentLetterOverride=null;
   if(!NO_BELT_RANKS.has(promo.belt))consumeBeltStock(promo.belt,s.beltSize);
   save();
   if($('roster-list-view').style.display!=='none')renderRoster();else openProfile(s.id);
@@ -4024,20 +4123,32 @@ function promoteBelt(sid){
 }
 
 let massPromoState={};
-function openMassPromoModal(){
-  const evId=parseInt($('test-event-select').value);const ev=DB.testEvents.find(e=>e.id===evId);
+let massPromoEventId=null;
+function openMassPromoModal(evIdArg){
+  const evId=evIdArg!=null?evIdArg:parseInt($('test-event-select').value);
+  const ev=DB.testEvents.find(e=>e.id===evId)||null;
+  massPromoEventId=ev?ev.id:null;
   $('mmp-title').textContent='🎖 '+(ev?`Promotions — ${ev.name}`:'Mass Promotion');
-  $('mmp-desc').textContent=ev?`Pre-checked if present on ${fmtFull(ev.date)} and have full stripes.`:'Showing all active eligible students.';
+  $('mmp-desc').textContent=ev
+    ?`Pre-checked: present on ${fmtFull(ev.date)} and set to test. Uncheck anyone who didn't pass. Promotion date will be ${fmtFull(ev.date)}.`
+    :'Showing all active students with a next rank.';
   const attOnDate=ev?(DB.attendance[ev.date]||{}):{};
   massPromoState={};
+  const rows=[];
   DB.students.filter(s=>s.status==='Active').forEach(s=>{
     const promo=getPromotion(s);if(!promo)return;
-    massPromoState[s.id]={selected:ev?(attOnDate[s.id]==='present'&&stripeEligible(s)):false,promo};
+    if(ev&&!canPromoteAtEvent(s,ev))return;
+    if(ev&&promotedAtEvent(s.id,ev))return;
+    const present=attOnDate[s.id]==='present';
+    const selected=ev?(present&&beltTestEligible(s)):false;
+    rows.push([s,{selected,promo,present}]);
   });
+  rows.forEach(([s,v])=>{massPromoState[s.id]=v;});
   renderMassPromoList();$('modal-mass-promo').classList.add('open');
 }
 function renderMassPromoList(){
-  const entries=Object.entries(massPromoState);
+  const nameOf=id=>{const x=DB.students.find(y=>y.id===parseInt(id));return x?(x.first+' '+x.last):'';};
+  const entries=Object.entries(massPromoState).sort((a,b)=>(b[1].selected-a[1].selected)||((b[1].present?1:0)-(a[1].present?1:0))||nameOf(a[0]).localeCompare(nameOf(b[0])));
   $('mmp-count').textContent=`${entries.filter(([,v])=>v.selected).length} selected`;
   $('mmp-list').innerHTML=entries.map(([sid,state])=>{
     const s=DB.students.find(x=>x.id===parseInt(sid));if(!s)return'';
@@ -4049,6 +4160,7 @@ function renderMassPromoList(){
       <span style="color:var(--ink-faint);font-size:12px;">→</span>
       <span class="belt-pill" style="${beltStyle(state.promo.belt)};font-size:11px;">${state.promo.belt}</span>
       ${cross?`<span class="badge badge-blue" style="font-size:10px;">${state.promo.group}</span>`:''}
+      ${massPromoEventId&&!state.present?'<span class="badge badge-amber" style="font-size:10px;">Absent</span>':''}
       ${!stripeEligible(s)?'<span class="badge badge-gray" style="font-size:10px;">No stripes</span>':''}
     </div>`;
   }).join('')||'<div style="color:var(--ink-muted);padding:20px;text-align:center;">No promotable students.</div>';
@@ -4059,18 +4171,24 @@ function runMassPromo(){
   const toPromote=Object.entries(massPromoState).filter(([,v])=>v.selected);
   if(!toPromote.length){alert('No students selected.');return;}
   if(!confirm(`Promote ${toPromote.length} student(s)?`))return;
+  if(typeof pushUndo==='function')pushUndo('Mass promotion');
+  const promoEv=massPromoEventId!=null?DB.testEvents.find(e=>e.id===massPromoEventId):null;
+  const promoDate=promoEv?promoEv.date:localToday();
   let count=0;
   const jrbbIds=[];
   toPromote.forEach(([sid,state])=>{
     const s=DB.students.find(x=>x.id===parseInt(sid));if(!s)return;
     if(isBlackBeltLetterCase(s))jrbbIds.push(s.id);
-    DB.promotions.push({studentId:s.id,date:new Date().toISOString().slice(0,10),fromBelt:s.belt,fromGroup:s.group,toBelt:state.promo.belt,toGroup:state.promo.group});
-    addHistory(s,'promo',`Promoted: ${s.belt} → ${state.promo.belt}`);
-    autoResolveMakeupTestsForStudent(s.id,new Date().toISOString().slice(0,10));
-    s.belt=state.promo.belt;s.group=state.promo.group;s.stripes=0;count++;
+    DB.promotions.push({studentId:s.id,date:promoDate,eventId:promoEv?promoEv.id:null,fromBelt:s.belt,fromGroup:s.group,toBelt:state.promo.belt,toGroup:state.promo.group});
+    addHistory(s,'promo',`Promoted: ${s.belt} → ${state.promo.belt}${promoEv?' ('+promoEv.name+')':''}`,promoDate);
+    autoResolveMakeupTestsForStudent(s.id,promoDate);
+    s.belt=state.promo.belt;s.group=state.promo.group;s.stripes=0;
+    s.testEligibleOverride=null;s.intentLetterOverride=null;count++;
     if(!NO_BELT_RANKS.has(state.promo.belt))consumeBeltStock(state.promo.belt,s.beltSize);
   });
-  save();closeModal('modal-mass-promo');renderTesting();renderDashboard();toast(`${count} student(s) promoted!`);
+  if(promoEv)promoEv.promotionsReviewed=true;
+  massPromoEventId=null;
+  save();closeModal('modal-mass-promo');renderTesting();renderDashboard();renderMakeupTestAlert();toast(`${count} student(s) promoted!`);
   if(jrbbIds.length===1){
     setTimeout(()=>openJrBBCertModal(jrbbIds[0]),400);
   } else if(jrbbIds.length>1){
@@ -5625,7 +5743,7 @@ if(!DB.classSchedule||!Array.isArray(DB.classSchedule)||!DB.classSchedule.length
   // Explicitly render pending absences on init (patch runs later in script)
   setTimeout(function(){ if(typeof renderPendingAbsences==='function') renderPendingAbsences(); }, 100);
   // Backfill make-up test reminders for any past test events, then refresh alerts
-  setTimeout(function(){ if(typeof checkAllMakeupTests==='function'){const n=checkAllMakeupTests();if(n)save();renderMakeupTestAlert();} }, 150);
+  setTimeout(function(){ if(typeof checkAllMakeupTests==='function'){const before=JSON.stringify(DB.makeupTests||[]);checkAllMakeupTests();if(JSON.stringify(DB.makeupTests||[])!==before)save();renderMakeupTestAlert();} }, 150);
 
   // Restore Gmail token at startup so Inbox works without visiting Emails first
   if(DB.gmailToken&&DB.gmailToken.expires>(Date.now()+300000)){
@@ -10638,7 +10756,7 @@ function updateClock() {
 }
 
 function todayStr() {
-  return new Date().toISOString().slice(0,10);
+  return localToday();
 }
 
 function isClassDay() {
@@ -12602,7 +12720,7 @@ adjustStripe = function(id, delta) {
   pushUndo('Adjust stripe');
   _origAdjustStripe(id, delta);
 };
-const _origApplyMassPromotion = applyMassPromotion;
+const _origApplyMassPromotion = (typeof applyMassPromotion !== 'undefined') ? applyMassPromotion : null;
 if (typeof _origApplyMassPromotion === 'function') {
   applyMassPromotion = function() {
     pushUndo('Mass promotion');
