@@ -899,6 +899,13 @@ tbody td{font-size:11px!important;}
       <button class="btn primary" onclick="openAddGearOrder()">+ Add Order</button>
     </div>
   </div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+    <select id="pm-range" class="form-select" style="width:auto;" title="How far back to look"><option value="since">Since last check</option><option value="30">Last 30 days</option><option value="60">Last 60 days</option><option value="180">Last 6 months</option><option value="365">Last 12 months</option></select>
+    <button class="btn success" onclick="pmScanGmail()" title="Find Zelle, Venmo and PayPal payment emails and match them to gear orders and belt test fees">💸 Match payments from Gmail</button>
+    <span style="font-size:11px;color:var(--ink-faint);">Zelle (Wells Fargo), Venmo and PayPal emails in this Gmail</span>
+  </div>
+  <div id="pm-status" style="display:none;background:var(--blue-light);border:1px solid var(--blue);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;"></div>
+  <div id="pm-queue"></div>
   <!-- Summary bar -->
   <div id="gear-summary" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;"></div>
   <!-- Filters -->
@@ -12446,8 +12453,10 @@ function repairGearOrderDates(){
   return fixed;
 }
 
+function gearActualCost(o){const l=o&&o.vendorLinks;if(!l||!l.length)return null;return l.reduce((a,x)=>a+(+x.cost||0),0);}
 function renderGearOrders(){
   if(!DB.gearOrders)DB.gearOrders=[];
+  if(typeof renderPmQueue==='function')renderPmQueue();
 if(!DB.apparelOrders)DB.apparelOrders=[];
 if(!DB.apparelOrderStatus)DB.apparelOrderStatus={};
 if(!DB.jotformApiKey)DB.jotformApiKey='';
@@ -12474,7 +12483,7 @@ if(!DB.gearSheetSources)DB.gearSheetSources=[];
   const totalOwed=all.filter(o=>!o.paid).reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
   const totalPaid=all.filter(o=>o.paid).reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
   const totalRevenue=all.reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
-  const totalCost=all.reduce((s,o)=>{const cat=(GEAR_CATALOG&&GEAR_CATALOG[o.orderType])||(o.catalogKey&&GEAR_CATALOG[o.catalogKey]);return s+(cat?cat.cost:0);},0);
+  const totalCost=all.reduce((s,o)=>{const act=gearActualCost(o);if(act!=null)return s+act;const cat=(GEAR_CATALOG&&GEAR_CATALOG[o.orderType])||(o.catalogKey&&GEAR_CATALOG[o.catalogKey]);return s+(cat?cat.cost:0);},0);
   const totalProfit=totalRevenue-totalCost;
   const margin=totalRevenue>0?Math.round(totalProfit/totalRevenue*100):0;
   const summary=$('gear-summary');
@@ -12491,14 +12500,14 @@ if(!DB.gearSheetSources)DB.gearSheetSources=[];
       ?`<span class="badge badge-green">Paid</span>`
       :`<span class="badge badge-gray">Unpaid</span>`;
     const payBadge=o.paymentMethod&&o.paymentMethod!=='Unpaid'
-      ?`<span class="badge" style="background:var(--blue-light);color:var(--blue);font-size:10px;">${o.paymentMethod}</span>`:
+      ?`<span class="badge" style="background:var(--blue-light);color:var(--blue);font-size:10px;">${o.paymentMethod}</span>${o.paidDate?`<div style="font-size:10px;color:var(--ink-faint);" title="${o.paymentRef?'Ref '+o.paymentRef:''}">${fmtDate(o.paidDate)}${o.paymentFrom?' · '+o.paymentFrom:''}</div>`:''}`:
       `<span style="color:var(--ink-faint);font-size:12px;">—</span>`;
     return `<tr>
       <td style="font-size:12px;color:var(--ink-muted);white-space:nowrap;">${fmtDate(o.date)}</td>
       <td><strong style="font-size:13px;">${o.studentName||'—'}</strong></td>
-      <td style="font-size:12px;">${o.orderType||'—'}${o.sourceSheet?`<div style="font-size:10px;color:var(--ink-faint);">via ${o.sourceSheet}</div>`:''}</td>
+      <td style="font-size:12px;">${o.orderType||'—'}${o.sourceSheet?`<div style="font-size:10px;color:var(--ink-faint);">via ${o.sourceSheet}</div>`:''}${(o.vendorLinks||[]).map(l=>`<div style="font-size:10px;color:var(--blue);" title="${(l.items||[]).join(', ').replace(/"/g,'&quot;')}">🧾 ${l.vendor}${l.num?' #'+l.num:''} · ${fmtDate(l.date)}</div>`).join('')}</td>
       <td style="font-size:11px;color:var(--ink-muted);max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${o.details||''}">${o.details||'—'}</td>
-      <td style="text-align:right;"><div style="font-weight:600;">${o.amount?'$'+parseFloat(o.amount).toFixed(2):'—'}</div>${(()=>{const c=(GEAR_CATALOG&&GEAR_CATALOG[o.orderType])||(o.catalogKey&&GEAR_CATALOG[o.catalogKey]);return c&&c.cost?'<div style="font-size:10px;color:var(--ink-faint);">cost $'+c.cost.toFixed(2)+' · +$'+(parseFloat(o.amount||c.price)-c.cost).toFixed(2)+'</div>':'';})()}</td>
+      <td style="text-align:right;"><div style="font-weight:600;">${o.amount?'$'+parseFloat(o.amount).toFixed(2):'—'}</div>${(()=>{const act=gearActualCost(o);if(act!=null)return '<div style="font-size:10px;color:var(--green);" title="Actual cost from linked vendor invoices">cost $'+act.toFixed(2)+' · +$'+((parseFloat(o.amount)||0)-act).toFixed(2)+'</div>';const c=(GEAR_CATALOG&&GEAR_CATALOG[o.orderType])||(o.catalogKey&&GEAR_CATALOG[o.catalogKey]);return c&&c.cost?'<div style="font-size:10px;color:var(--ink-faint);">est. cost $'+c.cost.toFixed(2)+' · +$'+(parseFloat(o.amount||c.price)-c.cost).toFixed(2)+'</div>':'';})()}</td>
       <td>${payBadge}</td>
       <td>${paidBadge}</td>
       <td style="white-space:nowrap;">
@@ -13379,10 +13388,54 @@ function voNormalize(r){
 }
 
 // ── Build a review card from an extraction ──
+// Sparring gear, bags and mouthguard cases are bought for a student's gear order.
+const VO_STUDENT_ITEM=/duff(?:le|el)|\bbag\b|mouth ?guard|mouthpiece|guard case|\bcase\b|glove|head ?gear|shin|instep|foot ?gear|foot ?pad|chest ?guard|groin|\bcup\b|sparring/i;
+function voGearKinds(text){
+  const t=String(text||'').toLowerCase();const k=new Set();
+  if(/glove|head ?gear|shin|instep|foot|sparring|mouth|chest|\bgear\b/.test(t))k.add('gear');
+  if(/duff(?:le|el)|\bbag\b/.test(t))k.add('duffle');
+  if(/uniform|\bgi\b/.test(t))k.add('uniform');
+  if(/escrima|kali|stick/.test(t))k.add('escrima');
+  if(/nunchak|chux/.test(t))k.add('nunchaku');
+  if(/\bbo\b|bo staff|staff/.test(t))k.add('bo');
+  return k;
+}
+function voGearOrderOpen(o,vendor){return !(o.vendorLinks||[]).some(l=>l.vendor===vendor);}
+// Open gear orders that this vendor order could be filling, best match first.
+function voGearCandidates(c){
+  const want=voGearKinds(c.lines.filter(l=>l.action==='student'||l.category==='weapon'||l.category==='uniform').map(l=>l.name+' '+l.options).join(' '));
+  const t=new Date(c.date).getTime();
+  return (DB.gearOrders||[]).filter(o=>voGearOrderOpen(o,c.vendor)&&o.date&&new Date(o.date).getTime()<=t+3*86400000&&new Date(o.date).getTime()>=t-90*86400000)
+    .map(o=>{const have=voGearKinds((o.orderType||'')+' '+(o.details||''));let score=0;want.forEach(k=>{if(have.has(k))score++;});return {o,score};})
+    .sort((a,b)=>b.score-a.score||a.o.date.localeCompare(b.o.date));
+}
+function voGearLabel(o){return (o.studentName||'(no student)')+' — '+String(o.orderType||'Order').replace(/\s*-\s*/,' - ').slice(0,60)+' · '+fmtDate(o.date)+(o.amount?' · '+fmt$(+o.amount):'');}
+function voGearSelectHTML(c){
+  if(!c.lines.some(l=>l.action==='student'))return '';
+  const cands=voGearCandidates(c);
+  const others=(DB.gearOrders||[]).filter(o=>voGearOrderOpen(o,c.vendor)&&!cands.some(x=>x.o===o)).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,40);
+  const opt=o=>`<option value="${o.id}" ${o.id===c.gearOrderId?'selected':''}>${voEsc(voGearLabel(o))}</option>`;
+  return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 10px;font-size:12px;">
+    <span style="font-weight:600;">Student items fill gear order:</span>
+    <select class="form-select vo-mini" style="max-width:520px;" onchange="voSetGearOrder(${c.id},this.value)">
+      <option value="">— Not for a gear order —</option>
+      ${cands.length?`<optgroup label="Likely matches">${cands.map(x=>opt(x.o)).join('')}</optgroup>`:''}
+      ${others.length?`<optgroup label="Other open orders">${others.map(opt).join('')}</optgroup>`:''}
+    </select>${c.gearOrderId&&c.gearAuto?'<span style="color:var(--ink-muted);">suggested — check it</span>':''}</div>`;
+}
+function voSetGearOrder(cid,val){
+  const c=voCard(cid);if(!c)return;
+  c.gearOrderId=parseInt(val)||null;c.gearAuto=false;
+  const o=(DB.gearOrders||[]).find(x=>x.id===c.gearOrderId);
+  if(o&&o.studentId)c.lines.forEach(l=>{if(l.action==='student'&&!l.studentId)l.studentId=o.studentId;});
+  renderVoQueue();
+}
 function voDefaultLine(vendor,it){
   const learned=DB.vendorItemMap[voItemKey(vendor,it)];
   const base={...it,id:DB.nextId++,studentId:null,check:false};
-  if(learned)return Object.assign(base,{action:learned.action,type:learned.type||'',label:learned.label||'',size:learned.size!=null?learned.size:'',learned:true});
+  const forStudent=!['belt','uniform','weapon'].includes(it.category)&&VO_STUDENT_ITEM.test(it.name+' '+(it.options||''));
+  if(learned&&!(forStudent&&learned.action==='expense'))return Object.assign(base,{action:learned.action,type:learned.type||'',label:learned.label||'',size:learned.size!=null?learned.size:'',learned:true});
+  if(forStudent)return Object.assign(base,{action:'student',type:'',label:'',size:''});
   if(it.category==='belt'){const label=voGuessBelt(it.beltColor);return Object.assign(base,{action:'stock',type:'belt',label,size:voNormSize(it.beltSize),check:!label});}
   if(it.category==='uniform'){const color=(it.uniformColor||'').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());return Object.assign(base,{action:'stock',type:'uniform',label:(color?color+' ':'')+'Uniform',size:voNormSize(it.uniformSize),check:true});}
   if(it.category==='weapon')return Object.assign(base,{action:'stock',type:'weapon',label:it.name.replace(/\s*\(.*?\)\s*/g,' ').trim(),size:'One Size',check:true});
@@ -13395,6 +13448,11 @@ function voMakeCard(src,meta,ex){
     lines:ex.items.map(it=>voDefaultLine(src.vendor,it)),shipping:ex.shipping,tax:ex.tax,discount:ex.discount,total:ex.total,notes:ex.notes||'',
     match:null,mode:'new',status:'review'};
   if(card.total==null)card.total=voRound(card.lines.reduce((a,l)=>a+(+l.lineTotal||0),0)+(+card.shipping||0)+(+card.tax||0)-(+card.discount||0));
+  // Pre-pick the gear order these student items most likely fill (oldest open match first).
+  if(card.lines.some(l=>l.action==='student')){
+    const best=voGearCandidates(card).filter(x=>x.score>0);
+    if(best.length){card.gearOrderId=best[0].o.id;card.gearAuto=true;const o=best[0].o;if(o.studentId)card.lines.forEach(l=>{if(l.action==='student'&&!l.studentId)l.studentId=o.studentId;});}
+  }
   // Century PDF invoices usually duplicate a store order — find it by total and date.
   if(src.kind==='invoice'){
     const near=(d1,d2)=>Math.abs(new Date(d1)-new Date(d2))<=21*86400000;
@@ -13528,6 +13586,15 @@ function voSave(cid){
   const inv={id:DB.nextId++,vendor:c.vendor,date:c.date,num:c.num,notes:(c.notes||'').slice(0,200),lineItems,total,file:null,source:'gmail',gmailMsgId:c.msgId,linkedInvoices:c.pendingLinked||[]};
   if(inv.linkedInvoices.length)inv.notes=(inv.notes?inv.notes+' · ':'')+inv.linkedInvoices.map(n=>'Invoice '+n).join(', ');
   DB.invoices.push(inv);
+  // Link student items to the gear order they fill (real cost → profit on Gear Orders).
+  const go=c.gearOrderId&&(DB.gearOrders||[]).find(o=>o.id===c.gearOrderId);
+  if(go){
+    const items=c.lines.filter(l=>l.action==='student');
+    if(items.length){
+      go.vendorLinks=(go.vendorLinks||[]).concat([{invoiceId:inv.id,vendor:c.vendor,num:c.num,date:c.date,items:items.map(l=>l.name+(l.options?' ('+l.options+')':'')),cost:voRound(items.reduce((a,l)=>a+(+l.lineTotal||0),0))}]);
+      inv.lineItems.forEach(li=>{if(li.action==='student')li.gearOrderId=go.id;});
+    }
+  }
   let stocked=0;
   c.lines.forEach(l=>{
     if(l.action==='stock'&&l.qty>0){voAddToStock(l,l.unitPrice);stocked+=l.qty;}
@@ -13583,6 +13650,7 @@ function renderVoQueue(){
     return `<div class="pf-card">${head}${c._linkBox||''}
       ${c.lines.length?`<div class="table-wrap" style="margin-bottom:8px;"><table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Goes to</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table></div>`
         :`<div style="font-size:12px;color:var(--ink-muted);margin-bottom:8px;">No item list found in this email${c.notes?': '+voEsc(c.notes):''}. Saving records the total only.</div>`}
+      ${voGearSelectHTML(c)}
       <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-muted);align-items:center;">
         <span>Shipping ${voMoney(c.shipping)}</span><span>Tax ${voMoney(c.tax)}</span>${c.discount?`<span>Discount −${voMoney(c.discount)}</span>`:''}
         ${mismatch?`<span class="badge badge-amber">Items add up to ${fmt$(sum)} — an “Other” line will cover the difference</span>`:''}
@@ -13611,6 +13679,224 @@ function voSpendSummaryHTML(){
   return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:var(--ink-muted);line-height:1.9;">
     <div><span style="font-weight:700;color:var(--ink);">${year} by vendor:</span> ${list(byVendor)}</div>
     <div><span style="font-weight:700;color:var(--ink);">${year} by category:</span> ${list(byCat)}</div></div>`;
+}
+</script>
+<script>
+// ══════════════════════════════════════════════════════
+// PAYMENT MATCHING — Zelle / Venmo / PayPal emails → gear orders & belt test fees
+// ══════════════════════════════════════════════════════
+// Reads payment notification emails in Gmail, works out who paid and how much,
+// and suggests which open gear orders / belt test fees it covers (same family,
+// amounts that add up exactly). You confirm each one; confirmed items are marked
+// paid with the method, date, payer and confirmation number.
+
+const PM_QUERY = '(from:alerts@notify.wellsfargo.com subject:zelle) OR (from:venmo@venmo.com "paid you") OR (from:(service@paypal.com OR service@intl.paypal.com) ("sent you" OR "got money"))';
+if(!DB.paymentImports)DB.paymentImports={}; // gmail message id -> {status, items, date}
+if(!DB.paymentsLog)DB.paymentsLog=[];
+let pmQueue=[];let pmScanning=false;
+
+function pmEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function pmStatus(t){const el=$('pm-status');if(el){el.style.display=t?'block':'none';el.textContent=t||'';}}
+function pmNorm(s){return String(s||'').toLowerCase().replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();}
+function pmMoney(x){const n=parseFloat(String(x).replace(/[^0-9.]/g,''));return isNaN(n)?null:Math.round(n*100)/100;}
+function pmShift(iso,days){const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+days);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+// Keep only the trailing capitalized words before "sent you / paid you" (the payer's name).
+function pmName(raw){const w=String(raw||'').trim().split(/\s+/);const out=[];for(let i=w.length-1;i>=0&&out.length<4;i--){if(/^[A-Z][\w'.\-]*$/.test(w[i]))out.unshift(w[i]);else break;}return out.join(' ');}
+function pmMDY(s){const m=String(s||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);return m?m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0'):null;}
+
+// ── Parse one notification email ──
+function pmParse(m){
+  const subj=m.subject||'',text=(m.text||'').replace(/\|/g,' ').replace(/[ \t]+/g,' ');
+  const from=(m.from||'').toLowerCase();
+  let method=null,payer=null,amount=null,ref=null,note='',date=m.date?m.date.slice(0,10):localToday();
+  if(from.includes('wellsfargo')||/zelle/i.test(subj)){
+    method='Zelle';
+    const x=text.match(/([A-Z][\w'.\- ]{1,60}?) sent you \$([\d,]+\.\d{2})/);
+    if(x){payer=pmName(x[1]);amount=pmMoney(x[2]);}
+    const d=text.match(/Date:\s*(\d{1,2}\/\d{1,2}\/\d{4})/);if(d)date=pmMDY(d[1])||date;
+    const c=text.match(/Confirmation(?: number)?:\s*([A-Z0-9]+)/i);if(c)ref=c[1];
+    const n=text.match(/Memo:\s*([^\n]{1,140})/i);if(n)note=n[1].trim();
+  }else if(from.includes('venmo')){
+    method='Venmo';
+    const x=(subj+' \n'+text).match(/([A-Z][\w'.\- ]{1,60}?) paid you \$([\d,]+\.\d{2})/);
+    if(x){payer=pmName(x[1]);amount=pmMoney(x[2]);}
+    const c=text.match(/(?:Transaction|Payment) ID:?\s*([0-9]{6,})/i);if(c)ref=c[1];
+    const after=text.split(/paid you \$[\d,]+\.\d{2}/)[1]||'';
+    note=(after.split(/\n/).map(l=>l.trim()).filter(l=>l&&!/^(transaction|payment|see|view|money|\$|venmo|privacy|this)/i.test(l))[0]||'').slice(0,140);
+  }else if(from.includes('paypal')){
+    method='PayPal';
+    const x=(subj+' \n'+text).match(/([A-Z][\w'.\- ]{1,60}?) sent you \$([\d,]+\.\d{2})/);
+    if(x){payer=pmName(x[1]);amount=pmMoney(x[2]);}
+    const c=text.match(/Transaction ID:?\s*([A-Z0-9]{8,})/i);if(c)ref=c[1];
+    const n=text.match(/Note from [^:]{1,60}:\s*([^\n]{1,140})/i);if(n)note=n[1].trim();
+  }
+  if(!method||!payer||!amount)return null;
+  return {method,payer,amount,ref,note,date};
+}
+
+// ── Open items a payment could cover ──
+function pmOpenItems(){
+  const items=[];
+  (DB.gearOrders||[]).forEach(o=>{
+    const amt=parseFloat(o.amount)||0;if(o.paid||amt<=0)return;
+    const s=o.studentId?DB.students.find(x=>x.id===o.studentId):null;
+    const contact=((o.details||'').match(/Your name:\s*([^;]+)/i)||[])[1]||'';
+    items.push({key:'g'+o.id,kind:'gear',id:o.id,amount:amt,date:o.date||'',student:s,label:(o.studentName||(s?s.first+' '+s.last:'Unknown'))+' — '+(o.orderType||'Gear order'),names:[o.studentName,contact,s&&s.parent,s&&s.parent2].filter(Boolean)});
+  });
+  const today=localToday();
+  (DB.testEvents||[]).filter(e=>e.type!=='Stripe Test'&&(+e.fee||0)>0&&e.date>=localDateOffset(-60)&&e.date<=localDateOffset(60)).forEach(ev=>{
+    const att=DB.attendance[ev.date]||{};
+    const who=new Set();
+    DB.students.filter(s=>s.status==='Active').forEach(s=>{
+      if((typeof canPromoteAtEvent!=='function'||canPromoteAtEvent(s,ev))&&(typeof beltTestEligible==='function'&&beltTestEligible(s)))who.add(s);
+      if(att[s.id]==='present'&&typeof promotedAtEvent==='function'&&promotedAtEvent(s.id,ev))who.add(s);
+    });
+    who.forEach(s=>{
+      if((DB.testFees||[]).some(f=>f.eventId===ev.id&&f.studentId===s.id&&f.paid))return;
+      items.push({key:'t'+ev.id+'_'+s.id,kind:'test',eventId:ev.id,studentId:s.id,amount:+ev.fee,date:ev.date,student:s,label:s.first+' '+s.last+' — '+ev.name+' fee',names:[s.parent,s.parent2].filter(Boolean)});
+    });
+  });
+  return items;
+}
+// How sure we are this payer belongs to the item's family (0 = no link).
+function pmFamilyScore(payer,item){
+  const p=pmNorm(payer).split(' ').filter(Boolean);if(!p.length)return 0;
+  const first=p[0],last=p[p.length-1];
+  let best=0;
+  (item.names||[]).forEach(n=>{
+    const t=pmNorm(n).split(' ');
+    if(t.includes(first)&&t.includes(last))best=Math.max(best,3);
+    else if(t.includes(last)&&last.length>2)best=Math.max(best,2);
+  });
+  const s=item.student;
+  if(s&&pmNorm(s.last).split(' ').includes(last)&&last.length>2)best=Math.max(best,2);
+  return best;
+}
+// Smallest exact combination of items adding up to the payment (oldest first).
+function pmExactCombo(items,amount){
+  const cents=Math.round(amount*100);
+  const list=items.slice(0,14).map(i=>({i,c:Math.round(i.amount*100)}));
+  let found=null;
+  for(let size=1;size<=Math.min(5,list.length)&&!found;size++){
+    (function pick(start,chosen,sum){
+      if(found)return;
+      if(chosen.length===size){if(sum===cents)found=chosen.slice();return;}
+      for(let k=start;k<list.length;k++){if(sum+list[k].c>cents)continue;chosen.push(list[k]);pick(k+1,chosen,sum+list[k].c);chosen.pop();}
+    })(0,[],0);
+  }
+  return found?found.map(x=>x.i):null;
+}
+function pmBuildCard(msgId,p){
+  const open=pmOpenItems().map(i=>Object.assign(i,{score:pmFamilyScore(p.payer,i)}));
+  const fam=open.filter(i=>i.score>0).sort((a,b)=>b.score-a.score||a.date.localeCompare(b.date));
+  let pick=pmExactCombo(fam,p.amount)||[];
+  let basis=pick.length?'family':'';
+  let shown=fam.slice(0,12);
+  if(!pick.length){
+    const same=open.filter(i=>Math.abs(i.amount-p.amount)<0.005&&!fam.includes(i)).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6);
+    shown=shown.concat(same);
+    if(!fam.length&&same.length===1){pick=[same[0]];basis='amount';}
+  }
+  return Object.assign({id:DB.nextId++,msgId,items:shown,selected:new Set(pick.map(i=>i.key)),basis},p);
+}
+
+// ── Scan Gmail ──
+async function pmScanGmail(){
+  if(pmScanning)return;
+  if(!gmailToken){alert('Connect Gmail first on the Email tab, then come back here.');return;}
+  const range=($('pm-range')||{}).value||'since';
+  let after;
+  if(range==='since')after=DB.paymentLastScan?pmShift(DB.paymentLastScan,-3):localDateOffset(-60);
+  else after=localDateOffset(-(parseInt(range)||60));
+  pmScanning=true;pmStatus('Searching Gmail for Zelle, Venmo and PayPal payments…');
+  let found=0,unread=0;
+  try{
+    const ids=[];let pageToken='',n=0;
+    do{
+      const r=await voGmail('messages?maxResults=100&q='+encodeURIComponent('('+PM_QUERY+') after:'+after.replace(/-/g,'/'))+(pageToken?'&pageToken='+pageToken:''));
+      (r.messages||[]).forEach(m=>{if(!DB.paymentImports[m.id]&&!pmQueue.some(c=>c.msgId===m.id))ids.push(m.id);});
+      pageToken=r.nextPageToken||'';n++;
+    }while(pageToken&&n<5);
+    let done=0;
+    for(const id of ids){
+      done++;pmStatus('Reading payment '+done+' of '+ids.length+'…');
+      const msg=await voGmail('messages/'+id+'?format=full');
+      const p=pmParse(voMessageParts(msg));
+      if(!p){DB.paymentImports[id]={status:'not-a-payment',date:localToday()};unread++;continue;}
+      pmQueue.push(pmBuildCard(id,p));found++;
+    }
+    pmQueue.sort((a,b)=>a.date.localeCompare(b.date));
+    DB.paymentLastScan=localToday();save();
+    pmStatus(found?`Found ${found} payment${found!==1?'s':''} — confirm the matches below.`:`No new payments since ${fmtFull(after)}.`+(unread?` (${unread} email${unread!==1?'s':''} weren't payments.)`:''));
+  }catch(e){pmStatus('⚠ '+e.message);}
+  finally{pmScanning=false;renderPmQueue();}
+}
+
+function pmToggle(cid,key){const c=pmQueue.find(x=>x.id===cid);if(!c)return;c.selected.has(key)?c.selected.delete(key):c.selected.add(key);renderPmQueue();}
+function pmAddItem(cid,key){
+  const c=pmQueue.find(x=>x.id===cid);if(!c||!key)return;
+  const it=pmOpenItems().find(i=>i.key===key);if(!it)return;
+  if(!c.items.some(i=>i.key===key))c.items.push(Object.assign(it,{score:0}));
+  c.selected.add(key);renderPmQueue();
+}
+function pmSkip(cid){
+  const c=pmQueue.find(x=>x.id===cid);if(!c)return;
+  DB.paymentImports[c.msgId]={status:'skipped',date:localToday()};
+  pmQueue=pmQueue.filter(x=>x!==c);save();renderPmQueue();
+}
+function pmConfirm(cid){
+  const c=pmQueue.find(x=>x.id===cid);if(!c)return;
+  const chosen=c.items.filter(i=>c.selected.has(i.key));
+  if(!chosen.length){alert('Tick what this payment covers, or Skip it.');return;}
+  if(typeof pushUndo==='function')pushUndo('Match payment');
+  const applied=[];
+  chosen.forEach(i=>{
+    if(i.kind==='gear'){
+      const o=DB.gearOrders.find(x=>x.id===i.id);if(!o)return;
+      Object.assign(o,{paid:true,paymentMethod:c.method,paidDate:c.date,paymentRef:c.ref||'',paymentFrom:c.payer});
+      applied.push(i.label);
+    }else if(i.kind==='test'){
+      const s=DB.students.find(x=>x.id===i.studentId);
+      const beltTested=s?((getPromotion(s)||{}).belt||s.belt):null;
+      let f=(DB.testFees||[]).find(x=>x.eventId===i.eventId&&x.studentId===i.studentId);
+      if(!f){f={eventId:i.eventId,studentId:i.studentId};DB.testFees.push(f);}
+      Object.assign(f,{paid:true,datePaid:c.date,belt:f.belt||beltTested,method:c.method,ref:c.ref||'',from:c.payer});
+      applied.push(i.label);
+    }
+  });
+  DB.paymentsLog.unshift({date:c.date,method:c.method,payer:c.payer,amount:c.amount,ref:c.ref||'',note:c.note||'',applied,msgId:c.msgId});
+  DB.paymentImports[c.msgId]={status:'matched',items:chosen.map(i=>i.key),date:localToday()};
+  pmQueue=pmQueue.filter(x=>x!==c);
+  save();renderPmQueue();if(typeof renderGearOrders==='function')renderGearOrders();
+  toast(c.method+' '+fmt$(c.amount)+' from '+c.payer+' applied to '+applied.length+' item'+(applied.length!==1?'s':''));
+}
+
+function renderPmQueue(){
+  const el=$('pm-queue');if(!el)return;
+  if(!pmQueue.length){el.innerHTML='';return;}
+  const allOpen=pmOpenItems();
+  el.innerHTML=`<div style="font-family:var(--font-display);font-size:15px;font-weight:700;margin:4px 0 10px;">Match payments (${pmQueue.length})</div>`+pmQueue.map(c=>{
+    const sel=c.items.filter(i=>c.selected.has(i.key));
+    const sum=Math.round(sel.reduce((a,i)=>a+i.amount,0)*100)/100;
+    const diff=Math.round((c.amount-sum)*100)/100;
+    const rows=c.items.map(i=>`<label style="display:flex;gap:9px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;">
+        <input type="checkbox" ${c.selected.has(i.key)?'checked':''} onchange="pmToggle(${c.id},'${i.key}')">
+        <span style="flex:1;">${pmEsc(i.label)} <span style="font-size:11px;color:var(--ink-muted);">· ${fmtDate(i.date)}</span>${i.score>=3?' <span class="badge badge-green" style="font-size:9px;">parent name</span>':i.score>=2?' <span class="badge badge-blue" style="font-size:9px;">same last name</span>':' <span class="badge badge-gray" style="font-size:9px;">amount only</span>'}</span>
+        <strong>${fmt$(i.amount)}</strong></label>`).join('');
+    const addOpts=allOpen.filter(i=>!c.items.some(x=>x.key===i.key)).sort((a,b)=>a.label.localeCompare(b.label));
+    return `<div class="pf-card">
+      <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:8px;">
+        <div style="flex:1;min-width:200px;"><div style="font-weight:700;font-size:14px;">${pmEsc(c.payer)} <span class="badge" style="background:var(--blue-light);color:var(--blue);font-size:10px;">${c.method}</span></div>
+          <div style="font-size:12px;color:var(--ink-muted);">${fmtFull(c.date)}${c.ref?' · Ref '+pmEsc(c.ref):''}${c.note?' · “'+pmEsc(c.note)+'”':''}</div></div>
+        <div style="font-family:var(--font-display);font-size:19px;font-weight:700;">${fmt$(c.amount)}</div></div>
+      ${c.items.length?rows:'<div style="font-size:12px;color:var(--ink-muted);padding:6px 0;">No open gear orders or test fees for this family — add one below or Skip.</div>'}
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+        <select class="form-select vo-mini" style="max-width:360px;" onchange="pmAddItem(${c.id},this.value);this.value='';"><option value="">+ Add another open item…</option>${addOpts.map(i=>`<option value="${i.key}">${pmEsc(i.label)} · ${fmt$(i.amount)}</option>`).join('')}</select>
+        <span style="font-size:12px;color:${Math.abs(diff)<0.005?'var(--green)':'var(--amber)'};">${sel.length?(Math.abs(diff)<0.005?'✓ Adds up exactly':diff>0?fmt$(diff)+' not covered by ticked items':'Ticked items exceed the payment by '+fmt$(-diff)):'Nothing ticked'}</span>
+        <div style="flex:1;"></div>
+        <button class="btn small" onclick="pmSkip(${c.id})" title="Not for a gear order or test fee">Skip</button>
+        <button class="btn small primary" onclick="pmConfirm(${c.id})">Mark ${sel.length||''} paid</button></div></div>`;
+  }).join('');
 }
 </script>
 </body>
