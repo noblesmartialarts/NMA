@@ -339,6 +339,7 @@ tbody td{font-size:11px!important;}
   <div class="sidebar-nav" style="flex:1;overflow-y:auto;">
     <div class="nav-section-label" onclick="toggleNavSection(this)">Overview<span class="chevron">▾</span></div>
     <div class="nav-item active" data-page="dashboard" onclick="nav('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>Dashboard</span></div>
+    <div class="nav-item" data-page="ai" onclick="nav('ai')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg><span>AI Assistant</span></div>
     <div class="nav-section-label" onclick="toggleNavSection(this)">Students<span class="chevron">▾</span></div>
     <div class="nav-item" data-page="roster" onclick="nav('roster')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Roster</span></div>
     <div class="nav-item" data-page="leaders" onclick="nav('leaders')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Leaders</span></div>
@@ -1813,6 +1814,26 @@ tbody td{font-size:11px!important;}
   </div>
 </div>
 
+<!-- AI ASSISTANT -->
+<div id="page-ai" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div class="page-title">AI Assistant</div><div class="page-subtitle">Ask questions about your students, attendance, testing and class planning — powered by Google Gemini</div></div>
+    <button class="btn" onclick="clearAIChat()">Clear chat</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+    <button class="btn small" onclick="aiQuick('Who has missed the most classes this month?')">Who's missed the most classes?</button>
+    <button class="btn small" onclick="aiQuick('Which students are one stripe away from being ready to test?')">Who's one stripe from testing?</button>
+    <button class="btn small" onclick="aiQuick('Who is not registered yet this month?')">Who isn't registered?</button>
+    <button class="btn small" onclick="aiQuick('Suggest a Challenge of the Month for kids martial arts with a short explanation for parents.')">Challenge of the Month idea</button>
+  </div>
+  <div id="ai-chat-window" style="background:var(--paper);border:1px solid var(--border);border-radius:14px;padding:16px;min-height:340px;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;margin-bottom:12px;"></div>
+  <div style="display:flex;gap:8px;">
+    <textarea id="ai-input" class="form-input" rows="2" placeholder="Ask anything… (Enter to send, Shift+Enter for a new line)" style="flex:1;resize:vertical;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAIMessage();}"></textarea>
+    <button id="ai-send-btn" class="btn primary" onclick="sendAIMessage()" style="align-self:stretch;min-width:80px;">Send</button>
+  </div>
+  <div style="font-size:11px;color:var(--ink-faint);margin-top:8px;">Your active roster, this month's attendance, stripes and upcoming tests are shared with Gemini to answer questions. AI answers can be wrong — double-check before acting on them.</div>
+</div>
+
 <!-- GOOD JOB NOTES -->
 <div id="page-goodjob" class="page">
   <div class="page-header">
@@ -2960,7 +2981,7 @@ function nav(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+page).classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,prospects:initProspects,goodjob:initGoodJob,events:initEvents,privatelessons:initPrivateLessons,workshops:renderWorkshops};
+  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,prospects:initProspects,goodjob:initGoodJob,ai:initAI,events:initEvents,privatelessons:initPrivateLessons,workshops:renderWorkshops};
   fns[page]?.();
 }
 
@@ -7773,7 +7794,7 @@ let aiHistory = [];
 
 function buildCRMContext() {
   const active = DB.students.filter(s => s.status === 'Active');
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   const monthKey = today.slice(0, 7);
   // Attendance this month
   const monthDates = DB.classDates.filter(c => c.date.startsWith(monthKey));
@@ -7821,21 +7842,15 @@ async function sendAIMessage() {
 
   try {
     // Inject CRM context as the very first user turn if this is the start of a conversation
-    const contents = aiHistory.length === 1
-      ? [{ role: 'user', parts: [{ text: buildCRMContext() + '\n\n---\nUser question: ' + msg }] }]
-      : [
-          { role: 'user', parts: [{ text: buildCRMContext() }] },
-          { role: 'model', parts: [{ text: 'Got it — I have your full CRM data. How can I help?' }] },
-          ...aiHistory
-        ];
+    const contents = aiHistory.slice();
 
     const res = await fetch(GEMINI_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gemini-2.0-flash', // proxy handles model selection with fallbacks
+        systemInstruction: buildCRMContext() + '\n\nFormat replies as plain text (no Markdown symbols like ** or #). Use short lines and simple dashes for lists.',
         contents,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
+        generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
       })
     });
 
@@ -7844,10 +7859,11 @@ async function sendAIMessage() {
     // Show real error if API returned one
     if (!res.ok || data.error) {
       const errMsg = data.error?.message || ('API error ' + res.status);
-      appendAIMessage('assistant', '\u26a0 Gemini API error: ' + errMsg + '\n\nCheck that the Gemini API is enabled at console.cloud.google.com and the API key is valid.');
+      appendAIMessage('assistant', '\u26a0 Gemini API error: ' + errMsg + '\n\nIf this mentions the API key, check GEMINI_API_KEY in Netlify → Site configuration → Environment variables (get a key at aistudio.google.com).');
       aiHistory.pop();
     } else {
-      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated. Try rephrasing your question.';
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      const reply = (parts.filter(p => p.text && !p.thought).map(p => p.text).join('').replace(/\*\*(.+?)\*\*/g, '$1').trim()) || 'No response generated. Try rephrasing your question.';
       aiHistory.push({ role: 'model', parts: [{ text: reply }] });
       appendAIMessage('assistant', reply);
     }
@@ -7867,8 +7883,8 @@ function appendAIMessage(role, text) {
   const div = document.createElement('div');
   div.style.cssText = 'display:flex;gap:10px;align-items:flex-start;' + (role === 'user' ? 'flex-direction:row-reverse;' : '');
   const avatar = document.createElement('div');
-  avatar.style.cssText = 'width:32px;height:32px;border-radius:50%;background:' + (role === 'user' ? 'var(--ink)' : '#4285F4') + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;';
-  avatar.textContent = role === 'user' ? 'MN' : 'AI';
+  avatar.style.cssText = 'width:32px;height:32px;font-size:10px!important;border-radius:50%;background:' + (role === 'user' ? 'var(--ink)' : '#4285F4') + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;';
+  avatar.textContent = role === 'user' ? 'You' : 'AI';
   const bubble = document.createElement('div');
   bubble.style.cssText = 'max-width:75%;padding:12px 15px;border-radius:12px;font-size:13px;line-height:1.6;white-space:pre-wrap;' +
     (role === 'user' ? 'background:var(--ink);color:#fff;border-radius:12px 12px 2px 12px;' : 'background:var(--surface);border:1px solid var(--border);border-radius:12px 12px 12px 2px;');
