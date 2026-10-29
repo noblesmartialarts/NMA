@@ -108,6 +108,8 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
 .qab-chip:active{transform:translateY(0);}
 .inv-price-input{width:64px;padding:4px 6px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--paper);color:var(--ink);}
 .inv-price-input:focus{outline:none;border-color:var(--ink);}
+.vo-mini{width:auto;padding:5px 8px;font-size:12px;}
+tr.vo-check td{background:var(--amber-light);}
 .pf-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px;}
 .pf-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:16px;}
 @media(max-width:820px){.pf-grid{grid-template-columns:1fr;}}
@@ -999,17 +1001,24 @@ tbody td{font-size:11px!important;}
 <!-- INVOICES -->
 <div id="page-invoices" class="page">
   <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-    <div><div class="page-title">Invoices &amp; Expenses</div><div class="page-subtitle">Upload vendor invoices and itemize for tax records</div></div>
-    <div style="display:flex;gap:8px;">
+    <div><div class="page-title">Invoices &amp; Expenses</div><div class="page-subtitle">Vendor orders from Gmail, uploaded invoices, and spend for tax records</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <select id="vo-range" class="form-select" style="width:auto;" title="How far back to look in Gmail">
+        <option value="since">Since last check</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 12 months</option><option value="730">Last 2 years</option>
+      </select>
+      <button class="btn success" onclick="voScanGmail()" title="Find order emails from Century, Tiger Claw, MA Belts and Infinity Weapons">📥 Check Gmail for orders</button>
       <label class="btn" style="cursor:pointer;" title="Upload a PDF invoice to auto-parse">
         📄 Import PDF
-        <input type="file" accept=".pdf" onchange="importInvoicePDF(this)" style="display:none;">
+        <input type="file" accept=".pdf" onchange="voImportPdfFile(this)" style="display:none;">
       </label>
       <button class="btn primary" onclick="openInvoiceModal()">+ Add Invoice</button>
     </div>
   </div>
   <div id="invoice-pdf-status" style="display:none;background:var(--blue-light);border:1px solid var(--blue);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;"></div>
+  <div id="vo-status" style="display:none;background:var(--blue-light);border:1px solid var(--blue);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:13px;"></div>
+  <div id="vo-queue"></div>
   <div class="stats-row" id="invoice-stats"></div>
+  <div id="vo-spend"></div>
   <div class="section-divider"><span>Invoice log</span></div>
   <div id="invoice-list"></div>
 </div>
@@ -4645,7 +4654,9 @@ function saveInvoice(){const vendor=$('inv-vendor').value,date=$('inv-idate').va
 function renderInvoices(){
   const grand=DB.invoices.reduce((a,i)=>a+i.total,0);
   const byVendor={};DB.invoices.forEach(i=>{byVendor[i.vendor]=(byVendor[i.vendor]||0)+i.total;});
-  $('invoice-stats').innerHTML=`<div class="stat-card"><div class="stat-label">Total invoices</div><div class="stat-value">${DB.invoices.length}</div></div><div class="stat-card danger"><div class="stat-label">Total expenses</div><div class="stat-value" style="font-size:20px;">${fmt$(grand)}</div><div class="stat-sub">Tax write-offs</div></div><div class="stat-card"><div class="stat-label">MA Belts</div><div class="stat-value" style="font-size:20px;">${fmt$(byVendor['MA Belts']||0)}</div></div><div class="stat-card"><div class="stat-label">Century MA</div><div class="stat-value" style="font-size:20px;">${fmt$(byVendor['Century Martial Arts']||0)}</div></div>`;
+  $('invoice-stats').innerHTML=`<div class="stat-card"><div class="stat-label">Total invoices</div><div class="stat-value">${DB.invoices.length}</div></div><div class="stat-card danger"><div class="stat-label">Total expenses</div><div class="stat-value" style="font-size:20px;">${fmt$(grand)}</div><div class="stat-sub">Tax write-offs</div></div><div class="stat-card"><div class="stat-label">Spent this year</div><div class="stat-value" style="font-size:20px;">${fmt$(DB.invoices.filter(i=>String(i.date).startsWith(localToday().slice(0,4))).reduce((a,i)=>a+(+i.total||0),0))}</div><div class="stat-sub">${localToday().slice(0,4)}</div></div><div class="stat-card"><div class="stat-label">From Gmail</div><div class="stat-value" style="font-size:20px;">${DB.invoices.filter(i=>i.source==='gmail').length}</div><div class="stat-sub">${DB.vendorLastScan?'Last checked '+fmtDate(DB.vendorLastScan):'Not checked yet'}</div></div>`;
+  if($('vo-spend')&&typeof voSpendSummaryHTML==='function')$('vo-spend').innerHTML=voSpendSummaryHTML();
+  if(typeof renderVoQueue==='function')renderVoQueue();
   const el=$('invoice-list');
   el.innerHTML=DB.invoices.length?DB.invoices.sort((a,b)=>b.date.localeCompare(a.date)).map(inv=>`<div class="inv-card"><div class="inv-hdr"><div><div style="font-weight:600;font-size:14px;">${inv.vendor}${inv.num?' — #'+inv.num:''}</div><div style="font-size:12px;color:var(--ink-muted);">${fmtFull(inv.date)}${inv.notes?' · '+inv.notes:''}</div></div><div style="display:flex;align-items:center;gap:9px;"><div style="font-family:var(--font-display);font-size:19px;font-weight:700;">${fmt$(inv.total)}</div>${inv.file?`<button class="btn small" onclick="viewInvoiceFile(${inv.id})">View</button>`:''}  <button class="btn small" onclick="editInvoice(${inv.id})">Edit</button><button class="btn small danger" onclick="deleteInvoice(${inv.id})">✕</button></div></div>${inv.lineItems?.length?`<div style="border-top:1px solid var(--border);padding-top:8px;">${inv.lineItems.map(li=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid var(--border);"><span>${li.desc||'—'}</span><span style="font-weight:500;">${fmt$(li.amount)}</span></div>`).join('')}</div>`:''}</div>`).join(''):'<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--ink-muted);">No invoices yet.</div>';
 }
@@ -13132,6 +13143,389 @@ function pfPlanWithAI(){
     '\n\nSuggest how I can build these into the next curriculum cycle: a character-lesson theme for each week, short mat-talk ideas, and drills or games that reinforce them for my age groups.';
   nav('ai');
   setTimeout(()=>{const i=$('ai-input');if(i){i.value=prompt;i.focus();i.style.height='160px';}},150);
+}
+</script>
+<script>
+// ══════════════════════════════════════════════════════
+// VENDOR ORDERS — import supplier order emails from Gmail into Invoices + Inventory
+// ══════════════════════════════════════════════════════
+// Searches Gmail for each vendor's order emails, has Gemini itemize them, and
+// shows a review card per order. On save: an invoice is added (Invoices tab),
+// "Stock" lines raise inventory counts, "For student" lines go to that student's
+// history, "Expense" lines are spend only. Item → stock choices are remembered
+// per vendor product so the next order fills in automatically.
+
+const VO_SOURCES = [
+  {vendor:'Century Martial Arts', kind:'order',   q:'from:customerservice@centurymartialarts.com subject:confirmed', num:/#\s*(CW\d+)/i},
+  {vendor:'Century Martial Arts', kind:'invoice', q:'from:(cmasorders@centurymartialarts.com OR noreply@centurymartialarts.com) subject:invoice has:attachment', num:/Invoice\s+(\d{6,})/i},
+  {vendor:'Tiger Claw',           kind:'order',   q:'from:sales@tigerclaw.com subject:"order receipt"', num:/#\s*(\d+)/},
+  {vendor:'MA Belts',             kind:'order',   q:'from:mabelts.com subject:"has been received"', num:null, bodyNum:/Order\s*#\s*(\d+)/i},
+  {vendor:'Infinity Weapons',     kind:'order',   q:'(from:glowweapons@gmail.com OR from:infinitymasupply.com OR from:infinityweapons.com) subject:order -subject:re', num:/Order-?\s*(\d+)/i}
+];
+const VO_CATEGORIES = ['belt','uniform','weapon','sparring','apparel','equipment','supplies','other'];
+if(!DB.vendorImports)DB.vendorImports={};   // gmail message id -> {status, invoiceId, date}
+if(!DB.vendorItemMap)DB.vendorItemMap={};   // vendor|item|options -> {action,type,label,size}
+let voQueue=[];   // review cards
+let voScanning=false;
+
+function voEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function voMoney(n){return (n==null||isNaN(n))?'—':fmt$(+n);}
+function voRound(n){return Math.round((+n||0)*100)/100;}
+function voAllBelts(){
+  const s=new Set();Object.values(BELT_PATHS).forEach(a=>a.forEach(b=>{if(!NO_BELT_RANKS.has(b))s.add(b);}));
+  (DB.inventory||[]).filter(i=>(i.type||'belt')==='belt').forEach(i=>s.add(i.color));
+  return [...s];
+}
+function voItemKey(vendor,it){return [vendor,it.name,it.options].map(x=>String(x||'').toLowerCase().replace(/\s+/g,' ').trim()).join('|');}
+function voNormSize(x){
+  let s=String(x==null?'':x).trim();if(!s)return '';
+  const m=s.match(/^(?:db|size|sz|#)?\s*(0{1,3}|\d{1,2})$/i);if(m)return m[1];
+  return s.replace(/\b\w/g,c=>c.toUpperCase());
+}
+// Solid colors match a belt name exactly; anything striped/combined needs a one-time pick.
+function voGuessBelt(color){
+  const c=String(color||'').toLowerCase().replace(/[^a-z /]/g,' ').replace(/\s+/g,' ').trim();if(!c)return '';
+  const solid=c.replace(/\b(solid|belt|rank|color|double|wrap|none|stripe|no)\b/g,'').trim();
+  const hit=voAllBelts().find(b=>b.toLowerCase()===solid);
+  return hit||'';
+}
+function voStockCount(type,label,size){
+  const it=(DB.inventory||[]).find(i=>(i.type||'belt')===type&&(type==='belt'?i.color:type==='uniform'?(i.uniformName||i.color):(i.weaponName||i.color))===label&&String(i.size)===String(size||(type==='weapon'?'One Size':'0')));
+  return it?it.qty:0;
+}
+
+// ── Gmail helpers ──
+async function voGmail(path){
+  const res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/'+path,{headers:{Authorization:'Bearer '+gmailToken}});
+  if(res.status===401){gmailToken=null;delete DB.gmailToken;save();if(typeof updateGmailBtn==='function')updateGmailBtn(false);throw new Error('Gmail session expired — reconnect Gmail on the Email tab.');}
+  if(!res.ok)throw new Error('Gmail error '+res.status);
+  return res.json();
+}
+function voB64(data){return atob(String(data||'').replace(/-/g,'+').replace(/_/g,'/'));}
+function voUtf8(data){try{return decodeURIComponent(escape(voB64(data)));}catch(e){try{return voB64(data);}catch(e2){return '';}}}
+function voHtmlToText(html){
+  const h=String(html).replace(/<(br|\/p|\/div|\/tr|\/h\d|\/li)[^>]*>/gi,'\n').replace(/<\/t[dh]>/gi,'\t');
+  const doc=new DOMParser().parseFromString(h,'text/html');
+  doc.querySelectorAll('style,script,head').forEach(n=>n.remove());
+  return (doc.body?doc.body.textContent:'').replace(/[ \t ]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').replace(/[  ]{2,}/g,' ').trim();
+}
+function voMessageParts(msg){
+  let plain='',html='';const atts=[];
+  (function walk(p){
+    if(!p)return;
+    if(p.mimeType==='text/plain'&&p.body&&p.body.data&&!plain)plain=voUtf8(p.body.data);
+    else if(p.mimeType==='text/html'&&p.body&&p.body.data&&!html)html=voUtf8(p.body.data);
+    if(p.filename&&p.body&&p.body.attachmentId)atts.push({filename:p.filename,mimeType:p.mimeType,id:p.body.attachmentId});
+    (p.parts||[]).forEach(walk);
+  })(msg.payload);
+  const headers=(msg.payload&&msg.payload.headers)||[];
+  const h=n=>(headers.find(x=>x.name.toLowerCase()===n)||{}).value||'';
+  // Prefer HTML when the plain part is thin (some stores send a stub text part).
+  const text=(plain&&plain.length>200)?plain:(html?voHtmlToText(html):plain);
+  return {subject:h('subject'),from:h('from'),date:new Date(+msg.internalDate||h('date')).toISOString(),text,atts};
+}
+async function voPdfAttachmentToInputs(msgId,att){
+  const data=await voGmail('messages/'+msgId+'/attachments/'+att.id);
+  const bin=voB64(data.data);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  return voPdfBytesToInputs(bytes);
+}
+async function voPdfBytesToInputs(bytes){
+  const pdfjs=await pfEnsurePdfJs();
+  const doc=await pdfjs.getDocument({data:bytes}).promise;
+  let text='';
+  for(let p=1;p<=Math.min(doc.numPages,4);p++){const pg=await doc.getPage(p);const tc=await pg.getTextContent();text+=tc.items.map(i=>i.str+(i.hasEOL?'\n':' ')).join('')+'\n';}
+  const page=await doc.getPage(1);const vp1=page.getViewport({scale:1});const vp=page.getViewport({scale:1500/vp1.width});
+  const canvas=document.createElement('canvas');canvas.width=Math.round(vp.width);canvas.height=Math.round(vp.height);
+  const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+  await page.render({canvasContext:ctx,viewport:vp}).promise;
+  return {text:text.trim(),image:pfCanvasToJpeg(canvas,1500)};
+}
+
+// ── Gemini extraction ──
+function voPrompt(vendor,subject,text){
+  return `Extract the purchase from this ${vendor||'vendor'} order email / invoice for Noble's Martial Arts (a martial arts school buying supplies).
+Subject: ${subject||''}
+
+List every product line exactly as purchased. For each line:
+- name: product name; options: size/color/variant text joined with " / " (e.g. "Size 2 / Blue/Black"); qty; unitPrice; lineTotal (qty × unit price).
+- category: one of ${VO_CATEGORIES.join(', ')} — belt = rank belts; uniform = karate uniforms/gis/pants; weapon = bo staffs, nunchaku, sticks, practice weapons; sparring = gloves, headgear, pads, mouthguards, cups; apparel = t-shirts, hoodies, shirts; equipment = bags, targets, boards; supplies = everything else for the school.
+- For belts also give beltColor (all color words incl. stripe, e.g. "yellow", "blue with black stripe") and beltSize (just the size, e.g. "1", "00").
+- For uniforms also give uniformSize and uniformColor.
+Custom logo/print setup fees are their own line (category "supplies").
+Also give orderNumber, orderDate (YYYY-MM-DD), subtotal, shipping, tax, discount (positive number), total. Use null when not stated. Prices are numbers without $.
+If the email has no purchase details (just a conversation), return an empty items array and summarize in notes.
+
+Return ONLY JSON: {"orderNumber":string|null,"orderDate":string|null,"items":[{"name":string,"options":string,"qty":number,"unitPrice":number|null,"lineTotal":number|null,"category":string,"beltColor":string|null,"beltSize":string|null,"uniformSize":string|null,"uniformColor":string|null}],"subtotal":number|null,"shipping":number|null,"tax":number|null,"discount":number|null,"total":number|null,"notes":string|null}
+
+EMAIL / INVOICE TEXT:
+${String(text||'').slice(0,14000)}`;
+}
+async function voExtract(vendor,subject,text,image){
+  const parts=[{text:voPrompt(vendor,subject,text)}];
+  if(image)parts.push({inlineData:{mimeType:'image/jpeg',data:image.split(',')[1]}});
+  let lastErr='';
+  for(const model of [null,'gemini-3.5-flash-lite']){
+    let res;
+    try{res=await fetch(GEMINI_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,contents:[{role:'user',parts}],generationConfig:{temperature:0,responseMimeType:'application/json',maxOutputTokens:8192}})});}
+    catch(e){lastErr=e.message;continue;}
+    let data=null;try{data=await res.json();}catch(e){}
+    if(res.ok&&data&&!data.error){
+      const ps=(data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts)||[];
+      return voNormalize(pfParseJson(ps.filter(p=>p.text&&!p.thought).map(p=>p.text).join('')));
+    }
+    lastErr=(data&&data.error&&data.error.message)||('HTTP '+res.status);
+    if(![502,503,504].includes(res.status))break;
+  }
+  throw new Error(lastErr||'Gemini request failed');
+}
+function voNum(x){if(x==null||x==='')return null;const n=parseFloat(String(x).replace(/[^0-9.\-]/g,''));return isNaN(n)?null:n;}
+function voNormalize(r){
+  const items=(Array.isArray(r&&r.items)?r.items:[]).map(it=>{
+    const qty=Math.max(1,parseInt(it.qty)||1);
+    let unit=voNum(it.unitPrice),line=voNum(it.lineTotal);
+    if(line==null&&unit!=null)line=voRound(unit*qty);
+    if(unit==null&&line!=null)unit=voRound(line/qty);
+    const cat=VO_CATEGORIES.includes(String(it.category||'').toLowerCase())?String(it.category).toLowerCase():'other';
+    return {name:String(it.name||'Item').trim(),options:String(it.options||'').trim(),qty,unitPrice:unit,lineTotal:line,category:cat,
+      beltColor:it.beltColor||'',beltSize:it.beltSize||'',uniformSize:it.uniformSize||'',uniformColor:it.uniformColor||''};
+  });
+  return {orderNumber:r&&r.orderNumber?String(r.orderNumber).replace(/^#/,''):'',orderDate:r&&/^\d{4}-\d{2}-\d{2}$/.test(r.orderDate||'')?r.orderDate:'',
+    items,subtotal:voNum(r&&r.subtotal),shipping:voNum(r&&r.shipping),tax:voNum(r&&r.tax),discount:voNum(r&&r.discount),total:voNum(r&&r.total),notes:r&&r.notes?String(r.notes):''};
+}
+
+// ── Build a review card from an extraction ──
+function voDefaultLine(vendor,it){
+  const learned=DB.vendorItemMap[voItemKey(vendor,it)];
+  const base={...it,id:DB.nextId++,studentId:null,check:false};
+  if(learned)return Object.assign(base,{action:learned.action,type:learned.type||'',label:learned.label||'',size:learned.size!=null?learned.size:'',learned:true});
+  if(it.category==='belt'){const label=voGuessBelt(it.beltColor);return Object.assign(base,{action:'stock',type:'belt',label,size:voNormSize(it.beltSize),check:!label});}
+  if(it.category==='uniform'){const color=(it.uniformColor||'').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());return Object.assign(base,{action:'stock',type:'uniform',label:(color?color+' ':'')+'Uniform',size:voNormSize(it.uniformSize),check:true});}
+  if(it.category==='weapon')return Object.assign(base,{action:'stock',type:'weapon',label:it.name.replace(/\s*\(.*?\)\s*/g,' ').trim(),size:'One Size',check:true});
+  if(it.category==='sparring'||it.category==='apparel')return Object.assign(base,{action:'student',type:'',label:'',size:''});
+  return Object.assign(base,{action:'expense',type:'',label:'',size:''});
+}
+function voMakeCard(src,meta,ex){
+  const card={id:DB.nextId++,vendor:src.vendor,kind:src.kind,msgId:meta.msgId||null,subject:meta.subject||'',
+    date:ex.orderDate||(meta.date?meta.date.slice(0,10):localToday()),num:ex.orderNumber||meta.num||'',
+    lines:ex.items.map(it=>voDefaultLine(src.vendor,it)),shipping:ex.shipping,tax:ex.tax,discount:ex.discount,total:ex.total,notes:ex.notes||'',
+    match:null,mode:'new',status:'review'};
+  if(card.total==null)card.total=voRound(card.lines.reduce((a,l)=>a+(+l.lineTotal||0),0)+(+card.shipping||0)+(+card.tax||0)-(+card.discount||0));
+  // Century PDF invoices usually duplicate a store order — find it by total and date.
+  if(src.kind==='invoice'){
+    const near=(d1,d2)=>Math.abs(new Date(d1)-new Date(d2))<=21*86400000;
+    const inv=(DB.invoices||[]).find(i=>i.vendor===src.vendor&&Math.abs((+i.total||0)-card.total)<=0.05&&near(i.date,card.date)&&!(i.linkedInvoices||[]).includes(card.num));
+    const q=!inv&&voQueue.find(c=>c!==card&&c.vendor===src.vendor&&c.kind==='order'&&Math.abs((+c.total||0)-card.total)<=0.05&&near(c.date,card.date));
+    if(inv){card.match={type:'invoice',id:inv.id,label:(inv.num?'#'+inv.num:'')+' '+fmtFull(inv.date)+' · '+fmt$(inv.total)};card.mode='link';}
+    else if(q){card.match={type:'queue',id:q.id,label:'#'+q.num+' (in this review) · '+fmt$(q.total)};card.mode='link';}
+  }
+  return card;
+}
+
+// ── Scan Gmail ──
+async function voScanGmail(){
+  if(voScanning)return;
+  if(!gmailToken){alert('Connect Gmail first on the Email tab, then come back here.');return;}
+  const range=($('vo-range')||{}).value||'since';
+  let after;
+  if(range==='since'&&DB.vendorLastScan)after=DB.vendorLastScan;
+  else{const days=range==='since'?90:parseInt(range)||90;after=localDateOffset(-days);}
+  const afterQ=' after:'+after.replace(/-/g,'/');
+  voScanning=true;voStatus('Searching Gmail…');
+  let found=0,skipped=0,failed=0;
+  try{
+    const todo=[];
+    for(const src of VO_SOURCES){
+      let pageToken='',n=0;
+      do{
+        const r=await voGmail('messages?maxResults=100&q='+encodeURIComponent(src.q+afterQ)+(pageToken?'&pageToken='+pageToken:''));
+        (r.messages||[]).forEach(m=>{if(!DB.vendorImports[m.id]&&!voQueue.some(c=>c.msgId===m.id)&&!todo.some(t=>t.id===m.id))todo.push({id:m.id,src});});
+        pageToken=r.nextPageToken||'';n++;
+      }while(pageToken&&n<5);
+    }
+    // Orders before invoices so invoices can match orders found in this same scan.
+    todo.sort((a,b)=>(a.src.kind==='invoice')-(b.src.kind==='invoice'));
+    let done=0;
+    for(const t of todo){
+      done++;voStatus('Reading order '+done+' of '+todo.length+'…');
+      try{
+        const msg=await voGmail('messages/'+t.id+'?format=full');
+        const m=voMessageParts(msg);
+        let num='';const sm=t.src.num&&m.subject.match(t.src.num);if(sm)num=sm[1];
+        if(!num&&t.src.bodyNum){const bm=m.text.match(t.src.bodyNum);if(bm)num=bm[1];}
+        // Already in Invoices (entered by hand or imported before)?
+        if(num&&(DB.invoices||[]).some(i=>i.vendor===t.src.vendor&&(String(i.num).replace(/^#/,'')===num||(i.linkedInvoices||[]).includes(num)))){
+          DB.vendorImports[t.id]={status:'duplicate',date:localToday()};skipped++;continue;
+        }
+        let text=m.text,image=null;
+        if(t.src.kind==='invoice'){
+          const pdf=m.atts.find(a=>/\.pdf$/i.test(a.filename)||a.mimeType==='application/pdf');
+          if(pdf){const inp=await voPdfAttachmentToInputs(t.id,pdf);text=inp.text||text;image=inp.image;}
+        }
+        const ex=await voExtract(t.src.vendor,m.subject,text,image);
+        if(!ex.items.length&&t.src.vendor==='Infinity Weapons'&&!ex.total){DB.vendorImports[t.id]={status:'no-items',date:localToday()};skipped++;continue;}
+        voQueue.push(voMakeCard(t.src,{msgId:t.id,subject:m.subject,date:m.date,num},ex));found++;
+        renderVoQueue();
+      }catch(e){failed++;console.warn('Vendor import failed for',t.id,e);if(/expired/.test(e.message))throw e;}
+    }
+    DB.vendorLastScan=localToday();save();
+    voStatus(found?`Found ${found} new order${found!==1?'s':''} to review below.`+(skipped?` ${skipped} already in Invoices.`:'')+(failed?` ${failed} couldn't be read.`:''):
+      `No new vendor orders since ${fmtFull(after)}.`+(skipped?` (${skipped} already in Invoices.)`:'')+(failed?` ${failed} couldn't be read.`:''));
+  }catch(e){voStatus('⚠ '+e.message);}
+  finally{voScanning=false;renderVoQueue();}
+}
+function voStatus(t){const el=$('vo-status');if(el){el.style.display=t?'block':'none';el.textContent=t||'';}}
+
+// Manual PDF upload (replaces the old Import PDF button) — same review flow.
+async function voImportPdfFile(input){
+  const file=input.files&&input.files[0];input.value='';if(!file)return;
+  voStatus('Reading '+file.name+'…');
+  try{
+    const inp=await voPdfBytesToInputs(new Uint8Array(await file.arrayBuffer()));
+    const t=(inp.text||'').toLowerCase()+' '+file.name.toLowerCase();
+    const vendor=t.includes('century')?'Century Martial Arts':t.includes('tiger claw')||t.includes('tigerclaw')?'Tiger Claw':t.includes('ma belts')||t.includes('mabelts')?'MA Belts':t.includes('infinity')?'Infinity Weapons':'Other';
+    const ex=await voExtract(vendor==='Other'?'':vendor,file.name,inp.text,inp.image);
+    voQueue.push(voMakeCard({vendor,kind:vendor==='Century Martial Arts'?'invoice':'order'},{subject:file.name,date:new Date().toISOString()},ex));
+    voStatus('Read '+file.name+' — review it below.');renderVoQueue();
+  }catch(e){voStatus('⚠ Could not read that PDF: '+e.message);}
+}
+
+// ── Review edits ──
+function voCard(id){return voQueue.find(c=>c.id===id);}
+function voLine(cid,lid){const c=voCard(cid);return c&&c.lines.find(l=>l.id===lid);}
+function voSetLine(cid,lid,field,val){
+  const l=voLine(cid,lid);if(!l)return;
+  if(field==='qty')l.qty=Math.max(0,parseInt(val)||0);
+  else if(field==='studentId')l.studentId=parseInt(val)||null;
+  else l[field]=val;
+  if(field==='action'&&val==='stock'&&!l.type){l.type=l.category==='weapon'?'weapon':l.category==='uniform'?'uniform':'belt';}
+  if(field==='type'){l.label='';if(val==='weapon')l.size='One Size';}
+  if(['label','size','type','action'].includes(field))l.check=false;
+  if(['action','type','studentId'].includes(field)||(field==='label'&&l.type==='belt'))renderVoQueue();
+}
+function voSetCard(cid,field,val){const c=voCard(cid);if(!c)return;if(field==='mode'){c.mode=val;renderVoQueue();}else c[field]=val;}
+function voSkip(cid){
+  const c=voCard(cid);if(!c)return;
+  if(c.msgId)DB.vendorImports[c.msgId]={status:'skipped',date:localToday()};
+  voQueue=voQueue.filter(x=>x!==c);save();renderVoQueue();
+}
+function voAddToStock(l,vendorUnit){
+  const size=l.type==='weapon'?(l.size||'One Size'):(l.size||'0');
+  const nameField=l.type==='uniform'?'uniformName':l.type==='weapon'?'weaponName':null;
+  let it=(DB.inventory||[]).find(i=>(i.type||'belt')===l.type&&(nameField?(i[nameField]||i.color):i.color)===l.label&&String(i.size)===String(size));
+  if(!it){it={id:DB.nextId++,type:l.type,color:l.label,size,qty:0,cost:0,sell:0};if(nameField)it[nameField]=l.label;DB.inventory.push(it);}
+  it.qty=(+it.qty||0)+(+l.qty||0);
+  if(vendorUnit!=null&&vendorUnit>0)it.cost=voRound(vendorUnit);
+  return it;
+}
+function voSave(cid){
+  const c=voCard(cid);if(!c)return;
+  // Link a Century invoice to the order it duplicates — no new spend or stock.
+  if(c.mode==='link'&&c.match){
+    let target=null;
+    if(c.match.type==='invoice')target=DB.invoices.find(i=>i.id===c.match.id);
+    if(c.match.type==='queue'){const q=voCard(c.match.id);if(q){q.pendingLinked=(q.pendingLinked||[]).concat(c.num);if(c.msgId)q.linkedMsgIds=(q.linkedMsgIds||[]).concat(c.msgId);voQueue=voQueue.filter(x=>x!==c);renderVoQueue();toast('Invoice '+c.num+' will be attached when you save order #'+q.num+'.');return;}}
+    if(target){target.linkedInvoices=(target.linkedInvoices||[]).concat(c.num);target.notes=((target.notes||'')+(target.notes?' · ':'')+'Invoice '+c.num).trim();}
+    if(c.msgId)DB.vendorImports[c.msgId]={status:'linked',invoiceId:target?target.id:null,date:localToday()};
+    voQueue=voQueue.filter(x=>x!==c);save();renderVoQueue();renderInvoices();toast('Invoice '+c.num+' attached to the matching order.');return;
+  }
+  const bad=c.lines.find(l=>l.action==='stock'&&l.qty>0&&(!l.label||!l.type));
+  if(bad){alert('Pick what "'+bad.name+'" is in stock (belt color / uniform / weapon name), or change it to Expense.');return;}
+  const lineItems=c.lines.map(l=>({id:l.id,desc:l.name+(l.options?' — '+l.options:'')+(l.qty>1?' ×'+l.qty:''),amount:voRound(l.lineTotal),
+    qty:l.qty,unitPrice:l.unitPrice,category:l.category,action:l.action,studentId:l.action==='student'?l.studentId:null,
+    stock:l.action==='stock'?{type:l.type,label:l.label,size:l.size}:null}));
+  if(+c.shipping)lineItems.push({id:DB.nextId++,desc:'Shipping',amount:voRound(c.shipping),category:'shipping',action:'expense'});
+  if(+c.tax)lineItems.push({id:DB.nextId++,desc:'Tax',amount:voRound(c.tax),category:'tax',action:'expense'});
+  if(+c.discount)lineItems.push({id:DB.nextId++,desc:'Discount',amount:-voRound(c.discount),category:'discount',action:'expense'});
+  const sum=voRound(lineItems.reduce((a,li)=>a+(+li.amount||0),0));
+  if(c.total!=null&&Math.abs(sum-c.total)>0.01)lineItems.push({id:DB.nextId++,desc:'Other (matches order total)',amount:voRound(c.total-sum),category:'other',action:'expense'});
+  const total=voRound(lineItems.reduce((a,li)=>a+(+li.amount||0),0));
+  if(typeof pushUndo==='function')pushUndo('Import vendor order');
+  const inv={id:DB.nextId++,vendor:c.vendor,date:c.date,num:c.num,notes:(c.notes||'').slice(0,200),lineItems,total,file:null,source:'gmail',gmailMsgId:c.msgId,linkedInvoices:c.pendingLinked||[]};
+  if(inv.linkedInvoices.length)inv.notes=(inv.notes?inv.notes+' · ':'')+inv.linkedInvoices.map(n=>'Invoice '+n).join(', ');
+  DB.invoices.push(inv);
+  let stocked=0;
+  c.lines.forEach(l=>{
+    if(l.action==='stock'&&l.qty>0){voAddToStock(l,l.unitPrice);stocked+=l.qty;}
+    if(l.action==='student'&&l.studentId){const s=DB.students.find(x=>x.id===l.studentId);if(s)addHistory(s,'order','Ordered from '+c.vendor+': '+l.name+(l.options?' ('+l.options+')':'')+(l.lineTotal!=null?' — '+fmt$(l.lineTotal):''),c.date);}
+    // Remember the choice for this vendor product
+    DB.vendorItemMap[voItemKey(c.vendor,l)]={action:l.action,type:l.type,label:l.label,size:l.size};
+  });
+  if(c.msgId)DB.vendorImports[c.msgId]={status:'imported',invoiceId:inv.id,date:localToday()};
+  (c.linkedMsgIds||[]).forEach(id=>{DB.vendorImports[id]={status:'linked',invoiceId:inv.id,date:localToday()};});
+  voQueue=voQueue.filter(x=>x!==c);
+  save();renderVoQueue();renderInvoices();
+  toast('Saved '+c.vendor+(c.num?' #'+c.num:'')+' — '+fmt$(total)+(stocked?' · '+stocked+' item'+(stocked!==1?'s':'')+' added to stock':''));
+}
+
+function renderVoQueue(){
+  const el=$('vo-queue');if(!el)return;
+  if(!voQueue.length){el.innerHTML='';return;}
+  const belts=voAllBelts();
+  const students=DB.students.filter(s=>s.status==='Active').sort((a,b)=>(a.first+a.last).localeCompare(b.first+b.last));
+  el.innerHTML=`<div style="font-family:var(--font-display);font-size:15px;font-weight:700;margin:4px 0 10px;">Review vendor orders (${voQueue.length})</div>`+
+  voQueue.map(c=>{
+    const sum=voRound(c.lines.reduce((a,l)=>a+(+l.lineTotal||0),0)+(+c.shipping||0)+(+c.tax||0)-(+c.discount||0));
+    const mismatch=c.total!=null&&Math.abs(sum-c.total)>0.01;
+    const head=`<div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+      <div style="flex:1;min-width:200px;"><div style="font-weight:700;font-size:14px;">${voEsc(c.vendor)}${c.num?' — #'+voEsc(c.num):''}${c.kind==='invoice'?' <span class="badge badge-gray" style="font-size:10px;">PDF invoice</span>':''}</div>
+        <div style="font-size:12px;color:var(--ink-muted);">${fmtFull(c.date)} · ${voEsc(c.subject)}</div></div>
+      <div style="font-family:var(--font-display);font-size:19px;font-weight:700;">${voMoney(c.total)}</div></div>`;
+    if(c.match){
+      const linkBox=`<div style="background:var(--blue-light);border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:10px;">
+        Looks like the same purchase as <strong>${voEsc(c.match.label)}</strong>.
+        <label style="margin-left:10px;"><input type="radio" name="vom${c.id}" ${c.mode==='link'?'checked':''} onchange="voSetCard(${c.id},'mode','link')"> Attach to that order</label>
+        <label style="margin-left:10px;"><input type="radio" name="vom${c.id}" ${c.mode==='new'?'checked':''} onchange="voSetCard(${c.id},'mode','new')"> It's a separate order</label></div>`;
+      if(c.mode==='link')return `<div class="pf-card">${head}${linkBox}<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn small" onclick="voSkip(${c.id})">Skip</button><button class="btn small primary" onclick="voSave(${c.id})">Attach</button></div></div>`;
+      c._linkBox=linkBox;
+    }
+    const rows=c.lines.map(l=>{
+      const stockCtl=l.action==='stock'?`
+        <select class="form-select vo-mini" onchange="voSetLine(${c.id},${l.id},'type',this.value)">${['belt','uniform','weapon'].map(t=>`<option value="${t}" ${l.type===t?'selected':''}>${t[0].toUpperCase()+t.slice(1)}</option>`).join('')}</select>
+        ${l.type==='belt'?`<select class="form-select vo-mini" onchange="voSetLine(${c.id},${l.id},'label',this.value)"><option value="">— Which belt? —</option>${belts.map(b=>`<option ${b===l.label?'selected':''}>${voEsc(b)}</option>`).join('')}</select>`
+          :`<input class="form-input vo-mini" value="${voEsc(l.label)}" placeholder="${l.type==='weapon'?'Weapon name':'Uniform name'}" oninput="voSetLine(${c.id},${l.id},'label',this.value)">`}
+        <input class="form-input vo-mini" style="width:84px;" value="${voEsc(l.size)}" placeholder="Size" oninput="voSetLine(${c.id},${l.id},'size',this.value)">
+        ${l.label?`<span style="font-size:11px;color:var(--ink-muted);white-space:nowrap;">in stock: ${voStockCount(l.type,l.label,l.size)}</span>`:''}`
+      :l.action==='student'?`<select class="form-select vo-mini" onchange="voSetLine(${c.id},${l.id},'studentId',this.value)"><option value="">— Which student? (optional) —</option>${students.map(s=>`<option value="${s.id}" ${s.id===l.studentId?'selected':''}>${voEsc(s.first+' '+s.last)}</option>`).join('')}</select>`
+      :'<span style="font-size:11px;color:var(--ink-faint);">spend only</span>';
+      return `<tr class="${l.check?'vo-check':''}">
+        <td><div style="font-weight:500;font-size:13px;">${voEsc(l.name)}${l.learned?' <span title="Filled in from a previous order" style="font-size:10px;color:var(--green);">✓ remembered</span>':''}${l.check?' <span class="badge badge-amber" style="font-size:9px;">check</span>':''}</div><div style="font-size:11px;color:var(--ink-muted);">${voEsc(l.options)}</div></td>
+        <td><input class="form-input vo-mini" style="width:56px;" type="number" min="0" value="${l.qty}" oninput="voSetLine(${c.id},${l.id},'qty',this.value)"></td>
+        <td style="font-size:12px;white-space:nowrap;">${voMoney(l.lineTotal)}</td>
+        <td><select class="form-select vo-mini" onchange="voSetLine(${c.id},${l.id},'action',this.value)">
+          <option value="stock" ${l.action==='stock'?'selected':''}>Stock</option><option value="student" ${l.action==='student'?'selected':''}>For a student</option><option value="expense" ${l.action==='expense'?'selected':''}>Expense only</option></select></td>
+        <td><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">${stockCtl}</div></td></tr>`;
+    }).join('');
+    return `<div class="pf-card">${head}${c._linkBox||''}
+      ${c.lines.length?`<div class="table-wrap" style="margin-bottom:8px;"><table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Goes to</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table></div>`
+        :`<div style="font-size:12px;color:var(--ink-muted);margin-bottom:8px;">No item list found in this email${c.notes?': '+voEsc(c.notes):''}. Saving records the total only.</div>`}
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-muted);align-items:center;">
+        <span>Shipping ${voMoney(c.shipping)}</span><span>Tax ${voMoney(c.tax)}</span>${c.discount?`<span>Discount −${voMoney(c.discount)}</span>`:''}
+        ${mismatch?`<span class="badge badge-amber">Items add up to ${fmt$(sum)} — an “Other” line will cover the difference</span>`:''}
+        <div class="spacer" style="flex:1;"></div>
+        <button class="btn small" onclick="voSkip(${c.id})" title="Don't import this email">Skip</button>
+        <button class="btn small primary" onclick="voSave(${c.id})">Save to Invoices${c.lines.some(l=>l.action==='stock')?' & stock':''}</button></div>
+    </div>`;
+  }).join('');
+  voQueue.forEach(c=>{delete c._linkBox;});
+}
+
+// Spend breakdown shown on the Invoices tab.
+function voSpendSummaryHTML(){
+  const year=localToday().slice(0,4);
+  const inYear=(DB.invoices||[]).filter(i=>String(i.date).startsWith(year));
+  if(!inYear.length)return '';
+  const byVendor={},byCat={};
+  const catName={belt:'Belts',uniform:'Uniforms',weapon:'Weapons',sparring:'Sparring gear',apparel:'Apparel',equipment:'Equipment',supplies:'Supplies',shipping:'Shipping',tax:'Tax',discount:'Discounts',other:'Other'};
+  inYear.forEach(i=>{
+    byVendor[i.vendor]=(byVendor[i.vendor]||0)+(+i.total||0);
+    (i.lineItems&&i.lineItems.length?i.lineItems:[{amount:i.total,category:'other'}]).forEach(li=>{
+      const k=li.action==='student'?'For students':(catName[li.category]||'Other');byCat[k]=(byCat[k]||0)+(+li.amount||0);
+    });
+  });
+  const list=o=>Object.entries(o).filter(([,v])=>Math.abs(v)>=0.005).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span style="white-space:nowrap;">${voEsc(k)} <strong>${fmt$(v)}</strong></span>`).join(' · ');
+  return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:12px;color:var(--ink-muted);line-height:1.9;">
+    <div><span style="font-weight:700;color:var(--ink);">${year} by vendor:</span> ${list(byVendor)}</div>
+    <div><span style="font-weight:700;color:var(--ink);">${year} by category:</span> ${list(byCat)}</div></div>`;
 }
 </script>
 </body>
