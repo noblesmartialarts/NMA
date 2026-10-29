@@ -2568,7 +2568,62 @@ const $=id=>document.getElementById(id);
 // ══════════════════════════════════════════════════════
 const SUPA_URL='https://erqblpewozxkpornohvq.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVycWJscGV3b3p4a3Bvcm5vaHZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NzUzMDMsImV4cCI6MjA5NTA1MTMwM30.Ot3sd3X3Fo9rtpAXUfTjrUlB_6Y-QcMuwotUIvdcr5o';
-const supa=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+// Direct client — only used if the secure server path isn't set up yet.
+const supaDirect=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+
+// ── Secure data path ──
+// All CRM database calls go through the crm-db Netlify function with a signed
+// session from Google sign-in, so database keys never live in the browser.
+// `supa` keeps the supabase-js call style (from().select().eq()…) used everywhere.
+let _secureMode=null; // null = not yet known, true = server path, false = legacy direct
+function crmSession(){
+  try{const s=JSON.parse(localStorage.getItem('nma_session')||'null');if(s&&s.token&&s.exp>Date.now()/1000+60)return s;}catch(e){}
+  return null;
+}
+function crmAuthHeaders(){const s=crmSession();return s?{Authorization:'Bearer '+s.token}:{};}
+let _sessionExpiredShown=false;
+function crmSessionExpired(){
+  try{localStorage.removeItem('nma_session');}catch(e){}
+  if(_sessionExpiredShown)return;_sessionExpiredShown=true;
+  if(typeof toast==='function')toast('Your sign-in expired — please sign in again. Unsaved changes are kept on this device.');
+  setTimeout(()=>{_sessionExpiredShown=false;if(typeof showLoginScreen==='function')showLoginScreen();},800);
+}
+class CrmQuery{
+  constructor(table){this.steps=[{m:'from',a:[table]}];this._p=null;}
+  _add(m,a){this.steps.push({m,a:Array.from(a)});return this;}
+  select(){return this._add('select',arguments);} insert(){return this._add('insert',arguments);}
+  update(){return this._add('update',arguments);} upsert(){return this._add('upsert',arguments);}
+  delete(){return this._add('delete',arguments);} eq(){return this._add('eq',arguments);}
+  neq(){return this._add('neq',arguments);} gt(){return this._add('gt',arguments);}
+  gte(){return this._add('gte',arguments);} lt(){return this._add('lt',arguments);}
+  lte(){return this._add('lte',arguments);} like(){return this._add('like',arguments);}
+  ilike(){return this._add('ilike',arguments);} is(){return this._add('is',arguments);}
+  in(){return this._add('in',arguments);} order(){return this._add('order',arguments);}
+  limit(){return this._add('limit',arguments);} range(){return this._add('range',arguments);}
+  single(){return this._add('single',arguments);} maybeSingle(){return this._add('maybeSingle',arguments);}
+  _direct(){let q=supaDirect;this.steps.forEach(st=>{q=q[st.m].apply(q,st.a);});return Promise.resolve(q);}
+  async _run(){
+    if(_secureMode===false)return this._direct();
+    if(!crmSession()&&_secureMode!==true)return this._direct(); // not signed in through the secure path (setup not finished)
+    let res;
+    try{res=await fetch('/.netlify/functions/crm-db',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},crmAuthHeaders()),body:JSON.stringify({steps:this.steps})});}
+    catch(e){return {data:null,error:{message:'Network error: '+e.message},count:null};}
+    let out=null;try{out=await res.json();}catch(e){}
+    if(res.status===503&&out&&out.error==='not_configured'){_secureMode=false;return this._direct();}
+    if(res.status===401){crmSessionExpired();return {data:null,error:{message:'Signed out — please sign in again',code:'401'},count:null};}
+    if(!res.ok||!out)return {data:null,error:{message:(out&&out.message)||('Server error '+res.status),code:String(res.status)},count:null};
+    _secureMode=true;
+    return out;
+  }
+  then(a,b){if(!this._p)this._p=this._run();return this._p.then(a,b);}
+  catch(f){return this.then(null,f);}
+  finally(f){return this.then(v=>{f&&f();return v;},e=>{f&&f();throw e;});}
+}
+const supa={
+  from:t=>new CrmQuery(t),
+  channel:function(){return supaDirect.channel.apply(supaDirect,arguments);},
+  removeChannel:function(){return supaDirect.removeChannel.apply(supaDirect,arguments);}
+};
 
 // ══════════════════════════════════════════════════════
 // SYNC BADGE
@@ -2804,6 +2859,17 @@ supa.channel('crm_realtime')
     }
   )
   .subscribe();
+
+// Once the database is locked down, live updates come from a light check every 30s:
+// only the timestamp is fetched; the full data is pulled only when it changed.
+async function _pollCloud(){
+  if(!_initComplete||_pulling||_saving||_saveTimer||document.visibilityState!=='visible')return;
+  try{
+    const{data,error}=await supa.from('crm_data').select('updated_at').eq('id','main').single();
+    if(!error&&data&&data.updated_at&&data.updated_at!==_cloudUpdatedAt)_pullFromCloud();
+  }catch(e){}
+}
+setInterval(_pollCloud,30000);
 
 // Phones and backgrounded tabs drop the live connection, so also catch up whenever the app comes back
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){_unsynced&&!_saveTimer?_pushToCloud():_pullFromCloud();}});
@@ -5688,6 +5754,9 @@ function importRealRoster(manual){
 // ASYNC INIT
 // ══════════════════════════════════════════════════════
 (async()=>{
+  // Let the rest of this script finish defining things (OWNER_EMAIL, helpers) first —
+  // a saved sign-in now skips the login wait, so boot would otherwise run too early.
+  await new Promise(r=>setTimeout(r,0));
   const overlay=$('loading-overlay');
   const loStatus=$('lo-status');
 
@@ -6695,7 +6764,7 @@ function renderLetters(){initLetters();}
 // Permanent owner account — always has full access, hardcoded so it
 // can never be accidentally removed via the Access Control UI.
 const OWNER_EMAIL = 'noblesmartialarts@gmail.com';
-let currentUser = null;
+var currentUser; // var (not let): the boot check runs before this line, and let would throw there
 
 function signInWithGoogle() {
   if (!window.google?.accounts?.id) {
@@ -6722,17 +6791,38 @@ function handleGoogleCredential(response) {
   try {
     const parts = response.credential.split('.');
     const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
-    currentUser = { email: payload.email, name: payload.name, picture: payload.picture };
-    sessionStorage.setItem('nma_user', JSON.stringify(currentUser));
-    showAppAfterLogin();
+    const googleUser = { email: payload.email, name: payload.name, picture: payload.picture };
+    // Exchange the Google credential for a CRM session (verified server-side).
+    fetch('/.netlify/functions/crm-auth', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ credential: response.credential }) })
+      .then(r => r.json().then(j => ({ status: r.status, j })))
+      .then(({ status, j }) => {
+        if (status === 200 && j.token) {
+          localStorage.setItem('nma_session', JSON.stringify({ token: j.token, exp: j.exp, user: j.user }));
+          _secureMode = true;
+          currentUser = j.user;
+        } else if (status === 503) {
+          _secureMode = false;            // server path not configured yet — legacy mode
+          currentUser = googleUser;
+        } else {
+          currentUser = googleUser;       // 403: the access gate shows "access denied"
+        }
+        sessionStorage.setItem('nma_user', JSON.stringify(currentUser));
+        showAppAfterLogin();
+      })
+      .catch(() => {
+        currentUser = googleUser;
+        sessionStorage.setItem('nma_user', JSON.stringify(currentUser));
+        showAppAfterLogin();
+      });
   } catch(e) {
     alert('Sign-in failed. Please try again.');
   }
 }
 
 function checkAuth() {
-  const saved = sessionStorage.getItem('nma_user');
-  if (saved) { try { currentUser = JSON.parse(saved); return true; } catch(e) {} }
+  // A saved CRM session (30 days) keeps you signed in across reloads and tabs.
+  const s = crmSession();
+  if (s && s.user) { currentUser = s.user; return true; }
   return false;
 }
 
@@ -6779,6 +6869,7 @@ document.addEventListener('click', e => {
 
 function signOut() {
   sessionStorage.removeItem('nma_user');
+  try { localStorage.removeItem('nma_session'); } catch(e) {}
   currentUser = null;
   gmailToken = null;
   if(window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
@@ -9042,11 +9133,8 @@ async function sendTestSms() {
   try {
     var res = await fetch('/.netlify/functions/sms', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: Object.assign({'Content-Type': 'application/json'}, crmAuthHeaders()),
       body: JSON.stringify({
-        sid: DB.twilioConfig.sid,
-        token: DB.twilioConfig.token,
-        from: DB.twilioConfig.from,
         to: testPhone,
         body: '[TEST] ' + personalized
       })
@@ -9077,11 +9165,8 @@ async function sendComposedSms() {
     try {
       var res = await fetch('/.netlify/functions/sms', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: Object.assign({'Content-Type': 'application/json'}, crmAuthHeaders()),
         body: JSON.stringify({
-          sid: DB.twilioConfig.sid,
-          token: DB.twilioConfig.token,
-          from: DB.twilioConfig.from,
           to: r.phone,
           body: personalized
         })
