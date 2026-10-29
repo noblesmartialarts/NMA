@@ -3199,7 +3199,7 @@ function confirmAdvanceMonth(){
     if(!DB.monthHistory)DB.monthHistory=[];
     const snap={
       month:DB.scoreboard.label||'Unknown',
-      date:new Date().toISOString().slice(0,10),
+      date:localToday(),
       fee:DB.scoreboard.fee||0,
       students:DB.students.filter(s=>s.status==='Active').map(s=>({
         id:s.id,name:s.first+' '+s.last,group:s.group,belt:s.belt,
@@ -3237,7 +3237,7 @@ function renderDashboard(){
     <div class="stat-card good"><div class="stat-label">Registered</div><div class="stat-value">${active.filter(s=>s.registered==='Yes').length}</div><div class="stat-sub">This month</div></div>`;
   $('risk-tbody').innerHTML=risk.length?risk.map(s=>`<tr><td><strong>${s.first} ${s.last}</strong></td><td>${missedRecent(s.id)?'<span class="badge badge-red">Missed classes</span>':'<span class="badge badge-amber">Unregistered</span>'}</td><td><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--ink-muted);">No at-risk students 🎉</td></tr>';
   $('stripe-tbody').innerHTML=stripeReady.length?stripeReady.map(s=>`<tr><td><strong>${s.first} ${s.last}</strong></td><td>${stripeDots(s.stripes,maxStripes(s))}</td><td style="font-size:12px;color:var(--ink-muted);">${s.group}</td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--ink-muted);">None ready yet</td></tr>';
-  const upcoming=DB.testEvents.filter(e=>e.date>=new Date().toISOString().slice(0,10)).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);
+  const upcoming=DB.testEvents.filter(e=>e.date>=localToday()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);
   $('upcoming-events').innerHTML=upcoming.length?upcoming.map(e=>`<div style="display:flex;align-items:center;gap:13px;padding:8px 0;border-bottom:1px solid var(--border);"><div style="min-width:60px;font-family:var(--font-display);font-weight:700;font-size:16px;">${fmtDate(e.date)}</div><div><div style="font-weight:500;">${e.name}</div><div style="font-size:12px;color:var(--ink-muted);">${e.type}${e.fee>0?' · $'+e.fee:''}</div></div><div class="spacer"></div><span class="badge ${e.type==='Stripe Test'?'badge-amber':e.type==='Black Belt Test'?'badge-dark':'badge-green'}">${e.type}</span></div>`).join(''):'<div style="color:var(--ink-muted);font-size:13px;">No upcoming events. Schedule one in Belt Testing.</div>';
 }
 
@@ -3268,7 +3268,7 @@ function renderPLDashboardAlert(){
 
 function renderBBTestAlert(){
   const el=$('bb-test-alert');if(!el)return;
-  const today=new Date().toISOString().slice(0,10);
+  const today=localToday();
   const bbTests=DB.testEvents.filter(e=>e.type==='Black Belt Test'&&e.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
   const cands=DB.students.filter(s=>s.status==='Active'&&(
     (s.group==="Master's Club"&&s.belt==='Black Belt Candidate')||
@@ -3296,6 +3296,7 @@ function localToday(){
   const d=new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
+function localISO(d){d=d instanceof Date?d:new Date(d);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function localDateOffset(days){
   const d=new Date();d.setDate(d.getDate()+days);
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -3566,7 +3567,7 @@ function updateBeltOptions(){
 function openAddStudent(){
   editingStudentId=null;$('student-modal-title').textContent='Add Student';
   ['f-first','f-last','f-parent','f-email','f-phone','f-parent2','f-email2','f-phone2','f-notes','f-uniformsize'].forEach(id=>$(id).value='');
-  $('f-firstdate').value=new Date().toISOString().slice(0,10);
+  $('f-firstdate').value=localToday();
   $('f-group').value='Little Dragons';$('f-status').value='Active';$('f-registered').value='No';
   $('f-stripes').value='0';$('f-beltsize').value='0';$('f-leader').checked=false;$('f-ai').checked=false;if($('f-instructor'))$('f-instructor').checked=false;if($('f-jrinstructor'))$('f-jrinstructor').checked=false;if($('f-masterinstructor'))$('f-masterinstructor').checked=false;
   updateBeltOptions();$('modal-student').classList.add('open');
@@ -3605,7 +3606,7 @@ function saveStudent(){
     const oldNote=(ex.notes||'').trim(), newNote=(data.notes||'').trim();
     if(newNote&&newNote!==oldNote){
       if(!ex.noteHistory)ex.noteHistory=[];
-      ex.noteHistory.unshift({id:Date.now(),text:newNote,date:new Date().toISOString().slice(0,10)});
+      ex.noteHistory.unshift({id:Date.now(),text:newNote,date:localToday()});
       // Keep notes field — don't clear it
     }
     DB.students[idx]={...ex,...data};toast('Student updated.');
@@ -3637,7 +3638,7 @@ function renderClassDateChips(){
   const el=$('class-date-chips');if(!el)return;
   if(!DB.classDates.length){el.innerHTML='<span style="font-size:12px;color:var(--ink-muted);">No class dates set yet — add dates above to track attendance per class.</span>';return;}
   // Show upcoming + recent
-  const today=new Date().toISOString().slice(0,10);
+  const today=localToday();
   el.innerHTML=DB.classDates.map(c=>{
     const isPast=c.date<today;const attCount=DB.attendance[c.date]?Object.values(DB.attendance[c.date]).filter(v=>v==='present').length:null;
     return `<div style="display:inline-flex;align-items:center;gap:5px;background:${isPast?'var(--paper)':'var(--green-light)'};border:1px solid ${isPast?'var(--border)':'var(--green)'};border-radius:20px;padding:4px 10px;font-size:12px;cursor:pointer;" onclick="selectAttDate('${c.date}')" title="Click to take attendance">
@@ -3658,7 +3659,7 @@ function renderAttDateSelect(){
   if(prev&&DB.classDates.find(c=>c.date===prev))sel.value=prev;
   else if(DB.classDates.length){
     // Auto-select nearest upcoming or most recent past
-    const today=new Date().toISOString().slice(0,10);
+    const today=localToday();
     const upcoming=DB.classDates.find(c=>c.date>=today);
     const recent=[...DB.classDates].reverse().find(c=>c.date<=today);
     const target=upcoming||recent;
@@ -3696,7 +3697,7 @@ function initAttendance(){
     }
   },100);
   // Set today as default new class date
-  $('new-class-date').value=new Date().toISOString().slice(0,10);
+  $('new-class-date').value=localToday();
   renderClassDateChips();
   renderAttDateSelect();
   renderAttendance();
@@ -3878,7 +3879,7 @@ function saveAttendance(){
 // ══════════════════════════════════════════════════════
 let ciState={};
 var _ciLeaderState={};
-function initCheckin(){$('ci-date').value=new Date().toISOString().slice(0,10);ciState={};_ciLeaderState={};renderCheckin();renderCiLeaders();}
+function initCheckin(){$('ci-date').value=localToday();ciState={};_ciLeaderState={};renderCheckin();renderCiLeaders();}
 function renderCheckin(){
   const date=$('ci-date').value,grp=$('ci-group').value;
   $('ci-date-label').textContent='Class on '+fmtFull(date);
@@ -4171,15 +4172,15 @@ function toggleFee(evId,sid,paid){
   const s=DB.students.find(x=>x.id===sid);
   const beltTested=paid&&s?(getPromotion(s)?.belt||s.belt):null;
   const idx=DB.testFees.findIndex(f=>f.eventId===evId&&f.studentId===sid);
-  if(idx>=0){DB.testFees[idx].paid=paid;DB.testFees[idx].datePaid=paid?new Date().toISOString().slice(0,10):null;if(beltTested)DB.testFees[idx].belt=beltTested;}
-  else DB.testFees.push({eventId:evId,studentId:sid,paid,datePaid:paid?new Date().toISOString().slice(0,10):null,belt:beltTested});
+  if(idx>=0){DB.testFees[idx].paid=paid;DB.testFees[idx].datePaid=paid?localToday():null;if(beltTested)DB.testFees[idx].belt=beltTested;}
+  else DB.testFees.push({eventId:evId,studentId:sid,paid,datePaid:paid?localToday():null,belt:beltTested});
   save();renderRevenue();toast(paid?'Fee marked paid.':'Fee unmarked.');
 }
 let _editingTestEventId=null;
 function openTestModal(){
   _editingTestEventId=null;
   $('test-modal-title').textContent='Schedule Test Event';
-  $('te-name').value='';$('te-date').value=new Date().toISOString().slice(0,10);
+  $('te-name').value='';$('te-date').value=localToday();
   $('te-type').value='Stripe Test';$('te-fee').value='0';$('modal-test').classList.add('open');
 }
 function openEditTestEvent(id){
@@ -4517,7 +4518,7 @@ function sellInventoryItem(id){
   const label=item.weaponName||item.uniformName||item.color;
   if(!confirm(`Log a sale of 1 ${label}${item.size&&item.size!=='0'?' ('+item.size+')':''} for ${fmt$(item.sell||0)}?\n\nThis will remove 1 from stock and add it to the Order log.`))return;
   item.qty=Math.max(0,item.qty-1);
-  DB.orders.push({id:DB.nextId++,studentId:null,item:`${label}${item.size&&item.size!=='0'?' ('+item.size+')':''} — sold`,date:new Date().toISOString().slice(0,10),cost:item.cost||0,charged:item.sell||0,notes:'Logged via Inventory sale'});
+  DB.orders.push({id:DB.nextId++,studentId:null,item:`${label}${item.size&&item.size!=='0'?' ('+item.size+')':''} — sold`,date:localToday(),cost:item.cost||0,charged:item.sell||0,notes:'Logged via Inventory sale'});
   save();renderInventory();
   toast(`Sale logged: ${label} — ${fmt$(item.sell||0)}`);
 }
@@ -4594,7 +4595,7 @@ async function markSaleItemSold(id,variantId){
     const{error}=await supa.from('nma_sale_items').update(updatePayload).eq('id',id);
     if(error)throw error;
     Object.assign(it,updatePayload);
-    DB.orders.push({id:DB.nextId++,studentId:null,item:orderNote,date:new Date().toISOString().slice(0,10),cost:0,charged:price,notes:'Website Sale Item, logged via Inventory'});
+    DB.orders.push({id:DB.nextId++,studentId:null,item:orderNote,date:localToday(),cost:0,charged:price,notes:'Website Sale Item, logged via Inventory'});
     save();renderWebsiteSaleItems();renderInventory();
     toast(`Sale logged: ${it.title}${label?' ('+label+')':''} — ${fmt$(price)}`);
   }catch(e){
@@ -4639,7 +4640,7 @@ function applyDefaultBeltCosts(){
   save();renderInventory();
   toast(`Updated wholesale cost on ${targets.length} belt row(s).`);
 }
-function openOrderModal(){['ord-item','ord-cost','ord-charged','ord-notes'].forEach(id=>$(id).value='');$('ord-date').value=new Date().toISOString().slice(0,10);renderInventory();$('modal-order').classList.add('open');}
+function openOrderModal(){['ord-item','ord-cost','ord-charged','ord-notes'].forEach(id=>$(id).value='');$('ord-date').value=localToday();renderInventory();$('modal-order').classList.add('open');}
 function saveOrder(){const sid=parseInt($('ord-student').value),item=$('ord-item').value.trim();if(!item){alert('Item required.');return;}DB.orders.push({id:DB.nextId++,studentId:sid,item,date:$('ord-date').value,cost:parseFloat($('ord-cost').value)||0,charged:parseFloat($('ord-charged').value)||0,notes:$('ord-notes').value.trim()});save();closeModal('modal-order');renderInventory();toast('Order logged!');}
 // Belt stock lookup used by the Belt Order page and by auto-consume on promotion
 function findBeltStock(belt,size){return DB.inventory.find(i=>(i.type||'belt')==='belt'&&i.color===belt&&i.size===(size||'0'));}
@@ -4722,7 +4723,7 @@ function renderLineItems(){
   $('inv-totals').innerHTML=`<div>Items: <strong>${invLineItems.length}</strong></div><div>Total: <strong style="font-size:15px;">${fmt$(total)}</strong></div>`;
 }
 function removeLineItem(i){invLineItems.splice(i,1);renderLineItems();}
-function openInvoiceModal(){editingInvoiceId=null;$('inv-modal-title').textContent='Add Invoice';$('inv-vendor').value='Century Martial Arts';$('inv-idate').value=new Date().toISOString().slice(0,10);$('inv-num').value='';$('inv-notes').value='';invLineItems=[];invFileData=null;renderLineItems();$('modal-invoice').classList.add('open');}
+function openInvoiceModal(){editingInvoiceId=null;$('inv-modal-title').textContent='Add Invoice';$('inv-vendor').value='Century Martial Arts';$('inv-idate').value=localToday();$('inv-num').value='';$('inv-notes').value='';invLineItems=[];invFileData=null;renderLineItems();$('modal-invoice').classList.add('open');}
 function saveInvoice(){const vendor=$('inv-vendor').value,date=$('inv-idate').value;if(!date){alert('Date required.');return;}const total=invLineItems.reduce((a,li)=>a+(+li.amount||0),0);const inv={id:editingInvoiceId||DB.nextId++,vendor,date,num:$('inv-num').value.trim(),notes:$('inv-notes').value.trim(),lineItems:[...invLineItems],total,file:invFileData};if(editingInvoiceId){const idx=DB.invoices.findIndex(x=>x.id===editingInvoiceId);DB.invoices[idx]=inv;}else DB.invoices.push(inv);save();closeModal('modal-invoice');renderInvoices();toast('Invoice saved!');}
 function renderInvoices(){
   const grand=DB.invoices.reduce((a,i)=>a+i.total,0);
@@ -4744,7 +4745,7 @@ const BUILTIN_TEMPLATES=[
   {id:'welcome',name:'New student welcome',subject:s=>`Welcome to Noble's Martial Arts!`,body:s=>`Hi ${s.parent||'there'},\n\nWelcome to Noble's Martial Arts! We're so excited to have ${s.first} joining us as a new ${s.group} student.\n\n${s.first} is starting as a ${s.belt} belt. The journey ahead is fantastic!\n\nArrive 5 minutes early, bring water, and wear comfortable clothing.\n\nAny questions — just reply here.\n\n— Sensei Brandon\nNoble's Martial Arts`},
   {id:'missed_reg',name:'Missed registration',subject:s=>`${s.first} — ${DB.scoreboard.label||'This Month'}'s NMA Registration`,body:s=>`Dear NMA Parents,\n\nI hope this message finds you well! If you're receiving this automated email, it's because your student's name(s) weren't on the roster that I received from the Town of Wake Forest for our ${DB.scoreboard.label||'upcoming'} session.\n\nIf this was simply an oversight or something slipped through the cracks, no worries at all — just let me know and we can work together on next steps. I understand how busy things can get and I'm always happy to help. Also, if you already told me that you were taking the month off or something similar, you're good!\n\nIf your child isn't planning on continuing at this time, that's completely okay as well. We've truly enjoyed having them in class, and if you're open to it, I'd love to hear your thoughts on the program and what influenced the decision. Your feedback is always appreciated and helps us continue to grow and improve.\n\nPlease feel free to reply to this email whenever it's convenient for you.\n\nThank you for your continued support for Noble's Martial Arts!\n\nWarm regards,\nSensei Brandon\nNoble's Martial Arts`},
   {id:'stripe',name:'Stripe earned!',subject:s=>`${s.first} earned a stripe today! 🎉`,body:s=>`Hi ${s.parent||'there'},\n\n${s.first} earned a stripe today! They're now at ${s.stripes} stripe(s) on their ${s.belt} belt.\n\n${s.stripes>=maxStripes(s)?`With ${s.stripes} stripes, ${s.first} is now eligible for their next test!`:'They are building momentum!'}\n\nCelebrate with them tonight — they earned it!\n\n— Sensei Brandon`},
-  {id:'belt_test',name:'Belt test invitation',subject:s=>`${s.first} is eligible to test for their next belt!`,body:(s,events)=>{const next=events.filter(e=>e.type==='Belt Test'&&e.date>=new Date().toISOString().slice(0,10)).sort((a,b)=>a.date.localeCompare(b.date))[0];return `Hi ${s.parent||'there'},\n\n${s.first} is eligible to test for their next belt!\n\n${next?`The upcoming belt test is on ${fmtFull(next.date)}${next.fee>0?' — test fee is '+fmt$(next.fee)+' due on the day':''}.`:'Keep an eye out for the next belt test date.'}\n\nI'm proud of ${s.first}'s progress!\n\n— Sensei Brandon`;}},
+  {id:'belt_test',name:'Belt test invitation',subject:s=>`${s.first} is eligible to test for their next belt!`,body:(s,events)=>{const next=events.filter(e=>e.type==='Belt Test'&&e.date>=localToday()).sort((a,b)=>a.date.localeCompare(b.date))[0];return `Hi ${s.parent||'there'},\n\n${s.first} is eligible to test for their next belt!\n\n${next?`The upcoming belt test is on ${fmtFull(next.date)}${next.fee>0?' — test fee is '+fmt$(next.fee)+' due on the day':''}.`:'Keep an eye out for the next belt test date.'}\n\nI'm proud of ${s.first}'s progress!\n\n— Sensei Brandon`;}},
   {id:'at_risk',name:'Attendance check-in',subject:s=>`Checking in on ${s.first}`,body:s=>`Hi ${s.parent||'there'},\n\nI wanted to personally check in on ${s.first}. I've noticed some recent absences and wanted to make sure everything is okay.\n\n${s.first} is a ${s.belt} belt with real potential. I'd love to see them back soon!\n\n— Sensei Brandon`},
   {id:'winback',name:'Former student — Thinking of you',subject:s=>`Thinking of you and ${s.first}`,body:s=>`Hi ${s.parent||'there'},\n\nIt's been a while, and I hope you and ${s.first} have been doing well.\n\nI think about our former students often, and wanted to reach out just to say we're thinking about you. If ${s.first} has been missing martial arts, or has ever mentioned wanting to give it another try, we're here — and always happy to have you back on the mat, whenever the timing is right.\n\nNo pressure at all. Just wanted you to know the door's open.\n\nTake care,\nSensei Brandon Noble\nNoble's Martial Arts\nnoblesmartialarts.com`}
 ];
@@ -4779,6 +4780,7 @@ function initEmails(){
     gmailToken=null;delete DB.gmailToken;updateGmailBtn(false);
     toast('Gmail session expired — please reconnect Gmail on the Emails tab.');
   }
+  else if(gmailToken){updateGmailBtn(true);}
   $('em-student').innerHTML='<option value="">Select recipient…</option>'+
     '<optgroup label="Active students">'+emailPoolActive().map(r=>'<option value="'+r.key+'">'+r.label+'</option>').join('')+'</optgroup>'+
     (emailPoolInactive().length?'<optgroup label="Former students">'+emailPoolInactive().map(r=>'<option value="'+r.key+'">'+r.label+'</option>').join('')+'</optgroup>':'')+
@@ -4795,7 +4797,7 @@ function updateGmailBtn(connected){
     :'<svg width="16" height="16" viewBox="0 0 24 24"><path fill="#EA4335" d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.908 1.528-1.147C21.69 2.28 24 3.434 24 5.457z"/></svg> Connect Gmail');
 }
 
-function connectGmail(){
+function legacyConnectGmail(){
   if(gmailToken){
     if(!confirm('Disconnect Gmail?'))return;
     gmailToken=null;delete DB.gmailToken;save();updateGmailBtn(false);toast('Gmail disconnected.');return;
@@ -5023,7 +5025,7 @@ async function sendGmailMessage(to,subject,body){
       const err=await res.json().catch(()=>({}));
       const msg2=err?.error?.message||('HTTP '+res.status);
       // If token expired, clear it
-      if(res.status===401){gmailToken=null;delete DB.gmailToken;save();updateGmailBtn(false);toast('Gmail session expired — please reconnect.');}
+      if(res.status===401){gmailHandle401();}
       console.warn('Gmail send failed:',msg2);
       return false;
     }
@@ -5546,7 +5548,7 @@ function exportJSON(){
   const payload=JSON.stringify({...DB,_exportedAt:new Date().toISOString(),_version:'v4'},null,2);
   const a=document.createElement('a');
   a.href='data:application/json;charset=utf-8,'+encodeURIComponent(payload);
-  a.download=`nobles-crm-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.download=`nobles-crm-backup-${localToday()}.json`;
   a.click();toast('Backup downloaded!');
 }
 function importJSONFile(input){
@@ -5862,7 +5864,7 @@ if(!DB.classSchedule||!Array.isArray(DB.classSchedule)||!DB.classSchedule.length
   }
 
   // Set default date
-  if($('new-class-date'))$('new-class-date').value=new Date().toISOString().slice(0,10);
+  if($('new-class-date'))$('new-class-date').value=localToday();
 
   // ── Access control gate ── must run before any rendering.
   const _gateEmail=((currentUser&&currentUser.email)||'').toLowerCase();
@@ -5886,12 +5888,14 @@ if(!DB.classSchedule||!Array.isArray(DB.classSchedule)||!DB.classSchedule.length
   // Backfill make-up test reminders for any past test events, then refresh alerts
   setTimeout(function(){ if(typeof checkAllMakeupTests==='function'){const before=JSON.stringify(DB.makeupTests||[]);checkAllMakeupTests();if(JSON.stringify(DB.makeupTests||[])!==before)save();renderMakeupTestAlert();} }, 150);
 
-  // Restore Gmail token at startup so Inbox works without visiting Emails first
+  // Restore Gmail at startup so Inbox works without visiting Emails first.
+  // Preferred: the server keeps Gmail connected and hands out fresh access.
   if(DB.gmailToken&&DB.gmailToken.expires>(Date.now()+300000)){
     gmailToken=DB.gmailToken.token;
   } else if(DB.gmailToken){
     gmailToken=null;delete DB.gmailToken;
   }
+  setTimeout(function(){ if(typeof gmailRefresh==='function') gmailRefresh(true); }, 0);
 
   // Init complete — safe to save now
   _initComplete=true;
@@ -5921,7 +5925,7 @@ function initLetters(){
     nonStripe.map(e=>`<option value="${e.id}">${e.name} — ${fmtFull(e.date)}</option>`).join('');
   if(cur&&DB.testEvents.find(e=>e.id===parseInt(cur))){lsel.value=cur;}
   else if(nonStripe.length){
-    const today=new Date().toISOString().slice(0,10);
+    const today=localToday();
     const upcoming=nonStripe.find(e=>e.date>=today)||nonStripe[nonStripe.length-1];
     if(upcoming)lsel.value=String(upcoming.id);
   }
@@ -6558,7 +6562,7 @@ function showRosterPreview(parsed){
         status:'Active',registered:'Yes',
         parent:ns.parent||'',email:ns.email||'',phone:ns.phone||'',dob:ns.dob||'',
         leader:false,ai:false,
-        firstDate:new Date().toISOString().slice(0,10),
+        firstDate:localToday(),
         notes:'Added via roster import',history:[]
       });
       addCount++;regCount++;
@@ -6992,7 +6996,7 @@ async function refreshInbox() {
       { headers: { Authorization: 'Bearer ' + gmailToken } }
     );
     if(res.status===401){
-      gmailToken=null;delete DB.gmailToken;save();
+      if(!refreshInbox._retry&&await gmailHandle401()){refreshInbox._retry=true;try{return await refreshInbox();}finally{refreshInbox._retry=false;}}
       $('inbox-loading').style.display='none';
       $('inbox-connect-prompt').style.display='block';
       $('inbox-connect-prompt').textContent='⚠ Gmail session expired — go to the Emails tab and reconnect Gmail.';
@@ -7376,7 +7380,7 @@ async function checkMonthlyBackup() {
 async function sendMonthlyBackupEmail() {
   try {
     const now = new Date();
-    const dateStr = now.toISOString().slice(0,10);
+    const dateStr = localISO(now);
     const monthLabel = now.toLocaleString('en-US', {month:'long', year:'numeric'});
     const filename = 'nobles-crm-backup-' + dateStr + '.json';
 
@@ -7771,7 +7775,7 @@ function openAddCommLog() {
   $('cl-student').innerHTML = DB.students.filter(s => s.status === 'Active').map(s =>
     '<option value="' + s.id + '">' + s.first + ' ' + s.last + '</option>'
   ).join('');
-  $('cl-date').value = new Date().toISOString().slice(0, 10);
+  $('cl-date').value = localToday();
   $('cl-notes').value = '';
   $('cl-followup').value = '';
   $('modal-commlog').classList.add('open');
@@ -8399,7 +8403,7 @@ function renderCalendar() {
   title.textContent = monthNames[_calMonth] + ' ' + _calYear;
   const days = ['Su','Mo','Tu','We','Th','Fr','Sa'];
   const scheduledDates = new Set((DB.classDates||[]).map(c=>c.date));
-  const today = new Date().toISOString().slice(0,10);
+  const today = localToday();
   const firstDay = new Date(_calYear, _calMonth, 1).getDay();
   const daysInMonth = new Date(_calYear, _calMonth+1, 0).getDate();
 
@@ -8460,7 +8464,7 @@ function toggleDarkMode(){
 // ══════════════════════════════════════════════════════
 let _editingNoteId=null;
 function initClassNotes(){
-  $('cn-filter-month').value=new Date().toISOString().slice(0,7);
+  $('cn-filter-month').value=localToday().slice(0,7);
   renderClassNotes();
 }
 function renderClassNotes(){
@@ -8489,7 +8493,7 @@ function openAddClassNote(id){
   _editingNoteId=id||null;
   const n=id?DB.classNotes.find(x=>x.id===id):null;
   $('cn-modal-title').textContent=n?'Edit Class Notes':'Add Class Notes';
-  $('cn-date').value=n?.date||new Date().toISOString().slice(0,10);
+  $('cn-date').value=n?.date||localToday();
   $('cn-group').value=n?.group||'Little Dragons';
   $('cn-content').value=n?.content||'';
   $('cn-standouts').value=n?.standouts||'';
@@ -8519,7 +8523,7 @@ function openDataHealth(){
     {label:'Missing date of birth',icon:'🎂',students:active.filter(s=>!s.dob)},
     {label:'Not registered this month',icon:'📋',students:active.filter(s=>s.registered!=='Yes'&&!s.omitFromReg)},
     {label:'No attendance this month',icon:'📅',students:active.filter(s=>{
-      const monthDates=(DB.classDates||[]).filter(c=>c.date.startsWith(new Date().toISOString().slice(0,7)));
+      const monthDates=(DB.classDates||[]).filter(c=>c.date.startsWith(localToday().slice(0,7)));
       return monthDates.length>0&&!monthDates.some(c=>DB.attendance[c.date]?.[s.id]==='present');
     })},
   ];
@@ -8573,7 +8577,7 @@ function bulkSendEmail(){closeModal('modal-bulk');_selectedStudentIds.forEach(id
 // ══════════════════════════════════════════════════════
 function getInactiveStudents(weeks){
   const cutoff=new Date();cutoff.setDate(cutoff.getDate()-weeks*7);
-  const cutoffStr=cutoff.toISOString().slice(0,10);
+  const cutoffStr=localISO(cutoff);
   return DB.students.filter(s=>{
     if(s.status!=='Active')return false;
     const dates=Object.keys(DB.attendance).filter(d=>DB.attendance[d]?.[s.id]==='present').sort();
@@ -8614,8 +8618,8 @@ async function sendWeeklyDigest(){
   const birthdays=getUpcomingBirthdays(7);
   const inactive=getInactiveStudents(2);
   const testReady=active.filter(s=>stripeEligible(s));
-  const monthDates=(DB.classDates||[]).filter(c=>c.date.startsWith(new Date().toISOString().slice(0,7)));
-  const lastClass=monthDates.filter(c=>c.date<=new Date().toISOString().slice(0,10)).sort().pop();
+  const monthDates=(DB.classDates||[]).filter(c=>c.date.startsWith(localToday().slice(0,7)));
+  const lastClass=monthDates.filter(c=>c.date<=localToday()).sort().pop();
   const lastAtt=lastClass?Object.values(DB.attendance[lastClass.date]||{}).filter(v=>v==='present').length:0;
   const body=[
     'Good morning Sensei Brandon!',
@@ -8649,9 +8653,9 @@ async function sendWeeklyDigest(){
 // ══════════════════════════════════════════════════════
 function checkWelcomeSequence(){
   if(!gmailToken) return;
-  const today=new Date().toISOString().slice(0,10);
+  const today=localToday();
   const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
-  const yStr=yesterday.toISOString().slice(0,10);
+  const yStr=localISO(yesterday);
   const eligible=DB.students.filter(s=>{
     if(s.status!=='Active'||!s.email||s._welcomeSent) return false;
     const attendedRecently=Object.keys(DB.attendance).some(d=>(d===today||d===yStr)&&DB.attendance[d]?.[s.id]==='present');
@@ -8745,7 +8749,7 @@ function printPromoCertificate(studentId,fromBelt,fromGroup,toBelt,toGroup){
       <span class="belt-pill" style="background:#1a1a1a;color:#fff;">${toBelt}</span>
     </div>
     <div class="promo-text">and has advanced to the <strong>${toGroup}</strong> program</div>
-    <div class="date-line">${fmtFull(new Date().toISOString().slice(0,10))}</div>
+    <div class="date-line">${fmtFull(localToday())}</div>
     <div class="sig-line">Sensei Brandon — Noble's Martial Arts</div>
   </div>
   <script>window.onload=()=>setTimeout(()=>window.print(),500);<\/script>
@@ -8771,7 +8775,7 @@ function checkAndOfferCertificate(s,fromBelt,fromGroup,toBelt,toGroup){
 // ══════════════════════════════════════════════════════
 const JRBB_CERT_IMG='https://crm.noblesmartialarts.com/assets/cert-jr-blackbelt-bg.jpg';
 function getNextBBTestDate(){
-  const today=new Date().toISOString().slice(0,10);
+  const today=localToday();
   const upcoming=DB.testEvents.filter(e=>e.type==='Black Belt Test'&&e.date>=today).sort((a,b)=>a.date.localeCompare(b.date))[0];
   if(upcoming)return upcoming.date;
   const mostRecent=DB.testEvents.filter(e=>e.type==='Black Belt Test').sort((a,b)=>b.date.localeCompare(a.date))[0];
@@ -8835,7 +8839,7 @@ function printClassList(group){
   .cb{width:20px;height:20px;border:2px solid #999;display:inline-block;}
   @media print{@page{margin:.5in;}}</style></head><body>
   <h2>Noble's Martial Arts${grp?' — '+grp:''}</h2>
-  <div class="sub">${fmtFull(new Date().toISOString().slice(0,10))} · ${students.length} students</div>
+  <div class="sub">${fmtFull(localToday())} · ${students.length} students</div>
   <table><thead><tr><th>Present</th><th>Student</th><th>Belt</th><th>Stripes</th><th>Notes</th></tr></thead><tbody>
   ${students.map(s=>`<tr><td><div class="cb"></div></td><td>${s.last}, ${s.first}</td><td>${s.belt}</td><td>${'● '.repeat(s.stripes||0)}</td><td></td></tr>`).join('')}
   </tbody></table>
@@ -9189,7 +9193,7 @@ async function sendComposedSms() {
   // Log it
   if (!DB.smsLog) DB.smsLog = [];
   DB.smsLog.unshift({
-    date: new Date().toISOString().slice(0,10),
+    date: localToday(),
     body: body,
     sent: sent,
     failed: failed,
@@ -9321,7 +9325,7 @@ function openAddProspect() {
   ['tr-name','tr-parent','tr-phone','tr-email','tr-notes'].forEach(function(id) { if($(id)) $(id).value = ''; });
   if ($('tr-group')) $('tr-group').value = '';
   if ($('tr-status')) $('tr-status').value = 'new';
-  if ($('tr-date')) $('tr-date').value = new Date().toISOString().slice(0,10);
+  if ($('tr-date')) $('tr-date').value = localToday();
   if ($('tr-followup')) $('tr-followup').value = '';
   if ($('tr-enroll-btn')) $('tr-enroll-btn').style.display = 'none';
   $('modal-prospect').classList.add('open');
@@ -9354,7 +9358,7 @@ function saveProspect() {
     email: ($('tr-email')&&$('tr-email').value)||'',
     group: ($('tr-group')&&$('tr-group').value)||'',
     status: ($('tr-status')&&$('tr-status').value)||'new',
-    date: ($('tr-date')&&$('tr-date').value)||new Date().toISOString().slice(0,10),
+    date: ($('tr-date')&&$('tr-date').value)||localToday(),
     followup: ($('tr-followup')&&$('tr-followup').value)||'',
     notes: ($('tr-notes')&&$('tr-notes').value)||''
   };
@@ -9577,7 +9581,7 @@ function openAddWorkshop(){
   $('wk-source').value='Referral';
   $('wk-tier').value='Starter $300';
   $('wk-amount').value='';$('wk-amount').dataset.autoFilled='';
-  $('wk-date-contacted').value=new Date().toISOString().slice(0,10);
+  $('wk-date-contacted').value=localToday();
   $('wk-session-date').value='';
   $('wk-testimonial').checked=false;
   $('wk-photo').checked=false;
@@ -9774,7 +9778,7 @@ function getAssistCount(studentId) {
 function initAssistLog() {
   if(!DB.assistLog) DB.assistLog = {};
   var monthEl = $('assist-filter-month');
-  if(monthEl && !monthEl.value) monthEl.value = new Date().toISOString().slice(0,7);
+  if(monthEl && !monthEl.value) monthEl.value = localToday().slice(0,7);
   renderAssistProgressCards();
   renderAssistLog();
 }
@@ -9864,7 +9868,7 @@ function renderAssistLog() {
 function openLogAssist(editDate) {
   if(!DB.assistLog) DB.assistLog = {};
   var dateEl = $('al-date');
-  if(dateEl) dateEl.value = editDate || new Date().toISOString().slice(0,10);
+  if(dateEl) dateEl.value = editDate || localToday();
   var leaders = getLeaders();
   var existing = editDate ? (DB.assistLog[editDate]||[]) : [];
   var list = $('al-student-list'); if(!list) return;
@@ -9980,7 +9984,7 @@ function renderGoodJobSelects() {
       return '<option value="'+s.id+'">' + s.first+' '+s.last+' ('+getLeaderRole(s)+')</option>';
     }).join('');
   var cutoff = new Date(); cutoff.setDate(cutoff.getDate()-60);
-  var cutoffStr = cutoff.toISOString().slice(0,10);
+  var cutoffStr = localISO(cutoff);
   var recentIds = new Set((DB.goodJobNotes||[]).filter(function(n){return n.date>=cutoffStr;}).map(function(n){return n.toId;}));
   var students = DB.students.filter(function(s){return s.status==='Active';}).sort(function(a,b){return a.last.localeCompare(b.last);});
   toSel.innerHTML = '<option value="">— Select student —</option>' +
@@ -10137,7 +10141,7 @@ function gjRebuildToSelect() {
   var group = ($('gj-group')&&$('gj-group').value)||'';
   var search = ($('gj-search')&&$('gj-search').value||'').toLowerCase();
   var cutoff = new Date(); cutoff.setDate(cutoff.getDate()-60);
-  var cutoffStr = cutoff.toISOString().slice(0,10);
+  var cutoffStr = localISO(cutoff);
   var recentIds = new Set((DB.goodJobNotes||[]).filter(function(n){return n.date>=cutoffStr;}).map(function(n){return n.toId;}));
   var students = DB.students.filter(function(s){
     if(s.status!=='Active') return false;
@@ -10188,7 +10192,7 @@ function loadPLStats(){
   ]).then(function(results){
     var bookings = (results[0].data) || [];
     var packages = (results[1].data) || [];
-    var thisMonth = new Date().toISOString().slice(0,7); // 'YYYY-MM'
+    var thisMonth = localToday().slice(0,7); // 'YYYY-MM'
 
     var pending = bookings.filter(function(b){ return b.status === 'pending'; }).length;
     var upcoming = bookings.filter(function(b){ return b.status === 'set'; }).length;
@@ -10391,7 +10395,7 @@ function populatePLServiceSelect(selectId, onlyPackages){
 
 function openPLManual(){
   ['pl-m-name','pl-m-email','pl-m-phone','pl-m-primaryname','pl-m-primaryage','pl-m-location','pl-m-notes'].forEach(function(id){ $(id).value=''; });
-  $('pl-m-date').value = new Date().toISOString().slice(0,10);
+  $('pl-m-date').value = localToday();
   $('pl-m-time').value = '';
   $('pl-m-packages-wrap').style.display = 'none';
   $('pl-m-package').innerHTML = '<option value="">— Don\'t use a credit —</option>';
@@ -10524,8 +10528,8 @@ function plSaveGift(){
         client_id: clientId, service_id: svc.id, source: 'gifted',
         sessions_total: sessionsTotal, sessions_used: 0,
         price_paid: null, payment_method: null, gift_reason: reason || null,
-        purchase_date: purchaseDate.toISOString().slice(0,10),
-        expires_at: expires.toISOString().slice(0,10),
+        purchase_date: localISO(purchaseDate),
+        expires_at: localISO(expires),
         status: 'active'
       }).then(function(pres){
         if (pres.error) { errEl.textContent = 'Error: '+pres.error.message; errEl.style.display = 'block'; return; }
@@ -11506,7 +11510,7 @@ function openNewClassPlan(){
   _cpEditId=null;
   _cpDraft={
     group:'Little Dragons',
-    date:new Date().toISOString().slice(0,10),
+    date:localToday(),
     aiId:null,
     testPrep:false,
     warmup:'',
@@ -11736,7 +11740,7 @@ function saveClassPlan(){
     const plan={
       id:_cpEditId||Date.now(),
       group:_cpDraft.group||'Little Dragons',
-      date:_cpDraft.date||new Date().toISOString().slice(0,10),
+      date:_cpDraft.date||localToday(),
       aiId:_cpDraft.aiId||null,
       aiName:_cpDraft.aiName||'',
       testPrep:!!_cpDraft.testPrep,
@@ -12000,7 +12004,7 @@ async function syncApparelOrders() {
       return {id:sub.id,date:(sub.created_at||'').slice(0,10),parentName:get('full name'),email:get('e-mail','email'),phone:get('contact number','phone'),students,products,total: orderTotal || products.reduce((s,p)=>s+(p.price*p.qty),0),invoiceId:get('invoice'),notes:get('special instruction','note','comment'),paid,jotformUrl:'https://www.jotform.com/inbox/261055009001137?sid='+sub.id};
     });
     DB.apparelOrders = orders;
-    DB.apparelLastSync = new Date().toISOString().slice(0, 10);
+    DB.apparelLastSync = localToday();
     save(); renderApparelOrders();
     const el = $('apparel-sync-time');
     if (el) el.textContent = 'Synced just now';
@@ -12388,7 +12392,7 @@ If a field is not found, use empty string or 0. Return ONLY the JSON, no other t
     // Pre-fill the invoice modal with parsed data
     openInvoiceModal();
     if($('inv-vendor')) $('inv-vendor').value = parsed.vendor||'';
-    if($('inv-idate')) $('inv-idate').value = parsed.date||new Date().toISOString().slice(0,10);
+    if($('inv-idate')) $('inv-idate').value = parsed.date||localToday();
     if($('inv-num')) $('inv-num').value = parsed.num||'';
     if($('inv-notes')) $('inv-notes').value = parsed.notes||'';
     if(parsed.lineItems && Array.isArray(parsed.lineItems)) {
@@ -12446,7 +12450,7 @@ function repairGearOrderDates(){
   let fixed=0;
   DB.gearOrders.forEach(o=>{
     if(!/^\d{4}-\d{2}-\d{2}$/.test(o.date||'')){
-      const iso=parseSheetDate(o.date, new Date().toISOString().slice(0,10));
+      const iso=parseSheetDate(o.date, localToday());
       if(iso!==o.date){ o.date=iso; fixed++; }
     }
   });
@@ -12523,7 +12527,7 @@ if(!DB.gearSheetSources)DB.gearSheetSources=[];
 function openAddGearOrder(){
   _editingGearId=null;
   $('gear-modal-title').textContent='Add Gear Order';
-  $('go-date').value=new Date().toISOString().slice(0,10);
+  $('go-date').value=localToday();
   $('go-student').innerHTML='<option value="">— Select student —</option>'+
     DB.students.filter(s=>s.status==='Active').map(s=>`<option value="${s.id}">${s.first} ${s.last}</option>`).join('');
   $('go-student').value='';$('go-name').value='';
@@ -12563,7 +12567,7 @@ function saveGearOrder(){
   const studentName=$('go-name').value.trim()||($('go-student').options[$('go-student').selectedIndex]?.text)||'';
   const order={
     id:_editingGearId||Date.now(),
-    date:$('go-date').value||new Date().toISOString().slice(0,10),
+    date:$('go-date').value||localToday(),
     studentId,studentName,
     orderType:$('go-type').value,
     amount:parseFloat($('go-amount').value)||0,
@@ -12665,7 +12669,7 @@ function handleGearCSV(input){
     if(!DB.gearOrders)DB.gearOrders=[];
     let imported=0;
     rows.forEach(row=>{
-      const order=gearRowToOrder(row,new Date().toISOString().slice(0,10));
+      const order=gearRowToOrder(row,localToday());
       order.id=Date.now()+row.rowIndex;
       DB.gearOrders.unshift(order);imported++;
     });
@@ -12721,7 +12725,7 @@ async function syncGearSheets(){
       rows.forEach(row=>{
         const sourceId=src.id+'_r'+row.rowIndex;
         if(existingIds.has(sourceId)) return;
-        const order=gearRowToOrder(row,new Date().toISOString().slice(0,10),src.name,src.catalogKey);
+        const order=gearRowToOrder(row,localToday(),src.name,src.catalogKey);
         order.id=Date.now()+Math.random();
         order.sourceId=sourceId;
         order.sourceSheet=src.name;
@@ -12753,7 +12757,7 @@ function addReminder(){
   const text=(inp?.value||'').trim();
   if(!text)return;
   if(!DB.reminders)DB.reminders=[];
-  DB.reminders.unshift({id:Date.now(),text,date:new Date().toISOString().slice(0,10),done:false});
+  DB.reminders.unshift({id:Date.now(),text,date:localToday(),done:false});
   inp.value='';
   save();renderReminders();
 }
@@ -13292,6 +13296,7 @@ function voStockCount(type,label,size){
 // ── Gmail helpers ──
 async function voGmail(path){
   const res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/'+path,{headers:{Authorization:'Bearer '+gmailToken}});
+  if(res.status===401&&!voGmail._retry&&await gmailHandle401()){voGmail._retry=true;try{return await voGmail(path);}finally{voGmail._retry=false;}}
   if(res.status===401){gmailToken=null;delete DB.gmailToken;save();if(typeof updateGmailBtn==='function')updateGmailBtn(false);throw new Error('Gmail session expired — reconnect Gmail on the Email tab.');}
   if(!res.ok)throw new Error('Gmail error '+res.status);
   return res.json();
@@ -13317,7 +13322,7 @@ function voMessageParts(msg){
   const h=n=>(headers.find(x=>x.name.toLowerCase()===n)||{}).value||'';
   // Prefer HTML when the plain part is thin (some stores send a stub text part).
   const text=(plain&&plain.length>200)?plain:(html?voHtmlToText(html):plain);
-  return {subject:h('subject'),from:h('from'),date:new Date(+msg.internalDate||h('date')).toISOString(),text,atts};
+  return {subject:h('subject'),from:h('from'),date:localISO(new Date(+msg.internalDate||h('date'))),text,atts}; // Eastern calendar date of the email
 }
 async function voPdfAttachmentToInputs(msgId,att){
   const data=await voGmail('messages/'+msgId+'/attachments/'+att.id);
@@ -13619,7 +13624,7 @@ async function voImportPdfFile(input){
     const t=(inp.text||'').toLowerCase()+' '+file.name.toLowerCase();
     const vendor=t.includes('century')?'Century Martial Arts':t.includes('tiger claw')||t.includes('tigerclaw')?'Tiger Claw':t.includes('ma belts')||t.includes('mabelts')?'MA Belts':t.includes('infinity')?'Infinity Weapons':'Other';
     const ex=await voExtract(vendor==='Other'?'':vendor,file.name,inp.text,inp.image);
-    voQueue.push(voMakeCard({vendor,kind:vendor==='Century Martial Arts'?'invoice':'order'},{subject:file.name,date:new Date().toISOString()},ex));
+    voQueue.push(voMakeCard({vendor,kind:vendor==='Century Martial Arts'?'invoice':'order'},{subject:file.name,date:localToday()},ex));
     voStatus('Read '+file.name+' — review it below.');renderVoQueue();
   }catch(e){voStatus('⚠ Could not read that PDF: '+e.message);}
 }
@@ -13994,6 +13999,76 @@ function renderPmQueue(){
   }).join('');
 }
 </script>
+<script>
+// ══════════════════════════════════════════════════════
+// GMAIL — stays connected via the server (refresh token held server-side)
+// ══════════════════════════════════════════════════════
+// Connect once with Google's one-time code; the gmail-auth function keeps a
+// long-lived authorization and gmail-token hands this browser fresh 1-hour
+// access as needed. Falls back to the old hourly sign-in if the server isn't
+// set up (GOOGLE_CLIENT_SECRET missing in Netlify).
+const GMAIL_SCOPES='https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/contacts.readonly';
+let _gmailServer=null,_gmailExp=0,_gmailRefreshing=null,_gmailEmail=null;
+async function gmailRefresh(silent){
+  if(_gmailRefreshing)return _gmailRefreshing;
+  _gmailRefreshing=(async()=>{
+    if(typeof crmSession!=='function'||!crmSession())return false;
+    let res,j={};
+    try{res=await fetch('/.netlify/functions/gmail-token',{headers:crmAuthHeaders()});j=await res.json().catch(()=>({}));}catch(e){return false;}
+    if(res.status===503){_gmailServer=false;return false;}
+    if(!res.ok)return false;
+    _gmailServer=true;
+    if(!j.connected){
+      if(j.reason==='revoked'&&!silent)toast('Gmail access ended — connect Gmail again on the Email tab.');
+      if(!gmailToken&&typeof updateGmailBtn==='function')updateGmailBtn(false);
+      return false;
+    }
+    gmailToken=j.access_token;_gmailExp=Date.now()+(j.expires_in||3600)*1000;_gmailEmail=j.email||null;
+    delete DB.gmailToken; // access tokens are no longer stored in the CRM data
+    if(typeof updateGmailBtn==='function')updateGmailBtn(true);
+    return true;
+  })();
+  try{return await _gmailRefreshing;}finally{_gmailRefreshing=null;}
+}
+// Keep the access fresh while the CRM is open.
+setInterval(()=>{if(_gmailServer&&gmailToken&&Date.now()>_gmailExp-10*60000)gmailRefresh(true);},60000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&_gmailServer&&Date.now()>_gmailExp-10*60000)gmailRefresh(true);});
+// Called when Gmail answers 401: try a silent refresh before asking to reconnect.
+async function gmailHandle401(){
+  gmailToken=null;
+  if(_gmailServer!==false&&await gmailRefresh(true))return true;
+  delete DB.gmailToken;
+  if(typeof updateGmailBtn==='function')updateGmailBtn(false);
+  toast('Gmail session expired — please reconnect Gmail on the Email tab.');
+  return false;
+}
+function connectGmail(){
+  if(gmailToken){
+    if(!confirm('Disconnect Gmail? (Stops invoice, payment and inbox features until you connect again.)'))return;
+    if(_gmailServer)fetch('/.netlify/functions/gmail-auth',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},crmAuthHeaders()),body:JSON.stringify({disconnect:true})}).catch(()=>{});
+    gmailToken=null;delete DB.gmailToken;save();updateGmailBtn(false);toast('Gmail disconnected.');return;
+  }
+  if(_gmailServer===false||!crmSession())return legacyConnectGmail();
+  if(!window.google?.accounts?.oauth2){alert('Google Sign-In is still loading. Wait a moment and try again.');return;}
+  // Must open from the click itself (popup), so no awaits before this.
+  google.accounts.oauth2.initCodeClient({
+    client_id:'198044968744-8sr41pe9995b07pg0c9l55h9pp1ff0j7.apps.googleusercontent.com',
+    scope:GMAIL_SCOPES,
+    ux_mode:'popup',
+    callback:async(resp)=>{
+      if(resp.error){toast('Gmail connection cancelled: '+resp.error);return;}
+      let res,j={};
+      try{res=await fetch('/.netlify/functions/gmail-auth',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},crmAuthHeaders()),body:JSON.stringify({code:resp.code})});j=await res.json().catch(()=>({}));}
+      catch(e){toast('Gmail connection failed: '+e.message);return;}
+      if(res.status===503){_gmailServer=false;toast('Lasting Gmail connection isn’t set up on the server yet — click Connect Gmail again to use the hourly connection.');return;}
+      if(!res.ok){alert('Gmail connection failed: '+(j.message||j.error||res.status));return;}
+      _gmailServer=true;gmailToken=j.access_token;_gmailExp=Date.now()+(j.expires_in||3600)*1000;_gmailEmail=j.email||null;
+      delete DB.gmailToken;updateGmailBtn(true);
+      toast('Gmail connected'+(j.email?' ('+j.email+')':'')+' — it will stay connected.');
+    }
+  }).requestCode();
+}
+</script>
 </body>
 </html>
 <script>
@@ -14054,7 +14129,7 @@ function confirmAbsence(reqId) {
   if (!DB.attendance[req.date]) DB.attendance[req.date] = {};
   DB.attendance[req.date][student.id] = 'absent';
   if (!student.history) student.history = [];
-  student.history.push({type:'note',date:new Date().toISOString().slice(0,10),note:'Parent-reported absence for '+req.date+(req.reason?': "'+req.reason+'"':'')+'. Confirmed via absence form.'});
+  student.history.push({type:'note',date:localToday(),note:'Parent-reported absence for '+req.date+(req.reason?': "'+req.reason+'"':'')+'. Confirmed via absence form.'});
   req.status = 'confirmed';
   save(); renderPendingAbsences(); renderDashboard();
   toast('✓ ' + student.first + ' ' + student.last + ' marked absent on ' + req.date + '.');
@@ -14194,7 +14269,7 @@ function renderEvCards(){
   var empty = document.getElementById('ev-empty');
   if(!DB.events||!DB.events.length){ cards.innerHTML=''; empty.style.display=''; return; }
   empty.style.display='none';
-  var today = new Date().toISOString().slice(0,10);
+  var today = localToday();
   var evs = DB.events.slice().sort(function(a,b){return a.date.localeCompare(b.date);});
   cards.innerHTML = evs.map(function(ev){
     var rsvps = (DB.eventRsvps||[]).filter(function(r){return r.eventId===ev.id;});
