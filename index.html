@@ -12051,6 +12051,7 @@ function renderApparelOrders() {
   const summary = $('apparel-summary');
   if (summary) summary.innerHTML = `
     <div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">Total Revenue</div><div class="stat-num">$${totalRevenue.toFixed(2)}</div><div class="stat-sub">${all.length} order(s)</div></div>
+    ${(()=>{const linked=all.filter(o=>(o.vendorLinks||[]).length);if(!linked.length)return '';const rev=linked.reduce((s,o)=>s+(o.total||0),0),cost=linked.reduce((s,o)=>s+(o.vendorLinks||[]).reduce((a,x)=>a+(+x.cost||0),0),0);return `<div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">Profit (linked orders)</div><div class="stat-num" style="color:var(--green);">$${(rev-cost).toFixed(2)}</div><div class="stat-sub">${linked.length} order(s) · cost $${cost.toFixed(2)}</div></div>`;})()}
     <div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">Pending</div><div class="stat-num" style="color:var(--amber);">${pending}</div><div class="stat-sub">awaiting fulfillment</div></div>
     <div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">Ready</div><div class="stat-num" style="color:var(--blue);">${ready}</div><div class="stat-sub">ready for pickup</div></div>
     <div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">Delivered</div><div class="stat-num" style="color:var(--green);">${delivered}</div><div class="stat-sub">completed</div></div>`;
@@ -12083,8 +12084,8 @@ function renderApparelOrders() {
       <td style="font-size:12px;color:var(--ink-muted);white-space:nowrap;">${fmtDate(o.date)}</td>
       <td><strong style="font-size:13px;">${o.parentName || '—'}</strong>${o.email ? `<div style="font-size:10px;color:var(--ink-faint);">${o.email}</div>` : ''}</td>
       <td style="font-size:12px;">${o.students || '—'}</td>
-      <td>${itemList || '—'}</td>
-      <td style="text-align:right;font-weight:600;">${o.total ? '$' + o.total.toFixed(2) : '—'}</td>
+      <td>${itemList || '—'}${(o.vendorLinks||[]).map(l=>`<div style="font-size:10px;color:var(--blue);">🧾 ${l.vendor}${l.num?' #'+l.num:''} · ${fmtDate(l.date)}</div>`).join('')}</td>
+      <td style="text-align:right;"><div style="font-weight:600;">${o.total ? '$' + o.total.toFixed(2) : '—'}</div>${(()=>{const l=o.vendorLinks||[];if(!l.length)return '';const cost=l.reduce((a,x)=>a+(+x.cost||0),0);const part=voApparelLinked(o)<voApparelQty(o);return '<div style="font-size:10px;color:var(--green);" title="Cost from linked vendor invoices'+(part?' (not every item linked yet)':'')+'">cost $'+cost.toFixed(2)+(part?'*':'')+' · +$'+((o.total||0)-cost).toFixed(2)+'</div>';})()}</td>
       <td>${paidBadge}</td>
       <td>${statusBadge}</td>
       <td style="white-space:nowrap;">${advBtn}<button class="btn small" onclick="resetApparelStatus('${o.id}')" title="Reset to pending">↩</button>${o.jotformUrl?` <a href="${o.jotformUrl}" target="_blank" class="btn small" title="View full order in Jotform">↗</a>`:''}</td>
@@ -13401,47 +13402,114 @@ function voGearKinds(text){
   return k;
 }
 function voGearOrderOpen(o,vendor){return !(o.vendorLinks||[]).some(l=>l.vendor===vendor);}
+const VO_APPAREL_ITEM=/shirt|\btee\b|t-shirt|hood|sweat|jacket|tank|apparel|50\/50/i;
+function voIsApparelLine(l){return l.category==='apparel'||VO_APPAREL_ITEM.test(l.name+' '+(l.options||''));}
 // Open gear orders that this vendor order could be filling, best match first.
 function voGearCandidates(c,line){
-  const want=voGearKinds(line?(line.name+' '+line.options):c.lines.filter(l=>l.action==='student'||l.category==='weapon'||l.category==='uniform').map(l=>l.name+' '+l.options).join(' '));
+  const want=voGearKinds(line?(line.name+' '+line.options):c.lines.filter(l=>(l.action==='student'&&!voIsApparelLine(l))||l.category==='weapon'||l.category==='uniform').map(l=>l.name+' '+l.options).join(' '));
   const t=new Date(c.date).getTime();
   return (DB.gearOrders||[]).filter(o=>voGearOrderOpen(o,c.vendor)&&o.date&&new Date(o.date).getTime()<=t+3*86400000&&new Date(o.date).getTime()>=t-90*86400000)
     .map(o=>{const have=voGearKinds((o.orderType||'')+' '+(o.details||''));let score=0;want.forEach(k=>{if(have.has(k))score++;});return {o,score};})
     .sort((a,b)=>b.score-a.score||a.o.date.localeCompare(b.o.date));
 }
 function voGearLabel(o){return (o.studentName||'(no student)')+' — '+String(o.orderType||'Order').replace(/\s*-\s*/,' - ').slice(0,60)+' · '+fmtDate(o.date)+(o.amount?' · '+fmt$(+o.amount):'');}
-function voGearOptionsHTML(c,line,selectedId){
-  const cands=voGearCandidates(c,line).filter(x=>x.score>0);
-  const others=(DB.gearOrders||[]).filter(o=>voGearOrderOpen(o,c.vendor)&&!cands.some(x=>x.o===o)).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,40);
-  const opt=o=>`<option value="${o.id}" ${String(o.id)===String(selectedId)?'selected':''}>${voEsc(voGearLabel(o))}</option>`;
-  return (cands.length?`<optgroup label="Likely matches">${cands.map(x=>opt(x.o)).join('')}</optgroup>`:'')+(others.length?`<optgroup label="Other open orders">${others.map(opt).join('')}</optgroup>`:'');
+
+// ── Apparel orders (Jotform) — custom shirts bought from Tiger Claw ──
+function voGarment(t){t=String(t||'').toLowerCase();if(/long.?sleeve/.test(t))return 'long';if(/hood|sweat/.test(t))return 'hood';if(/t-?shirt|\btee\b|50\/50|shirt/.test(t))return 'tee';return '';}
+function voShirtSize(t){
+  t=String(t||'').toLowerCase().replace(/size:?/g,' ');
+  const m=t.match(/\b(youth|child|kids?|adult|y|a)?\s*(xx?-?small|x?small|medium|x{0,3}-?large|2xl|3xl|xxl|xl|xs|s|m|l)\b/);
+  if(!m)return '';
+  const grp=m[1]?(/^(youth|child|kid|kids|y)$/.test(m[1])?'Y':'A'):'';
+  const sz={'xsmall':'XS','x-small':'XS','xs':'XS','small':'S','s':'S','medium':'M','m':'M','large':'L','l':'L','xlarge':'XL','x-large':'XL','xl':'XL','xxlarge':'2XL','xx-large':'2XL','xxl':'2XL','2xl':'2XL','3xl':'3XL'}[m[2].replace(/\s/g,'')]||m[2].toUpperCase();
+  return grp+':'+sz;
+}
+function voColor(t){t=String(t||'').toLowerCase();if(/\b(ash|heather|gr[ae]y|silver)\b/.test(t))return 'gray';const m=t.match(/\b(black|white|red|blue|navy|royal|green|purple|orange|yellow|pink|maroon|gold)\b/);return m?(m[1]==='navy'||m[1]==='royal'?'blue':m[1]):'';}
+function voProductScore(line,p){
+  const lt=line.name+' '+(line.options||''),pt=p.name+' '+(p.options||[]).join(' ');
+  let s=0;
+  const g1=voGarment(lt),g2=voGarment(pt);if(g1&&g1===g2)s+=2;
+  const z1=voShirtSize(lt),z2=voShirtSize(pt);
+  if(z1&&z2){const[a1,b1]=z1.split(':'),[a2,b2]=z2.split(':');if(b1===b2&&(!a1||!a2||a1===a2))s+=2;}
+  const c1=voColor(lt),c2=voColor(pt);if(c1&&c1===c2)s+=1;
+  return s;
+}
+function voApparelQty(o){return (o.products||[]).reduce((a,p)=>a+(+p.qty||1),0);}
+function voApparelLinked(o){return (o.vendorLinks||[]).reduce((a,l)=>a+(+l.qty||(l.items||[]).length),0);}
+function voApparelOpen(o){return voApparelLinked(o)<voApparelQty(o);}
+function voApparelCandidates(c,line){
+  const t=new Date(c.date).getTime();
+  return (DB.apparelOrders||[]).filter(o=>voApparelOpen(o)&&o.date&&new Date(o.date).getTime()<=t+3*86400000&&new Date(o.date).getTime()>=t-120*86400000)
+    .map(o=>({o,score:line?Math.max(0,...(o.products||[]).map(p=>voProductScore(line,p))):0}))
+    .sort((a,b)=>b.score-a.score||a.o.date.localeCompare(b.o.date));
+}
+function voApparelLabel(o){return (o.parentName||'(no name)')+(o.students?' ('+o.students+')':'')+' — '+(o.products||[]).map(p=>(p.qty>1?p.qty+'× ':'')+p.name.replace(/\s*T-Shirt/i,' Tee')+(p.options&&p.options.length?' '+p.options.map(x=>x.replace(/^\w+:\s*/,'')).join('/'):'')).join(', ').slice(0,70)+' · '+fmtDate(o.date);}
+
+// A line's customer order: 'g:<id>' gear order, 'a:<id>' apparel order, or ''.
+function voLineRef(l){return l.gearOrderId!=null?'g:'+l.gearOrderId:l.apparelOrderId!=null?'a:'+l.apparelOrderId:'';}
+function voFindRef(ref){
+  if(!ref)return null;const k=ref.slice(0,1),id=ref.slice(2);
+  // ids can be decimals or long strings — match the exact string, never parseInt
+  if(k==='g'){const o=(DB.gearOrders||[]).find(x=>String(x.id)===id);return o?{kind:'gear',o}:null;}
+  if(k==='a'){const o=(DB.apparelOrders||[]).find(x=>String(x.id)===id);return o?{kind:'apparel',o}:null;}
+  return null;
+}
+function voApplyRef(l,ref){
+  const r=voFindRef(ref);
+  l.gearOrderId=r&&r.kind==='gear'?r.o.id:null;
+  l.apparelOrderId=r&&r.kind==='apparel'?r.o.id:null;
+  if(r&&r.kind==='gear'&&r.o.studentId)l.studentId=r.o.studentId;
+  if(r&&r.kind==='apparel'){const nm=String(r.o.students||'').split(',')[0].trim().toLowerCase();const st=nm&&DB.students.find(x=>(x.first+' '+x.last).toLowerCase()===nm);if(st)l.studentId=st.id;}
+}
+function voGearOptionsHTML(c,line,selectedRef){
+  const apparelFirst=line?voIsApparelLine(line):false;
+  const g=voGearCandidates(c,line),a=voApparelCandidates(c,line);
+  const likelyG=g.filter(x=>x.score>0),likelyA=a.filter(x=>x.score>=3);
+  const sel=r=>String(r)===String(selectedRef)?'selected':'';
+  const optG=o=>`<option value="g:${o.id}" ${sel('g:'+o.id)}>${voEsc(voGearLabel(o))}</option>`;
+  const optA=o=>`<option value="a:${o.id}" ${sel('a:'+o.id)}>${voEsc('👕 '+voApparelLabel(o))}</option>`;
+  const likely=(apparelFirst?likelyA.map(x=>optA(x.o)).concat(likelyG.map(x=>optG(x.o))):likelyG.map(x=>optG(x.o)).concat(likelyA.map(x=>optA(x.o)))).join('');
+  const otherG=(DB.gearOrders||[]).filter(o=>voGearOrderOpen(o,c.vendor)&&!likelyG.some(x=>x.o===o)).sort((x,y)=>String(y.date).localeCompare(String(x.date))).slice(0,40);
+  const otherA=(DB.apparelOrders||[]).filter(o=>voApparelOpen(o)&&!likelyA.some(x=>x.o===o)).sort((x,y)=>String(y.date).localeCompare(String(x.date))).slice(0,30);
+  const gG=otherG.length?`<optgroup label="Other open gear orders">${otherG.map(optG).join('')}</optgroup>`:'';
+  const gA=otherA.length?`<optgroup label="Other open apparel orders">${otherA.map(optA).join('')}</optgroup>`:'';
+  return (likely?`<optgroup label="Likely matches">${likely}</optgroup>`:'')+(apparelFirst?gA+gG:gG+gA);
 }
 function voGearSelectHTML(c){
   const st=c.lines.filter(l=>l.action==='student');
   if(!st.length)return '';
-  const ids=[...new Set(st.map(l=>l.gearOrderId==null?'':String(l.gearOrderId)))];
-  const common=ids.length===1?ids[0]:'';
-  const orders=[...new Set(st.filter(l=>l.gearOrderId!=null).map(l=>String(l.gearOrderId)))].length;
+  const refs=[...new Set(st.map(voLineRef))];
+  const common=refs.length===1?refs[0]:'';
+  const orders=new Set(st.map(voLineRef).filter(Boolean)).size;
   return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 10px;font-size:12px;">
-    <span style="font-weight:600;">Fill all student items from one gear order:</span>
+    <span style="font-weight:600;">Fill all student items from one order:</span>
     <select class="form-select vo-mini" style="max-width:520px;" onchange="voSetGearOrder(${c.id},this.value)">
-      <option value="">${ids.length>1?'— Mixed: '+orders+' gear orders (set per item above) —':'— Not for a gear order —'}</option>${voGearOptionsHTML(c,null,common)}
+      <option value="">${refs.length>1?'— Mixed: '+orders+' orders (set per item above) —':'— Not for a gear or apparel order —'}</option>${voGearOptionsHTML(c,null,common)}
     </select>${c.gearAuto?'<span style="color:var(--ink-muted);">suggested — check it</span>':''}
-    <span style="color:var(--ink-muted);">Items for different students? Pick the gear order on each item above, and use Split for quantities over 1.</span></div>`;
+    <span style="color:var(--ink-muted);">Items for different students? Pick the order on each item above, and use Split for quantities over 1.</span></div>`;
 }
-function voApplyGear(l,o){l.gearOrderId=o?o.id:null;if(o&&o.studentId)l.studentId=o.studentId;}
+function voApplyGear(l,o){voApplyRef(l,o?'g:'+o.id:'');}
 function voSetGearOrder(cid,val){
   const c=voCard(cid);if(!c)return;
-  // Gear order ids can be decimals (Date.now()+random) — match on the exact string, never parseInt.
-  const o=val?(DB.gearOrders||[]).find(x=>String(x.id)===String(val)):null;
   c.gearAuto=false;
-  c.lines.forEach(l=>{if(l.action==='student')voApplyGear(l,o);});
+  c.lines.forEach(l=>{if(l.action==='student')voApplyRef(l,val);});
   renderVoQueue();
 }
 function voSetLineGear(cid,lid,val){
   const c=voCard(cid),l=voLine(cid,lid);if(!c||!l)return;
-  const o=val?(DB.gearOrders||[]).find(x=>String(x.id)===String(val)):null;
-  c.gearAuto=false;voApplyGear(l,o);renderVoQueue();
+  c.gearAuto=false;voApplyRef(l,val);renderVoQueue();
+}
+// Suggest orders when a card is created: gear packages for gear items, and the
+// best-fitting shirt in an open apparel order for each apparel item.
+function voAutoAssign(card){
+  const st=card.lines.filter(l=>l.action==='student');if(!st.length)return;
+  const gearLines=st.filter(l=>!voIsApparelLine(l));
+  if(gearLines.length){const best=voGearCandidates(card).filter(x=>x.score>0);if(best.length){card.gearAuto=true;gearLines.forEach(l=>voApplyRef(l,'g:'+best[0].o.id));}}
+  const used={}; // apparel order id -> products already matched in this card
+  st.filter(voIsApparelLine).forEach(l=>{
+    const pick=voApparelCandidates(card,l).find(x=>x.score>=4&&(used[x.o.id]||0)+voApparelLinked(x.o)<voApparelQty(x.o));
+    if(pick){used[pick.o.id]=(used[pick.o.id]||0)+(+l.qty||1);voApplyRef(l,'a:'+pick.o.id);card.gearAuto=true;}
+  });
 }
 // "Gloves ×2" for two different students → two lines of 1.
 function voSplitLine(cid,lid){
@@ -13449,7 +13517,7 @@ function voSplitLine(cid,lid){
   const idx=c.lines.findIndex(l=>l.id===lid);const l=c.lines[idx];if(!l||l.qty<2)return;
   const unit=l.unitPrice!=null?l.unitPrice:(l.lineTotal!=null?voRound(l.lineTotal/l.qty):null);
   const parts=[];
-  for(let k=0;k<l.qty;k++)parts.push(Object.assign({},l,{id:DB.nextId++,qty:1,unitPrice:unit,lineTotal:unit,gearOrderId:k===0?l.gearOrderId:null,studentId:k===0?l.studentId:null}));
+  for(let k=0;k<l.qty;k++)parts.push(Object.assign({},l,{id:DB.nextId++,qty:1,unitPrice:unit,lineTotal:unit,gearOrderId:k===0?l.gearOrderId:null,apparelOrderId:k===0?l.apparelOrderId:null,studentId:k===0?l.studentId:null}));
   // keep the total exact if the split doesn't divide evenly
   if(l.lineTotal!=null&&unit!=null){const diff=voRound(l.lineTotal-unit*l.qty);if(diff)parts[0].lineTotal=voRound(parts[0].lineTotal+diff);}
   c.lines.splice(idx,1,...parts);renderVoQueue();
@@ -13475,7 +13543,7 @@ function voMakeCard(src,meta,ex){
   // Pre-pick the gear order these student items most likely fill (oldest open match first).
   if(card.lines.some(l=>l.action==='student')){
     const best=voGearCandidates(card).filter(x=>x.score>0);
-    if(best.length){card.gearAuto=true;card.lines.forEach(l=>{if(l.action==='student')voApplyGear(l,best[0].o);});}
+    voAutoAssign(card);
   }
   // Century PDF invoices usually duplicate a store order — find it by total and date.
   if(src.kind==='invoice'){
@@ -13613,12 +13681,12 @@ function voSave(cid){
   // Link student items to the gear order they fill (real cost → profit on Gear Orders).
   // Each student item can fill a different gear order — link them per order.
   const byOrder={};
-  c.lines.forEach(l=>{if(l.action==='student'&&l.gearOrderId!=null)(byOrder[String(l.gearOrderId)]=byOrder[String(l.gearOrderId)]||[]).push(l);});
-  Object.entries(byOrder).forEach(([gid,items])=>{
-    const go=(DB.gearOrders||[]).find(o=>String(o.id)===gid);if(!go)return;
-    go.vendorLinks=(go.vendorLinks||[]).concat([{invoiceId:inv.id,vendor:c.vendor,num:c.num,date:c.date,items:items.map(l=>l.name+(l.options?' ('+l.options+')':'')),cost:voRound(items.reduce((a,l)=>a+(+l.lineTotal||0),0))}]);
+  c.lines.forEach(l=>{const r=l.action==='student'&&voLineRef(l);if(r)(byOrder[r]=byOrder[r]||[]).push(l);});
+  Object.entries(byOrder).forEach(([ref,items])=>{
+    const r=voFindRef(ref);if(!r)return;
+    r.o.vendorLinks=(r.o.vendorLinks||[]).concat([{invoiceId:inv.id,vendor:c.vendor,num:c.num,date:c.date,items:items.map(l=>l.name+(l.options?' ('+l.options+')':'')),qty:items.reduce((a,l)=>a+(+l.qty||1),0),cost:voRound(items.reduce((a,l)=>a+(+l.lineTotal||0),0))}]);
     const ids=new Set(items.map(l=>l.id));
-    inv.lineItems.forEach(li=>{if(ids.has(li.id))li.gearOrderId=go.id;});
+    inv.lineItems.forEach(li=>{if(ids.has(li.id)){if(r.kind==='gear')li.gearOrderId=r.o.id;else li.apparelOrderId=r.o.id;}});
   });
   let stocked=0;
   c.lines.forEach(l=>{
@@ -13662,8 +13730,8 @@ function renderVoQueue(){
           :`<input class="form-input vo-mini" value="${voEsc(l.label)}" placeholder="${l.type==='weapon'?'Weapon name':'Uniform name'}" oninput="voSetLine(${c.id},${l.id},'label',this.value)">`}
         <input class="form-input vo-mini" style="width:84px;" value="${voEsc(l.size)}" placeholder="Size" oninput="voSetLine(${c.id},${l.id},'size',this.value)">
         ${l.label?`<span style="font-size:11px;color:var(--ink-muted);white-space:nowrap;">in stock: ${voStockCount(l.type,l.label,l.size)}</span>`:''}`
-      :l.action==='student'?`<select class="form-select vo-mini" style="max-width:300px;" title="Gear order this item fills" onchange="voSetLineGear(${c.id},${l.id},this.value)"><option value="">— No gear order —</option>${voGearOptionsHTML(c,l,l.gearOrderId)}</select>
-        ${l.gearOrderId==null?`<select class="form-select vo-mini" onchange="voSetLine(${c.id},${l.id},'studentId',this.value)"><option value="">— Which student? (optional) —</option>${students.map(s=>`<option value="${s.id}" ${s.id===l.studentId?'selected':''}>${voEsc(s.first+' '+s.last)}</option>`).join('')}</select>`:''}
+      :l.action==='student'?`<select class="form-select vo-mini" style="max-width:300px;" title="Gear or apparel order this item fills" onchange="voSetLineGear(${c.id},${l.id},this.value)"><option value="">— No gear / apparel order —</option>${voGearOptionsHTML(c,l,voLineRef(l))}</select>
+        ${!voLineRef(l)?`<select class="form-select vo-mini" onchange="voSetLine(${c.id},${l.id},'studentId',this.value)"><option value="">— Which student? (optional) —</option>${students.map(s=>`<option value="${s.id}" ${s.id===l.studentId?'selected':''}>${voEsc(s.first+' '+s.last)}</option>`).join('')}</select>`:''}
         ${l.qty>1?`<button class="btn small" onclick="voSplitLine(${c.id},${l.id})" title="Split into ${l.qty} separate items so each can go to a different student">Split ×${l.qty}</button>`:''}`
       :'<span style="font-size:11px;color:var(--ink-faint);">spend only</span>';
       return `<tr class="${l.check?'vo-check':''}">
@@ -13671,7 +13739,7 @@ function renderVoQueue(){
         <td><input class="form-input vo-mini" style="width:56px;" type="number" min="0" value="${l.qty}" oninput="voSetLine(${c.id},${l.id},'qty',this.value)"></td>
         <td style="font-size:12px;white-space:nowrap;">${voMoney(l.lineTotal)}</td>
         <td><select class="form-select vo-mini" onchange="voSetLine(${c.id},${l.id},'action',this.value)">
-          <option value="stock" ${l.action==='stock'?'selected':''}>Stock</option><option value="student" ${l.action==='student'?'selected':''}>For a student</option><option value="expense" ${l.action==='expense'?'selected':''}>Expense only</option></select></td>
+          <option value="stock" ${l.action==='stock'?'selected':''}>Stock</option><option value="student" ${l.action==='student'?'selected':''}>For a student / order</option><option value="expense" ${l.action==='expense'?'selected':''}>Expense only</option></select></td>
         <td><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">${stockCtl}</div></td></tr>`;
     }).join('');
     return `<div class="pf-card">${head}${c._linkBox||''}
