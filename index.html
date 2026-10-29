@@ -357,6 +357,7 @@ tbody td{font-size:11px!important;}
     <div class="nav-item" data-page="ai" onclick="nav('ai')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg><span>AI Assistant</span></div>
     <div class="nav-section-label" onclick="toggleNavSection(this)">Students<span class="chevron">▾</span></div>
     <div class="nav-item" data-page="roster" onclick="nav('roster')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Roster</span></div>
+    <div class="nav-item" data-page="families" onclick="nav('families')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><circle cx="9.5" cy="14" r="1.6"/><circle cx="14.5" cy="14" r="1.6"/></svg><span>Families</span></div>
     <div class="nav-item" data-page="leaders" onclick="nav('leaders')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Leaders</span></div>
     <div class="nav-item" data-page="assistlog" onclick="nav('assistlog')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Assist Log</span></div>
     <div class="nav-item" data-page="goodjob" onclick="nav('goodjob')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg><span>Good Job</span></div>
@@ -669,6 +670,17 @@ tbody td{font-size:11px!important;}
 </div>
 
 <!-- ROSTER -->
+<!-- FAMILIES -->
+<div id="page-families" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div class="page-title">Families</div><div class="page-subtitle">Households, siblings and guardians — contacts here feed every email, text and payment match</div></div>
+    <input class="form-input" style="max-width:260px;" placeholder="Search family, student or parent…" oninput="famSearch=this.value;famOpenId=null;renderFamilies()">
+  </div>
+  <div id="fam-banner"></div>
+  <div id="fam-setup"></div>
+  <div id="fam-list"></div>
+</div>
+
 <div id="page-roster" class="page">
   <div id="roster-list-view">
     <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -1934,6 +1946,7 @@ tbody td{font-size:11px!important;}
       <div class="form-grid">
         <div class="form-group"><label class="form-label">First name</label><input class="form-input" id="f-first"></div>
         <div class="form-group"><label class="form-label">Last name</label><input class="form-input" id="f-last"></div>
+        <div id="f-fam-note" class="full" style="display:none;grid-column:1/-1;background:var(--blue-light);border-radius:8px;padding:8px 12px;font-size:12px;"></div>
         <div class="form-group"><label class="form-label">Parent / Guardian</label><input class="form-input" id="f-parent"></div>
         <div class="form-group"><label class="form-label">Parent email</label><input class="form-input" id="f-email" type="email"></div>
         <div class="form-group"><label class="form-label">Parent phone</label><input class="form-input" id="f-phone"></div>
@@ -3096,7 +3109,7 @@ function nav(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+page).classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,prospects:initProspects,goodjob:initGoodJob,ai:initAI,parentfeedback:initParentFeedback,events:initEvents,privatelessons:initPrivateLessons,workshops:renderWorkshops};
+  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,prospects:initProspects,goodjob:initGoodJob,ai:initAI,families:initFamilies,parentfeedback:initParentFeedback,events:initEvents,privatelessons:initPrivateLessons,workshops:renderWorkshops};
   fns[page]?.();
 }
 
@@ -13841,7 +13854,7 @@ function pmOpenItems(){
     const amt=parseFloat(o.amount)||0;if(o.paid||amt<=0)return;
     const s=o.studentId?DB.students.find(x=>x.id===o.studentId):null;
     const contact=((o.details||'').match(/Your name:\s*([^;]+)/i)||[])[1]||'';
-    items.push({key:'g'+o.id,kind:'gear',id:o.id,amount:amt,date:o.date||'',student:s,label:(o.studentName||(s?s.first+' '+s.last:'Unknown'))+' — '+(o.orderType||'Gear order'),names:[o.studentName,contact,s&&s.parent,s&&s.parent2].filter(Boolean)});
+    items.push({key:'g'+o.id,kind:'gear',id:o.id,amount:amt,date:o.date||'',student:s,label:(o.studentName||(s?s.first+' '+s.last:'Unknown'))+' — '+(o.orderType||'Gear order'),names:[o.studentName,contact,s&&s.parent,s&&s.parent2].concat(s&&typeof famOf==='function'&&famOf(s)?famOf(s).contacts.map(c=>c.name):[]).filter(Boolean)});
   });
   const today=localToday();
   (DB.testEvents||[]).filter(e=>e.type!=='Stripe Test'&&(+e.fee||0)>0&&e.date>=localDateOffset(-60)&&e.date<=localDateOffset(60)).forEach(ev=>{
@@ -13853,7 +13866,7 @@ function pmOpenItems(){
     });
     who.forEach(s=>{
       if((DB.testFees||[]).some(f=>f.eventId===ev.id&&f.studentId===s.id&&f.paid))return;
-      items.push({key:'t'+ev.id+'_'+s.id,kind:'test',eventId:ev.id,studentId:s.id,amount:+ev.fee,date:ev.date,student:s,label:s.first+' '+s.last+' — '+ev.name+' fee',names:[s.parent,s.parent2].filter(Boolean)});
+      items.push({key:'t'+ev.id+'_'+s.id,kind:'test',eventId:ev.id,studentId:s.id,amount:+ev.fee,date:ev.date,student:s,label:s.first+' '+s.last+' — '+ev.name+' fee',names:[s.parent,s.parent2].concat(typeof famOf==='function'&&famOf(s)?famOf(s).contacts.map(c=>c.name):[]).filter(Boolean)});
     });
   });
   return items;
@@ -14068,6 +14081,422 @@ function connectGmail(){
     }
   }).requestCode();
 }
+</script>
+<script>
+// ══════════════════════════════════════════════════════
+// FAMILIES — households with siblings and guardians
+// ══════════════════════════════════════════════════════
+// DB.families: [{id, name, notes, contacts:[{id,name,email,phone,students:null|[studentIds],notifyEmail,notifySms}]}]
+// Each student in a family has familyId. A student's main contact is the first
+// guardian (in list order) that applies to them; the next one is their second.
+// The student's own parent/email/phone (and parent2/email2/phone2) fields are kept
+// as a mirror of those, so every existing feature keeps working unchanged:
+//   • edit the family → every sibling's mirror updates
+//   • something edits a student's parent/email/phone → it's written back to the
+//     family guardian, then mirrored to the siblings  (see famReconcile on save)
+if(!DB.families)DB.families=[];
+const FAM_FIELDS=[['parent','name',0],['email','email',0],['phone','phone',0],['parent2','name',1],['email2','email',1],['phone2','phone',1]];
+
+function famEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function famNormEmail(e){return String(e||'').trim().toLowerCase();}
+function famNewId(prefix){return prefix+(DB.nextId++);}
+function famById(id){return (DB.families||[]).find(f=>f.id===id)||null;}
+function famOf(s){return s&&s.familyId?famById(s.familyId):null;}
+function famMembers(f){return f?DB.students.filter(s=>s.familyId===f.id):[];}
+function famContactsFor(f,s){return f?(f.contacts||[]).filter(c=>!c.students||!c.students.length||c.students.includes(s.id)):[];}
+function famMirrorValues(f,s){
+  const cs=famContactsFor(f,s);const out={};
+  FAM_FIELDS.forEach(([sf,cf,i])=>{out[sf]=(cs[i]&&cs[i][cf])||'';});
+  return out;
+}
+function famSnapshot(s){const o={};FAM_FIELDS.forEach(([sf])=>{o[sf]=s[sf]||'';});return o;}
+// Copy family → student mirror fields (and remember what we wrote).
+function famSyncStudent(s){
+  const f=famOf(s);if(!f){delete s._famSync;return;}
+  const v=famMirrorValues(f,s);
+  FAM_FIELDS.forEach(([sf])=>{s[sf]=v[sf];});
+  s._famSync=famSnapshot(s);
+}
+function famSyncFamily(f){famMembers(f).forEach(famSyncStudent);}
+// Called before every save: push student-side edits back into the family, then re-mirror.
+function famReconcile(){
+  if(!DB.families||!DB.families.length)return;
+  const touched=new Set();
+  DB.students.forEach(s=>{
+    const f=famOf(s);
+    if(!f){if(s.familyId)delete s.familyId;delete s._famSync;return;}
+    if(!s._famSync){touched.add(f);return;}
+    FAM_FIELDS.forEach(([sf,cf,i])=>{
+      const now=s[sf]||'',was=s._famSync[sf]||'';
+      if(now===was)return;
+      // A feature or the edit form changed this student's contact → update the guardian.
+      let c=famContactsFor(f,s)[i];
+      if(!c&&now){c={id:famNewId('c'),name:'',email:'',phone:'',students:null,notifyEmail:i===0,notifySms:i===0};f.contacts.push(c);}
+      if(c)c[cf]=now;
+      touched.add(f);
+    });
+  });
+  touched.forEach(famSyncFamily);
+}
+// Hook into save so reconciliation always runs (covers all existing features).
+(function(){
+  if(typeof save!=='function'||save._fam)return;
+  const orig=save;
+  save=function(){try{famReconcile();}catch(e){console.warn('Family sync failed:',e);}return orig.apply(this,arguments);};
+  save._fam=true;
+})();
+
+// ── Setup: propose families from shared emails ──
+function famProposals(){
+  const free=DB.students.filter(s=>!s.familyId);
+  const groups={};
+  free.forEach(s=>{const k=famNormEmail(s.email)||('solo:'+s.id);(groups[k]=groups[k]||[]).push(s);});
+  const props=Object.entries(groups).map(([key,kids])=>{
+    const names={};kids.forEach(k=>{const n=(k.parent||'').trim();if(n)names[n]=(names[n]||0)+1;});
+    const ranked=Object.entries(names).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+    const lasts={};kids.forEach(k=>{lasts[k.last]=(lasts[k.last]||0)+1;});
+    const last=Object.entries(lasts).sort((a,b)=>b[1]-a[1])[0][0];
+    const phone=(kids.find(k=>k.phone)||{}).phone||'';
+    const second=kids.find(k=>k.parent2||k.email2||k.phone2);
+    return {key,kids,name:last,email:key.startsWith('solo:')?'':key,parentName:ranked[0]||'',otherNames:ranked.slice(1),phone,
+      second:second?{name:second.parent2||'',email:second.email2||'',phone:second.phone2||''}:null,
+      active:kids.some(k=>k.status==='Active')};
+  });
+  // Same last name, different emails → maybe one household
+  const byLast={};props.forEach(p=>{(byLast[p.name.toLowerCase()]=byLast[p.name.toLowerCase()]||[]).push(p);});
+  const merges=Object.values(byLast).filter(a=>a.length>1).map(a=>({keys:a.map(p=>p.key),name:a[0].name,
+    on:/^noble$/i.test(a[0].name)})); // Nobles: one family, two guardians (as decided)
+  return {props:props.sort((a,b)=>b.kids.length-a.kids.length||a.name.localeCompare(b.name)),merges};
+}
+let famSetupState=null;
+function famOpenSetup(){famSetupState=famProposals();famSetupState.excluded=new Set();renderFamSetup();}
+function renderFamSetup(){
+  const el=$('fam-setup');if(!el)return;
+  if(!famSetupState){el.innerHTML='';return;}
+  const {props,merges,excluded}=famSetupState;
+  if(!props.length){el.innerHTML='<div class="pf-card" style="font-size:13px;">Every student is already in a family. 🎉</div>';return;}
+  const multi=props.filter(p=>p.kids.length>1).length;
+  const mergeFor=k=>merges.find(m=>m.keys.includes(k));
+  el.innerHTML=`<div class="pf-card">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+      <div style="flex:1;min-width:220px;"><div style="font-family:var(--font-display);font-size:15px;font-weight:700;">Set up families</div>
+      <div style="font-size:12px;color:var(--ink-muted);">${props.length} household${props.length!==1?'s':''} found by shared parent email — ${multi} with siblings. Check the names and anything flagged, then create them. You can edit any family afterwards.</div></div>
+      <button class="btn small" onclick="famSetupState=null;renderFamSetup()">Cancel</button>
+      <button class="btn small primary" onclick="famApplySetup()">Create ${props.length-excluded.size} families</button></div>
+    ${merges.length?`<div style="background:var(--blue-light);border-radius:8px;padding:9px 12px;font-size:12px;margin-bottom:8px;">${merges.map((m,i)=>`<label style="display:block;margin:2px 0;"><input type="checkbox" ${m.on?'checked':''} onchange="famSetupState.merges[${i}].on=this.checked;renderFamSetup()"> Same household? Combine the <strong>${famEsc(m.name)}</strong> groups into one family (each parent stays the contact for their own kids)</label>`).join('')}</div>`:''}
+    <div class="table-wrap"><table><thead><tr><th></th><th>Family name</th><th>Students</th><th>Main contact</th><th>Notes</th></tr></thead><tbody>
+    ${props.map((p,i)=>{const m=mergeFor(p.key);const flags=[];
+      if(p.otherNames.length)flags.push('Other parent name on file: '+p.otherNames.map(famEsc).join(', ')+' — saved to family notes');
+      if(m&&m.on)flags.push('Combined with the other '+famEsc(m.name)+' group');
+      if(!p.email)flags.push('No email on file');
+      return `<tr style="${excluded.has(p.key)?'opacity:.45;':''}">
+        <td><input type="checkbox" ${excluded.has(p.key)?'':'checked'} title="Include" onchange="this.checked?famSetupState.excluded.delete('${famEsc(p.key)}'):famSetupState.excluded.add('${famEsc(p.key)}');renderFamSetup()"></td>
+        <td><input class="form-input vo-mini" style="width:140px;" value="${famEsc(p.name)}" oninput="famSetupState.props[${i}].name=this.value"></td>
+        <td style="font-size:12px;">${p.kids.map(k=>famEsc(k.first)+(k.status!=='Active'?' <span style="color:var(--ink-faint);">(inactive)</span>':'')).join(', ')}</td>
+        <td style="font-size:12px;"><input class="form-input vo-mini" style="width:150px;" value="${famEsc(p.parentName)}" oninput="famSetupState.props[${i}].parentName=this.value"><div style="color:var(--ink-muted);margin-top:2px;">${famEsc(p.email||'—')} · ${famEsc(p.phone||'—')}</div>${p.second?`<div style="color:var(--ink-muted);">+ ${famEsc(p.second.name||p.second.email||p.second.phone)}</div>`:''}</td>
+        <td style="font-size:11px;color:var(--amber);">${flags.join('<br>')}</td></tr>`;}).join('')}
+    </tbody></table></div></div>`;
+}
+function famApplySetup(){
+  const st=famSetupState;if(!st)return;
+  if(typeof pushUndo==='function')pushUndo('Create families');
+  const byKey={};st.props.forEach(p=>{byKey[p.key]=p;});
+  const done=new Set();let created=0;
+  const contactFrom=(p,scoped)=>({id:famNewId('c'),name:(p.parentName||'').trim(),email:p.email||'',phone:p.phone||'',students:scoped?p.kids.map(k=>k.id):null,notifyEmail:true,notifySms:true});
+  const build=(parts)=>{
+    const live=parts.filter(p=>!st.excluded.has(p.key));if(!live.length)return;
+    const scoped=live.length>1;
+    const f={id:famNewId('f'),name:(live[0].name||'').trim()||live[0].kids[0].last,notes:'',contacts:[]};
+    live.forEach(p=>{
+      f.contacts.push(contactFrom(p,scoped));
+      if(p.second&&(p.second.name||p.second.email||p.second.phone))f.contacts.push({id:famNewId('c'),name:p.second.name,email:p.second.email,phone:p.second.phone,students:scoped?p.kids.map(k=>k.id):null,notifyEmail:false,notifySms:false});
+      if(p.otherNames.length)f.notes=(f.notes?f.notes+'\n':'')+'Other parent name on file: '+p.otherNames.join(', ');
+      p.kids.forEach(k=>{k.familyId=f.id;});
+      done.add(p.key);
+    });
+    DB.families.push(f);famSyncFamily(f);created++;
+  };
+  st.merges.filter(m=>m.on).forEach(m=>build(m.keys.map(k=>byKey[k]).filter(Boolean)));
+  st.props.forEach(p=>{if(!done.has(p.key))build([p]);});
+  famSetupState=null;save();renderFamilies();toast('Created '+created+' families.');
+}
+
+// ── New students join their family automatically (same email) ──
+function famAutoJoin(s){
+  if(!s||s.familyId)return;
+  const e=famNormEmail(s.email);if(!e)return;
+  const f=(DB.families||[]).find(f=>(f.contacts||[]).some(c=>famNormEmail(c.email)===e));
+  if(!f)return;
+  s.familyId=f.id;
+  const c=f.contacts.find(c=>famNormEmail(c.email)===e);
+  if(c&&c.students&&c.students.length&&!c.students.includes(s.id))c.students.push(s.id);
+  // the new student's own entries become the mirror's starting point
+  s._famSync=famSnapshot(s);famSyncStudent(s);
+}
+
+// Undo should restore families along with students.
+(function(){
+  if(typeof pushUndo!=='function'||pushUndo._fam)return;
+  const p=pushUndo,u=typeof undo==='function'?undo:null;
+  pushUndo=function(){const r=p.apply(this,arguments);try{if(_undoStack.length)_undoStack[_undoStack.length-1].families=JSON.stringify(DB.families||[]);}catch(e){}return r;};
+  pushUndo._fam=true;
+  if(u){undo=function(){let fam=null;try{const top=_undoStack[_undoStack.length-1];fam=top&&top.families;}catch(e){}const r=u.apply(this,arguments);if(fam){DB.families=JSON.parse(fam);DB.students.forEach(famSyncStudent);save();}return r;};}
+})();
+
+// ══ Families page ══
+let famSearch='',famOpenId=null;
+function initFamilies(){renderFamilies();}
+function famOpenItems(f){
+  const ids=new Set(famMembers(f).map(s=>s.id));
+  const gear=(DB.gearOrders||[]).filter(o=>ids.has(o.studentId)&&!o.paid&&(+o.amount||0)>0);
+  const emails=new Set((f.contacts||[]).map(c=>famNormEmail(c.email)).filter(Boolean));
+  const names=new Set(famMembers(f).map(s=>(s.first+' '+s.last).toLowerCase()));
+  const apparel=(DB.apparelOrders||[]).filter(o=>!o.paid&&(emails.has(famNormEmail(o.email))||String(o.students||'').toLowerCase().split(',').some(n=>names.has(n.trim()))));
+  const fees=[];
+  (DB.testEvents||[]).filter(e=>e.type!=='Stripe Test'&&(+e.fee||0)>0&&e.date>=localDateOffset(-60)&&e.date<=localDateOffset(60)).forEach(ev=>{
+    famMembers(f).filter(s=>s.status==='Active'&&typeof beltTestEligible==='function'&&beltTestEligible(s)&&(typeof canPromoteAtEvent!=='function'||canPromoteAtEvent(s,ev))).forEach(s=>{
+      if(!(DB.testFees||[]).some(x=>x.eventId===ev.id&&x.studentId===s.id&&x.paid))fees.push({s,ev});
+    });
+  });
+  const total=gear.reduce((a,o)=>a+(+o.amount||0),0)+apparel.reduce((a,o)=>a+(+o.total||0),0)+fees.reduce((a,x)=>a+(+x.ev.fee||0),0);
+  return {gear,apparel,fees,total};
+}
+function renderFamilies(){
+  const el=$('fam-list');if(!el)return;
+  renderFamSetup();
+  const unassigned=DB.students.filter(s=>!s.familyId);
+  const banner=$('fam-banner');
+  if(banner)banner.innerHTML=unassigned.length&&!famSetupState?`<div style="background:var(--amber-light);border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><span style="flex:1;">${unassigned.length} student${unassigned.length!==1?'s aren’t':' isn’t'} in a family yet.</span><button class="btn small primary" onclick="famOpenSetup()">${DB.families.length?'Group them':'Set up families'}</button></div>`:'';
+  if(famOpenId&&famById(famOpenId)){renderFamilyEditor(famById(famOpenId));return;}
+  const q=famSearch.toLowerCase();
+  let fams=(DB.families||[]).slice();
+  if(q)fams=fams.filter(f=>f.name.toLowerCase().includes(q)||famMembers(f).some(s=>(s.first+' '+s.last).toLowerCase().includes(q))||(f.contacts||[]).some(c=>(c.name+' '+c.email+' '+c.phone).toLowerCase().includes(q)));
+  const act=f=>famMembers(f).some(s=>s.status==='Active');
+  fams.sort((a,b)=>(act(b)-act(a))||a.name.localeCompare(b.name));
+  el.innerHTML=fams.length?`<div class="table-wrap"><table><thead><tr><th>Family</th><th>Students</th><th>Guardians</th><th>Open balance</th></tr></thead><tbody>${fams.map(f=>{
+    const kids=famMembers(f);const open=famOpenItems(f);
+    return `<tr style="cursor:pointer;${act(f)?'':'opacity:.6;'}" onclick="famOpenId='${f.id}';renderFamilies()">
+      <td><strong>${famEsc(f.name)}</strong>${kids.length>1?` <span class="badge badge-blue" style="font-size:10px;">${kids.length} kids</span>`:''}</td>
+      <td style="font-size:12px;">${kids.map(s=>famEsc(s.first)+(s.status!=='Active'?' <span style="color:var(--ink-faint);">(inactive)</span>':'')).join(', ')||'<span style="color:var(--ink-faint);">none</span>'}</td>
+      <td style="font-size:12px;">${(f.contacts||[]).map(c=>famEsc(c.name||c.email||c.phone)).join('<br>')||'—'}</td>
+      <td style="font-size:12px;">${open.total>0?`<span style="color:var(--red);font-weight:600;">${fmt$(open.total)}</span>`:'<span style="color:var(--ink-faint);">—</span>'}</td></tr>`;}).join('')}</tbody></table></div>`
+    :`<div style="color:var(--ink-muted);font-size:13px;padding:20px;text-align:center;">${DB.families.length?'No families match.':'No families yet — click Set up families above.'}</div>`;
+}
+function famEdit(fid,fn){const f=famById(fid);if(!f)return;fn(f);famSyncFamily(f);save();renderFamilies();}
+function famSetName(fid,v){const f=famById(fid);if(f){f.name=v;save();}}
+function famSetNotes(fid,v){const f=famById(fid);if(f){f.notes=v;save();}}
+function famSetContact(fid,cid,field,v){const f=famById(fid);if(!f)return;const c=f.contacts.find(x=>x.id===cid);if(!c)return;c[field]=v;famSyncFamily(f);save();}
+function famToggleContact(fid,cid,field){famEdit(fid,f=>{const c=f.contacts.find(x=>x.id===cid);if(c)c[field]=!c[field];});}
+function famContactKid(fid,cid,sid,on){famEdit(fid,f=>{const c=f.contacts.find(x=>x.id===cid);if(!c)return;const all=famMembers(f).map(s=>s.id);let list=c.students&&c.students.length?c.students.slice():all.slice();list=on?[...new Set(list.concat(sid))]:list.filter(x=>x!==sid);c.students=list.length===all.length?null:list;});}
+function famMoveContact(fid,cid,dir){famEdit(fid,f=>{const i=f.contacts.findIndex(x=>x.id===cid);const j=i+dir;if(i<0||j<0||j>=f.contacts.length)return;[f.contacts[i],f.contacts[j]]=[f.contacts[j],f.contacts[i]];});}
+function famAddContact(fid){famEdit(fid,f=>{f.contacts.push({id:famNewId('c'),name:'',email:'',phone:'',students:null,notifyEmail:false,notifySms:false});});}
+function famRemoveContact(fid,cid){if(!confirm('Remove this guardian from the family?'))return;famEdit(fid,f=>{f.contacts=f.contacts.filter(x=>x.id!==cid);});}
+function famAddMember(fid,sid){
+  const s=DB.students.find(x=>x.id===parseInt(sid));if(!s)return;
+  const old=famOf(s);
+  famEdit(fid,f=>{s.familyId=f.id;delete s._famSync;});
+  if(old&&!famMembers(old).length&&confirm('“'+old.name+'” has no students left. Delete that family?')){DB.families=DB.families.filter(x=>x!==old);save();renderFamilies();}
+}
+function famRemoveMember(fid,sid){
+  const s=DB.students.find(x=>x.id===sid);if(!s)return;
+  if(!confirm('Move '+s.first+' out of this family into a new family of their own?'))return;
+  famEdit(fid,f=>{
+    const nf={id:famNewId('f'),name:s.last,notes:'',contacts:famContactsFor(f,s).map(c=>Object.assign({},c,{id:famNewId('c'),students:null}))};
+    f.contacts.forEach(c=>{if(c.students)c.students=c.students.filter(x=>x!==s.id);});
+    DB.families.push(nf);s.familyId=nf.id;famSyncStudent(s);
+  });
+}
+function famDelete(fid){
+  const f=famById(fid);if(!f)return;
+  if(famMembers(f).length){alert('Move the students out first (or into another family).');return;}
+  if(!confirm('Delete the '+f.name+' family?'))return;
+  DB.families=DB.families.filter(x=>x!==f);famOpenId=null;save();renderFamilies();
+}
+function renderFamilyEditor(f){
+  const el=$('fam-list');const kids=famMembers(f);const open=famOpenItems(f);
+  const others=DB.students.filter(s=>s.familyId!==f.id).sort((a,b)=>(a.status==='Active'?0:1)-(b.status==='Active'?0:1)||(a.last+a.first).localeCompare(b.last+b.first));
+  const mains={};kids.forEach(s=>{const c=famContactsFor(f,s)[0];if(c)(mains[c.id]=mains[c.id]||[]).push(s.first);});
+  el.innerHTML=`<div class="profile-back" onclick="famOpenId=null;renderFamilies()">← All families</div>
+  <div class="pf-card">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+      <input class="form-input" style="max-width:280px;font-family:var(--font-display);font-size:18px;font-weight:700;" value="${famEsc(f.name)}" onchange="famSetName('${f.id}',this.value)" title="Family name">
+      <span style="font-size:12px;color:var(--ink-muted);">family</span><div style="flex:1;"></div>
+      ${kids.length?'':`<button class="btn small danger" onclick="famDelete('${f.id}')">Delete family</button>`}
+    </div>
+    <div class="form-label">Students</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px;align-items:center;">
+      ${kids.map(s=>`<span class="badge" style="background:var(--paper);border:1px solid var(--border);color:var(--ink);font-size:12px;padding:5px 10px;"><span style="cursor:pointer;text-decoration:underline;" onclick="nav('roster');openProfile(${s.id})">${famEsc(s.first+' '+s.last)}</span> <span class="belt-pill" style="${beltStyle(s.belt)};font-size:10px;">${famEsc(s.belt)}</span>${s.status!=='Active'?' <span style="color:var(--ink-faint);">inactive</span>':''} <span title="Move to their own family" style="cursor:pointer;color:var(--ink-faint);" onclick="famRemoveMember('${f.id}',${s.id})">✕</span></span>`).join('')}
+      <select class="form-select vo-mini" style="max-width:240px;" onchange="if(this.value)famAddMember('${f.id}',this.value);this.value='';"><option value="">+ Add a student…</option>${others.map(s=>`<option value="${s.id}">${famEsc(s.first+' '+s.last)}${s.status!=='Active'?' (inactive)':''}${famOf(s)?' — from '+famEsc(famOf(s).name):''}</option>`).join('')}</select>
+    </div>
+    <div class="form-label">Guardians <span style="font-weight:400;color:var(--ink-muted);">(the first one that applies to a student is that student's main contact)</span></div>
+    ${(f.contacts||[]).map((c,i)=>`<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:6px 0;background:var(--paper);">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;">
+        <input class="form-input" placeholder="Name" value="${famEsc(c.name)}" onchange="famSetContact('${f.id}','${c.id}','name',this.value.trim())">
+        <input class="form-input" placeholder="Email" type="email" value="${famEsc(c.email)}" onchange="famSetContact('${f.id}','${c.id}','email',this.value.trim())">
+        <input class="form-input" placeholder="Phone" value="${famEsc(c.phone)}" onchange="famSetContact('${f.id}','${c.id}','phone',this.value.trim())">
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:12px;">
+        <label><input type="checkbox" ${c.notifyEmail?'checked':''} onchange="famToggleContact('${f.id}','${c.id}','notifyEmail')"> Gets announcement emails</label>
+        <label><input type="checkbox" ${c.notifySms?'checked':''} onchange="famToggleContact('${f.id}','${c.id}','notifySms')"> Gets texts</label>
+        ${kids.length>1?`<span style="color:var(--ink-muted);">For:</span>${kids.map(s=>`<label><input type="checkbox" ${(!c.students||!c.students.length||c.students.includes(s.id))?'checked':''} onchange="famContactKid('${f.id}','${c.id}',${s.id},this.checked)"> ${famEsc(s.first)}</label>`).join('')}`:''}
+        <div style="flex:1;"></div>
+        ${mains[c.id]?`<span class="badge badge-green" style="font-size:10px;">Main contact${kids.length>1?' for '+mains[c.id].map(famEsc).join(', '):''}</span>`:''}
+        ${i>0?`<button class="btn small" onclick="famMoveContact('${f.id}','${c.id}',-1)" title="Move up (higher priority)">↑</button>`:''}
+        <button class="btn small" onclick="famRemoveContact('${f.id}','${c.id}')" title="Remove guardian">✕</button>
+      </div></div>`).join('')}
+    <button class="btn small" onclick="famAddContact('${f.id}')">+ Add guardian</button>
+    <div class="form-group" style="margin:14px 0 0;"><label class="form-label">Family notes</label><textarea class="form-input" rows="2" onchange="famSetNotes('${f.id}',this.value)">${famEsc(f.notes||'')}</textarea></div>
+  </div>
+  <div class="pf-card">
+    <div style="font-family:var(--font-display);font-size:15px;font-weight:700;margin-bottom:8px;">Open balance ${open.total>0?`<span style="color:var(--red);">${fmt$(open.total)}</span>`:'<span style="color:var(--green);font-size:13px;">— all paid up</span>'}</div>
+    ${open.gear.map(o=>`<div style="display:flex;gap:10px;font-size:13px;padding:5px 0;border-bottom:1px solid var(--border);"><span style="flex:1;">🥋 ${famEsc(o.studentName||'')} — ${famEsc(o.orderType||'Gear order')} <span style="color:var(--ink-muted);">· ${fmtDate(o.date)}</span></span><strong>${fmt$(+o.amount)}</strong></div>`).join('')}
+    ${open.apparel.map(o=>`<div style="display:flex;gap:10px;font-size:13px;padding:5px 0;border-bottom:1px solid var(--border);"><span style="flex:1;">👕 Apparel — ${famEsc((o.products||[]).map(p=>p.name).join(', '))} <span style="color:var(--ink-muted);">· ${fmtDate(o.date)}</span></span><strong>${fmt$(+o.total)}</strong></div>`).join('')}
+    ${open.fees.map(x=>`<div style="display:flex;gap:10px;font-size:13px;padding:5px 0;border-bottom:1px solid var(--border);"><span style="flex:1;">🎖 ${famEsc(x.s.first)} — ${famEsc(x.ev.name)} fee</span><strong>${fmt$(+x.ev.fee)}</strong></div>`).join('')}
+    ${open.total>0?'':'<div style="font-size:12px;color:var(--ink-muted);">No unpaid gear orders, apparel or belt test fees.</div>'}
+  </div>`;
+}
+// Small panel on a student's profile.
+function famProfileHTML(s){
+  const f=famOf(s);
+  if(!f)return `<div class="pf-card" style="font-size:13px;display:flex;gap:10px;align-items:center;"><span style="flex:1;color:var(--ink-muted);">Not in a family yet.</span><button class="btn small" onclick="nav('families')">Set up families</button></div>`;
+  const sibs=famMembers(f).filter(x=>x.id!==s.id);const cs=famContactsFor(f,s);
+  return `<div class="pf-card" style="font-size:13px;">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px;"><div style="font-family:var(--font-display);font-weight:700;flex:1;">${famEsc(f.name)} family</div><button class="btn small" onclick="nav('families');famOpenId='${f.id}';renderFamilies()">Open family</button></div>
+    ${sibs.length?`<div style="margin-bottom:6px;"><span style="color:var(--ink-muted);">Siblings:</span> ${sibs.map(x=>`<span style="cursor:pointer;color:var(--blue);text-decoration:underline;" onclick="openProfile(${x.id})">${famEsc(x.first)}</span>${x.status!=='Active'?' <span style="color:var(--ink-faint);">(inactive)</span>':''}`).join(', ')}</div>`:''}
+    ${cs.map((c,i)=>`<div><span class="badge ${i===0?'badge-green':'badge-gray'}" style="font-size:10px;">${i===0?'Main':'Also'}</span> ${famEsc(c.name||'—')} · ${c.email?`<a href="mailto:${famEsc(c.email)}" style="color:var(--blue);">${famEsc(c.email)}</a>`:'no email'} · ${famEsc(c.phone||'no phone')}</div>`).join('')}
+  </div>`;
+}
+
+// ── Hooks into existing screens ──
+(function(){
+  // Profile: family panel under the header card
+  if(typeof openProfile==='function'&&!openProfile._fam){
+    const o=openProfile;
+    openProfile=function(id){const r=o.apply(this,arguments);try{const s=DB.students.find(x=>x.id===id);const hero=document.querySelector('#profile-view .prof-hero');if(s&&hero)hero.insertAdjacentHTML('afterend',famProfileHTML(s));}catch(e){}return r;};
+    openProfile._fam=true;
+  }
+  // Edit form: say when contacts are shared with siblings
+  function famFormNote(s){
+    const el=$('f-fam-note');if(!el)return;
+    const f=s?famOf(s):null;const sibs=f?famMembers(f).filter(x=>x.id!==s.id):[];
+    el.style.display=f?'block':'none';
+    el.innerHTML=f?`Contact details come from the <strong>${famEsc(f.name)}</strong> family${sibs.length?' — changes here also update '+sibs.map(x=>famEsc(x.first)).join(', '):''}. <a href="#" onclick="closeModal('modal-student');nav('families');famOpenId='${f.id}';renderFamilies();return false;">Edit family</a>`:'';
+  }
+  if(typeof openEditStudent==='function'&&!openEditStudent._fam){
+    const o=openEditStudent;openEditStudent=function(id){const r=o.apply(this,arguments);famFormNote(DB.students.find(x=>x.id===id));return r;};openEditStudent._fam=true;
+  }
+  if(typeof openAddStudent==='function'&&!openAddStudent._fam){
+    const o=openAddStudent;openAddStudent=function(){const r=o.apply(this,arguments);famFormNote(null);return r;};openAddStudent._fam=true;
+  }
+  // New students join the family that already uses their parent email
+  if(typeof saveStudent==='function'&&!saveStudent._fam){
+    const o=saveStudent;
+    saveStudent=function(){
+      const before=new Set(DB.students.map(s=>s.id));
+      const r=o.apply(this,arguments);
+      const added=DB.students.filter(s=>!before.has(s.id));
+      if(added.length&&DB.families.length){added.forEach(famAutoJoin);if(added.some(s=>s.familyId)){save();const f=famOf(added[0]);if(f)toast(added[0].first+' added to the '+f.name+' family.');}}
+      return r;
+    };
+    saveStudent._fam=true;
+  }
+})();
+</script>
+<script>
+// ══════════════════════════════════════════════════════
+// FAMILIES — one announcement per family (broadcast email + texts)
+// ══════════════════════════════════════════════════════
+function famJoinNames(a){a=[...new Set(a.filter(Boolean))];return a.length<=1?(a[0]||''):a.slice(0,-1).join(', ')+' & '+a[a.length-1];}
+// Who gets an announcement for these students: guardians with the setting on, one entry per address.
+function famEmailTargets(students){
+  const by={};
+  students.forEach(s=>{
+    const f=famOf(s);
+    const cs=f?famContactsFor(f,s).filter(c=>c.notifyEmail&&c.email):(s.email?[{name:s.parent,email:s.email}]:[]);
+    cs.forEach(c=>{const k=famNormEmail(c.email);(by[k]=by[k]||{email:c.email,name:c.name||'',students:[],family:f}).students.push(s);});
+  });
+  return Object.values(by);
+}
+function famSmsTargets(students){
+  const by={};
+  students.forEach(s=>{
+    const f=famOf(s);
+    const cs=f?famContactsFor(f,s).filter(c=>c.notifySms&&c.phone):(s.phone?[{name:s.parent,phone:s.phone}]:[]);
+    cs.forEach(c=>{const p=smsGetPhone({phone:c.phone});if(!p)return;(by[p]=by[p]||{phone:p,name:c.name||'',students:[]}).students.push(s);});
+  });
+  return Object.values(by).map(t=>{const s0=t.students[0];return {id:s0.id,ids:t.students.map(s=>s.id),name:famJoinNames(t.students.map(s=>s.first))+' '+s0.last,
+    first:famJoinNames(t.students.map(s=>s.first)),last:s0.last,belt:s0.belt,group:famJoinNames(t.students.map(s=>s.group)),parent:t.name||s0.parent,phone:t.phone};});
+}
+
+// Broadcast: one email per family address, naming every child's group links.
+(function(){
+  if(typeof getBroadcastRecipients!=='function'||sendBroadcast._fam)return;
+  updateBroadcastRecipientCount=function(){
+    const students=getBroadcastRecipients();const targets=famEmailTargets(students);
+    const el=$('broadcast-recipient-count');
+    if(el)el.textContent=targets.length+' email'+(targets.length!==1?'s':'')+' — one per family ('+students.length+' student'+(students.length!==1?'s':'')+')';
+  };
+  sendBroadcast=async function(){
+    if(!gmailToken){alert('Connect Gmail first on the Emails tab.');return;}
+    const subject=$('bc-subject')?.value.trim();const body=$('bc-body')?.value.trim();
+    if(!subject){alert('Please enter a subject.');return;}
+    if(!body){alert('Please enter a message.');return;}
+    const students=getBroadcastRecipients();const targets=famEmailTargets(students);
+    if(!targets.length){alert('No recipients with email addresses selected.');return;}
+    if(!confirm('Send broadcast to '+targets.length+' famil'+(targets.length!==1?'ies':'y')+' ('+students.length+' students)?'))return;
+    const btn=$('bc-send-btn');if(btn){btn.disabled=true;btn.textContent='Sending…';}
+    const prog=$('bc-send-progress');let sent=0;const failed=[];
+    for(const t of targets){
+      const groups=[...new Set(t.students.map(s=>s.group))];
+      let footer='\n\n'+'—'.repeat(30);
+      if($('bc-include-challenge')?.checked&&DB.challengeOfMonth)footer+='\n\nChallenge of the Month:\n'+DB.challengeOfMonth;
+      if($('bc-include-reg')?.checked)groups.forEach(g=>{const u=(DB.regLinks&&DB.regLinks[g])||REG_LINKS[g];if(u)footer+='\n\nRegister for '+g+':\n'+u;});
+      if($('bc-include-playlist')?.checked)groups.forEach(g=>{const yt=getPlaylist(Object.keys(YT_PLAYLISTS).find(k=>k.startsWith(g+':')&&k.endsWith(':'+(CURRICULUM[g]?.currentCycle||1)))?g:null,CURRICULUM[g]?.currentCycle);if(yt)footer+='\n\n'+(groups.length>1?g+' ':'')+'Curriculum Playlist:\n'+yt;});
+      if($('bc-include-linktree')?.checked)footer+='\n\nNMA Parent Hub (announcements, registration, resources):\n'+LINKTREE;
+      const ok=await sendGmailMessage(t.email,subject,body+footer);
+      if(ok)sent++;else failed.push(t.name||t.email);
+      if(prog)prog.innerHTML='<div class="send-progress">Sending… '+sent+' / '+targets.length+'</div>';
+    }
+    if(btn){btn.disabled=false;btn.textContent='✉ Send Broadcast';}
+    if(prog)prog.innerHTML='<div class="send-progress" style="background:var(--green-light);border-color:var(--green);color:var(--green);">✓ Sent '+sent+(failed.length?' · Failed: '+failed.join(', '):'')+'</div>';
+    toast('Broadcast sent to '+sent+' famil'+(sent!==1?'ies':'y')+'!');
+  };
+  sendBroadcast._fam=true;
+})();
+
+// Texts: one per guardian phone, {first} becomes every child's name ("Adara, Caden & Timothy").
+(function(){
+  if(typeof smsSelectGroup!=='function'||smsSelectGroup._fam)return;
+  smsSelectGroup=function(group){
+    const students=DB.students.filter(s=>{
+      if(s.status!=='Active')return false;
+      if(group==='all')return true;
+      if(group==='unregistered')return s.registered!=='Yes';
+      if(group==='eligible')return stripeEligible(s);
+      return s.group===group;
+    });
+    _smsRecipients=famSmsTargets(students);
+    renderSmsRecipientSummary();
+  };
+  smsSelectGroup._fam=true;
+  const origAdd=smsAddStudent;
+  smsAddStudent=function(id){
+    const s=DB.students.find(x=>x.id===id);if(!s)return;
+    if(!famOf(s))return origAdd.apply(this,arguments);
+    const add=famSmsTargets([s]);
+    if(!add.length){toast('No guardian in the '+famOf(s).name+' family is set to get texts.');return;}
+    add.forEach(t=>{
+      const ex=_smsRecipients.find(r=>r.phone===t.phone);
+      if(!ex){_smsRecipients.push(t);return;}
+      const ids=new Set(ex.ids||[ex.id]);if(ids.has(s.id))return;
+      ids.add(s.id);const kids=[...ids].map(i=>DB.students.find(x=>x.id===i)).filter(Boolean);
+      Object.assign(ex,{ids:[...ids],first:famJoinNames(kids.map(k=>k.first)),name:famJoinNames(kids.map(k=>k.first))+' '+kids[0].last,group:famJoinNames(kids.map(k=>k.group))});
+    });
+    const input=$('sms-search');if(input)input.value='';
+    const results=$('sms-search-results');if(results)results.style.display='none';
+    renderSmsRecipientSummary();
+  };
+})();
 </script>
 </body>
 </html>
