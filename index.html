@@ -13412,9 +13412,9 @@ function voGearCandidates(c){
 function voGearLabel(o){return (o.studentName||'(no student)')+' — '+String(o.orderType||'Order').replace(/\s*-\s*/,' - ').slice(0,60)+' · '+fmtDate(o.date)+(o.amount?' · '+fmt$(+o.amount):'');}
 function voGearSelectHTML(c){
   if(!c.lines.some(l=>l.action==='student'))return '';
-  const cands=voGearCandidates(c);
+  const cands=voGearCandidates(c).filter(x=>x.score>0);
   const others=(DB.gearOrders||[]).filter(o=>voGearOrderOpen(o,c.vendor)&&!cands.some(x=>x.o===o)).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,40);
-  const opt=o=>`<option value="${o.id}" ${o.id===c.gearOrderId?'selected':''}>${voEsc(voGearLabel(o))}</option>`;
+  const opt=o=>`<option value="${o.id}" ${String(o.id)===String(c.gearOrderId)?'selected':''}>${voEsc(voGearLabel(o))}</option>`;
   return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 10px;font-size:12px;">
     <span style="font-weight:600;">Student items fill gear order:</span>
     <select class="form-select vo-mini" style="max-width:520px;" onchange="voSetGearOrder(${c.id},this.value)">
@@ -13425,8 +13425,9 @@ function voGearSelectHTML(c){
 }
 function voSetGearOrder(cid,val){
   const c=voCard(cid);if(!c)return;
-  c.gearOrderId=parseInt(val)||null;c.gearAuto=false;
-  const o=(DB.gearOrders||[]).find(x=>x.id===c.gearOrderId);
+  // Gear order ids can be decimals (Date.now()+random) — match on the exact string, never parseInt.
+  const o=val?(DB.gearOrders||[]).find(x=>String(x.id)===String(val)):null;
+  c.gearOrderId=o?o.id:null;c.gearAuto=false;
   if(o&&o.studentId)c.lines.forEach(l=>{if(l.action==='student'&&!l.studentId)l.studentId=o.studentId;});
   renderVoQueue();
 }
@@ -13587,7 +13588,7 @@ function voSave(cid){
   if(inv.linkedInvoices.length)inv.notes=(inv.notes?inv.notes+' · ':'')+inv.linkedInvoices.map(n=>'Invoice '+n).join(', ');
   DB.invoices.push(inv);
   // Link student items to the gear order they fill (real cost → profit on Gear Orders).
-  const go=c.gearOrderId&&(DB.gearOrders||[]).find(o=>o.id===c.gearOrderId);
+  const go=c.gearOrderId!=null&&(DB.gearOrders||[]).find(o=>String(o.id)===String(c.gearOrderId));
   if(go){
     const items=c.lines.filter(l=>l.action==='student');
     if(items.length){
