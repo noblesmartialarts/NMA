@@ -13402,34 +13402,57 @@ function voGearKinds(text){
 }
 function voGearOrderOpen(o,vendor){return !(o.vendorLinks||[]).some(l=>l.vendor===vendor);}
 // Open gear orders that this vendor order could be filling, best match first.
-function voGearCandidates(c){
-  const want=voGearKinds(c.lines.filter(l=>l.action==='student'||l.category==='weapon'||l.category==='uniform').map(l=>l.name+' '+l.options).join(' '));
+function voGearCandidates(c,line){
+  const want=voGearKinds(line?(line.name+' '+line.options):c.lines.filter(l=>l.action==='student'||l.category==='weapon'||l.category==='uniform').map(l=>l.name+' '+l.options).join(' '));
   const t=new Date(c.date).getTime();
   return (DB.gearOrders||[]).filter(o=>voGearOrderOpen(o,c.vendor)&&o.date&&new Date(o.date).getTime()<=t+3*86400000&&new Date(o.date).getTime()>=t-90*86400000)
     .map(o=>{const have=voGearKinds((o.orderType||'')+' '+(o.details||''));let score=0;want.forEach(k=>{if(have.has(k))score++;});return {o,score};})
     .sort((a,b)=>b.score-a.score||a.o.date.localeCompare(b.o.date));
 }
 function voGearLabel(o){return (o.studentName||'(no student)')+' — '+String(o.orderType||'Order').replace(/\s*-\s*/,' - ').slice(0,60)+' · '+fmtDate(o.date)+(o.amount?' · '+fmt$(+o.amount):'');}
-function voGearSelectHTML(c){
-  if(!c.lines.some(l=>l.action==='student'))return '';
-  const cands=voGearCandidates(c).filter(x=>x.score>0);
+function voGearOptionsHTML(c,line,selectedId){
+  const cands=voGearCandidates(c,line).filter(x=>x.score>0);
   const others=(DB.gearOrders||[]).filter(o=>voGearOrderOpen(o,c.vendor)&&!cands.some(x=>x.o===o)).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,40);
-  const opt=o=>`<option value="${o.id}" ${String(o.id)===String(c.gearOrderId)?'selected':''}>${voEsc(voGearLabel(o))}</option>`;
-  return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 10px;font-size:12px;">
-    <span style="font-weight:600;">Student items fill gear order:</span>
-    <select class="form-select vo-mini" style="max-width:520px;" onchange="voSetGearOrder(${c.id},this.value)">
-      <option value="">— Not for a gear order —</option>
-      ${cands.length?`<optgroup label="Likely matches">${cands.map(x=>opt(x.o)).join('')}</optgroup>`:''}
-      ${others.length?`<optgroup label="Other open orders">${others.map(opt).join('')}</optgroup>`:''}
-    </select>${c.gearOrderId&&c.gearAuto?'<span style="color:var(--ink-muted);">suggested — check it</span>':''}</div>`;
+  const opt=o=>`<option value="${o.id}" ${String(o.id)===String(selectedId)?'selected':''}>${voEsc(voGearLabel(o))}</option>`;
+  return (cands.length?`<optgroup label="Likely matches">${cands.map(x=>opt(x.o)).join('')}</optgroup>`:'')+(others.length?`<optgroup label="Other open orders">${others.map(opt).join('')}</optgroup>`:'');
 }
+function voGearSelectHTML(c){
+  const st=c.lines.filter(l=>l.action==='student');
+  if(!st.length)return '';
+  const ids=[...new Set(st.map(l=>l.gearOrderId==null?'':String(l.gearOrderId)))];
+  const common=ids.length===1?ids[0]:'';
+  const orders=[...new Set(st.filter(l=>l.gearOrderId!=null).map(l=>String(l.gearOrderId)))].length;
+  return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 10px;font-size:12px;">
+    <span style="font-weight:600;">Fill all student items from one gear order:</span>
+    <select class="form-select vo-mini" style="max-width:520px;" onchange="voSetGearOrder(${c.id},this.value)">
+      <option value="">${ids.length>1?'— Mixed: '+orders+' gear orders (set per item above) —':'— Not for a gear order —'}</option>${voGearOptionsHTML(c,null,common)}
+    </select>${c.gearAuto?'<span style="color:var(--ink-muted);">suggested — check it</span>':''}
+    <span style="color:var(--ink-muted);">Items for different students? Pick the gear order on each item above, and use Split for quantities over 1.</span></div>`;
+}
+function voApplyGear(l,o){l.gearOrderId=o?o.id:null;if(o&&o.studentId)l.studentId=o.studentId;}
 function voSetGearOrder(cid,val){
   const c=voCard(cid);if(!c)return;
   // Gear order ids can be decimals (Date.now()+random) — match on the exact string, never parseInt.
   const o=val?(DB.gearOrders||[]).find(x=>String(x.id)===String(val)):null;
-  c.gearOrderId=o?o.id:null;c.gearAuto=false;
-  if(o&&o.studentId)c.lines.forEach(l=>{if(l.action==='student'&&!l.studentId)l.studentId=o.studentId;});
+  c.gearAuto=false;
+  c.lines.forEach(l=>{if(l.action==='student')voApplyGear(l,o);});
   renderVoQueue();
+}
+function voSetLineGear(cid,lid,val){
+  const c=voCard(cid),l=voLine(cid,lid);if(!c||!l)return;
+  const o=val?(DB.gearOrders||[]).find(x=>String(x.id)===String(val)):null;
+  c.gearAuto=false;voApplyGear(l,o);renderVoQueue();
+}
+// "Gloves ×2" for two different students → two lines of 1.
+function voSplitLine(cid,lid){
+  const c=voCard(cid);if(!c)return;
+  const idx=c.lines.findIndex(l=>l.id===lid);const l=c.lines[idx];if(!l||l.qty<2)return;
+  const unit=l.unitPrice!=null?l.unitPrice:(l.lineTotal!=null?voRound(l.lineTotal/l.qty):null);
+  const parts=[];
+  for(let k=0;k<l.qty;k++)parts.push(Object.assign({},l,{id:DB.nextId++,qty:1,unitPrice:unit,lineTotal:unit,gearOrderId:k===0?l.gearOrderId:null,studentId:k===0?l.studentId:null}));
+  // keep the total exact if the split doesn't divide evenly
+  if(l.lineTotal!=null&&unit!=null){const diff=voRound(l.lineTotal-unit*l.qty);if(diff)parts[0].lineTotal=voRound(parts[0].lineTotal+diff);}
+  c.lines.splice(idx,1,...parts);renderVoQueue();
 }
 function voDefaultLine(vendor,it){
   const learned=DB.vendorItemMap[voItemKey(vendor,it)];
@@ -13452,7 +13475,7 @@ function voMakeCard(src,meta,ex){
   // Pre-pick the gear order these student items most likely fill (oldest open match first).
   if(card.lines.some(l=>l.action==='student')){
     const best=voGearCandidates(card).filter(x=>x.score>0);
-    if(best.length){card.gearOrderId=best[0].o.id;card.gearAuto=true;const o=best[0].o;if(o.studentId)card.lines.forEach(l=>{if(l.action==='student'&&!l.studentId)l.studentId=o.studentId;});}
+    if(best.length){card.gearAuto=true;card.lines.forEach(l=>{if(l.action==='student')voApplyGear(l,best[0].o);});}
   }
   // Century PDF invoices usually duplicate a store order — find it by total and date.
   if(src.kind==='invoice'){
@@ -13588,14 +13611,15 @@ function voSave(cid){
   if(inv.linkedInvoices.length)inv.notes=(inv.notes?inv.notes+' · ':'')+inv.linkedInvoices.map(n=>'Invoice '+n).join(', ');
   DB.invoices.push(inv);
   // Link student items to the gear order they fill (real cost → profit on Gear Orders).
-  const go=c.gearOrderId!=null&&(DB.gearOrders||[]).find(o=>String(o.id)===String(c.gearOrderId));
-  if(go){
-    const items=c.lines.filter(l=>l.action==='student');
-    if(items.length){
-      go.vendorLinks=(go.vendorLinks||[]).concat([{invoiceId:inv.id,vendor:c.vendor,num:c.num,date:c.date,items:items.map(l=>l.name+(l.options?' ('+l.options+')':'')),cost:voRound(items.reduce((a,l)=>a+(+l.lineTotal||0),0))}]);
-      inv.lineItems.forEach(li=>{if(li.action==='student')li.gearOrderId=go.id;});
-    }
-  }
+  // Each student item can fill a different gear order — link them per order.
+  const byOrder={};
+  c.lines.forEach(l=>{if(l.action==='student'&&l.gearOrderId!=null)(byOrder[String(l.gearOrderId)]=byOrder[String(l.gearOrderId)]||[]).push(l);});
+  Object.entries(byOrder).forEach(([gid,items])=>{
+    const go=(DB.gearOrders||[]).find(o=>String(o.id)===gid);if(!go)return;
+    go.vendorLinks=(go.vendorLinks||[]).concat([{invoiceId:inv.id,vendor:c.vendor,num:c.num,date:c.date,items:items.map(l=>l.name+(l.options?' ('+l.options+')':'')),cost:voRound(items.reduce((a,l)=>a+(+l.lineTotal||0),0))}]);
+    const ids=new Set(items.map(l=>l.id));
+    inv.lineItems.forEach(li=>{if(ids.has(li.id))li.gearOrderId=go.id;});
+  });
   let stocked=0;
   c.lines.forEach(l=>{
     if(l.action==='stock'&&l.qty>0){voAddToStock(l,l.unitPrice);stocked+=l.qty;}
@@ -13638,7 +13662,9 @@ function renderVoQueue(){
           :`<input class="form-input vo-mini" value="${voEsc(l.label)}" placeholder="${l.type==='weapon'?'Weapon name':'Uniform name'}" oninput="voSetLine(${c.id},${l.id},'label',this.value)">`}
         <input class="form-input vo-mini" style="width:84px;" value="${voEsc(l.size)}" placeholder="Size" oninput="voSetLine(${c.id},${l.id},'size',this.value)">
         ${l.label?`<span style="font-size:11px;color:var(--ink-muted);white-space:nowrap;">in stock: ${voStockCount(l.type,l.label,l.size)}</span>`:''}`
-      :l.action==='student'?`<select class="form-select vo-mini" onchange="voSetLine(${c.id},${l.id},'studentId',this.value)"><option value="">— Which student? (optional) —</option>${students.map(s=>`<option value="${s.id}" ${s.id===l.studentId?'selected':''}>${voEsc(s.first+' '+s.last)}</option>`).join('')}</select>`
+      :l.action==='student'?`<select class="form-select vo-mini" style="max-width:300px;" title="Gear order this item fills" onchange="voSetLineGear(${c.id},${l.id},this.value)"><option value="">— No gear order —</option>${voGearOptionsHTML(c,l,l.gearOrderId)}</select>
+        ${l.gearOrderId==null?`<select class="form-select vo-mini" onchange="voSetLine(${c.id},${l.id},'studentId',this.value)"><option value="">— Which student? (optional) —</option>${students.map(s=>`<option value="${s.id}" ${s.id===l.studentId?'selected':''}>${voEsc(s.first+' '+s.last)}</option>`).join('')}</select>`:''}
+        ${l.qty>1?`<button class="btn small" onclick="voSplitLine(${c.id},${l.id})" title="Split into ${l.qty} separate items so each can go to a different student">Split ×${l.qty}</button>`:''}`
       :'<span style="font-size:11px;color:var(--ink-faint);">spend only</span>';
       return `<tr class="${l.check?'vo-check':''}">
         <td><div style="font-weight:500;font-size:13px;">${voEsc(l.name)}${l.learned?' <span title="Filled in from a previous order" style="font-size:10px;color:var(--green);">✓ remembered</span>':''}${l.check?' <span class="badge badge-amber" style="font-size:9px;">check</span>':''}</div><div style="font-size:11px;color:var(--ink-muted);">${voEsc(l.options)}</div></td>
