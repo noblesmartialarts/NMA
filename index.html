@@ -108,6 +108,19 @@ tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
 .qab-chip:active{transform:translateY(0);}
 .inv-price-input{width:64px;padding:4px 6px;font-size:12px;border:1px solid var(--border);border-radius:6px;background:var(--paper);color:var(--ink);}
 .inv-price-input:focus{outline:none;border-color:var(--ink);}
+.pf-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px;}
+.pf-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:16px;}
+@media(max-width:820px){.pf-grid{grid-template-columns:1fr;}}
+.pf-row{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;}
+.pf-row.pf-unsure{background:var(--amber-light);}
+.pf-row-label{flex:1;font-size:12px;}
+.pf-yn{border:1px solid var(--border);background:var(--paper);color:var(--ink-muted);border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:var(--font-body);}
+.pf-yn.on-yes{background:var(--green);border-color:var(--green);color:#fff;}
+.pf-yn.on-no{background:var(--red);border-color:var(--red);color:#fff;}
+.pf-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;}
+.pf-chip{border:1px solid var(--border);background:var(--paper);color:var(--ink-muted);border-radius:20px;padding:3px 9px;font-size:11px;cursor:pointer;font-family:var(--font-body);}
+.pf-chip.on-c{background:var(--amber-light);border-color:var(--amber);color:var(--amber);font-weight:600;}
+.pf-chip.on-s{background:var(--green-light);border-color:var(--green);color:var(--green);font-weight:600;}
 .form-input{border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-family:var(--font-body);font-size:13px;background:var(--paper);color:var(--ink);outline:none;width:100%;}
 .form-select{border:1px solid var(--border);border-radius:8px;padding:8px 11px;font-family:var(--font-body);font-size:13px;background:var(--paper);color:var(--ink);cursor:pointer;outline:none;width:100%;}
 .checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;}
@@ -379,6 +392,7 @@ tbody td{font-size:11px!important;}
     <div class="nav-item" data-page="promoreport" onclick="nav('promoreport')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span>Promo Report</span></div>
     <div class="nav-section-label" onclick="toggleNavSection(this)">Data<span class="chevron">▾</span></div>
     <div class="nav-item" data-page="letters" onclick="nav('letters')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Promote Letters</span></div>
+    <div class="nav-item" data-page="parentfeedback" onclick="nav('parentfeedback')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/></svg><span>Parent Feedback</span></div>
 
     <div class="nav-item" data-page="backup" onclick="nav('backup')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Backup / Restore</span></div>
   </div>
@@ -1834,6 +1848,25 @@ tbody td{font-size:11px!important;}
   <div style="font-size:11px;color:var(--ink-faint);margin-top:8px;">Your active roster, this month's attendance, stripes and upcoming tests are shared with Gemini to answer questions. AI answers can be wrong — double-check before acting on them.</div>
 </div>
 
+<!-- PARENT FEEDBACK -->
+<div id="page-parentfeedback" class="page">
+  <div class="page-header">
+    <div><div class="page-title">Parent Feedback</div><div class="page-subtitle">Upload returned Intent to Promote letters — the CRM reads the Yes/No answers and notes, and totals what kids need to work on next cycle</div></div>
+  </div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;min-width:240px;flex:1;"><label class="form-label">Belt test</label><select id="pf-event" class="form-select" onchange="renderPfSummary()"></select></div>
+    <label class="btn" style="cursor:pointer;">📷 Take photo<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="pfHandleFiles(this.files);this.value='';"></label>
+    <label class="btn primary" style="cursor:pointer;">⬆ Upload letters<input type="file" id="pf-files" accept="application/pdf,image/*" multiple style="display:none;" onchange="pfHandleFiles(this.files);this.value='';"></label>
+    <div style="font-size:11px;color:var(--ink-muted);flex-basis:100%;">Paper letters: snap a photo of each one (flat, whole page in frame, good light). Emailed letters: upload the PDFs. You can select several at once. Letters are read by Google Gemini and you review each before it's saved — the images aren't stored.</div>
+  </div>
+  <div id="pf-drop" style="border:2px dashed var(--border);border-radius:12px;padding:14px;text-align:center;color:var(--ink-faint);font-size:12px;margin-top:10px;"
+    ondragover="event.preventDefault();this.style.borderColor='var(--blue)';" ondragleave="this.style.borderColor='';"
+    ondrop="event.preventDefault();this.style.borderColor='';pfHandleFiles(event.dataTransfer.files);">or drag &amp; drop letters here</div>
+  <div id="pf-queue"></div>
+  <div class="section-divider"><span>📊 Summary</span></div>
+  <div id="pf-summary"></div>
+</div>
+
 <!-- GOOD JOB NOTES -->
 <div id="page-goodjob" class="page">
   <div class="page-header">
@@ -2981,7 +3014,7 @@ function nav(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+page).classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,prospects:initProspects,goodjob:initGoodJob,ai:initAI,events:initEvents,privatelessons:initPrivateLessons,workshops:renderWorkshops};
+  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,prospects:initProspects,goodjob:initGoodJob,ai:initAI,parentfeedback:initParentFeedback,events:initEvents,privatelessons:initPrivateLessons,workshops:renderWorkshops};
   fns[page]?.();
 }
 
@@ -12742,6 +12775,363 @@ if (typeof _origApplyMassPromotion === 'function') {
     pushUndo('Mass promotion');
     _origApplyMassPromotion.apply(this, arguments);
   };
+}
+</script>
+<script>
+// ══════════════════════════════════════════════════════
+// PARENT FEEDBACK — scan returned Intent to Promote letters
+// ══════════════════════════════════════════════════════
+// Parents return the letter as a photo, scan, or a PDF marked up on a phone.
+// Each upload is rendered to an image (PDFs via pdf.js, plus any typed
+// annotations), read by Gemini, reviewed by Sensei, then saved to
+// DB.parentFeedback. The summary groups "No" answers and note concerns into
+// focus areas for the next cycle. Images themselves are not stored.
+
+const PF_ITEMS = [
+  {key:'practices_home',   label:'Practices martial arts at home',              theme:'Practice at home'},
+  {key:'no_talk_back',     label:'Does not "talk back" or interrupt parents',   theme:'Interrupting / talking back'},
+  {key:'shares',           label:'Shares with friends, siblings and family',    theme:'Sharing & kindness'},
+  {key:'chores',           label:'Completes chores and duties',                 theme:'Chores & responsibility'},
+  {key:'attention_school', label:'Pays attention during school activities',     theme:'Focus & attention'},
+  {key:'listens',          label:'Listens to parents "the first time"',         theme:'Listening'},
+  {key:'bedtime',          label:'Goes to bed when they are supposed to',       theme:'Bedtime & routines'},
+  {key:'honest',           label:'Is honest with parents, family and friends',  theme:'Honesty'},
+  {key:'respectful',       label:'Demonstrates respectful behavior',            theme:'Respect & manners'},
+  {key:'academics',        label:'Meets or exceeds academic expectations',      theme:'Schoolwork'}
+];
+// Themes a note can raise beyond the 10 checklist items.
+const PF_THEMES = ['Respect & manners','Listening','Interrupting / talking back','Self-control & calm','Frustration / perseverance','Focus & attention','Practice at home','Chores & responsibility','Bedtime & routines','Honesty','Sharing & kindness','Schoolwork','Confidence'];
+
+if(!DB.parentFeedback)DB.parentFeedback=[];
+let pfQueue=[];      // pending reviews: {id,fileName,status,error,thumb,result,studentId}
+let pfSummaryGroup='';
+
+function pfEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function pfEvents(){return DB.testEvents.filter(e=>e.type!=='Stripe Test').sort((a,b)=>b.date.localeCompare(a.date));}
+function pfSelectedEvent(){const id=parseInt(($('pf-event')||{}).value)||null;return id?DB.testEvents.find(e=>e.id===id):null;}
+
+function initParentFeedback(){
+  if(!DB.parentFeedback)DB.parentFeedback=[];
+  const sel=$('pf-event');if(!sel)return;
+  const cur=sel.value;
+  const evs=pfEvents();
+  sel.innerHTML=evs.map(e=>`<option value="${e.id}">${pfEsc(e.name)} — ${fmtFull(e.date)}</option>`).join('')||'<option value="">No belt tests yet</option>';
+  if(cur&&evs.find(e=>String(e.id)===cur))sel.value=cur;
+  else{const today=localToday();const past=evs.find(e=>e.date<=today);if(past)sel.value=String(past.id);}
+  renderPfQueue();renderPfSummary();
+}
+
+// ── File → image (+ any typed PDF annotations / text) ──
+async function pfEnsurePdfJs(){
+  await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+  if(!window.pdfjsLib)throw new Error('PDF reader failed to load');
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  return window.pdfjsLib;
+}
+function pfCanvasToJpeg(canvas,maxW){
+  let c=canvas;
+  if(canvas.width>maxW){
+    c=document.createElement('canvas');
+    c.width=maxW;c.height=Math.round(canvas.height*maxW/canvas.width);
+    const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(canvas,0,0,c.width,c.height);
+  }
+  return c.toDataURL('image/jpeg',0.85);
+}
+async function pfFileToInputs(file){
+  const isPdf=file.type==='application/pdf'||/\.pdf$/i.test(file.name);
+  if(isPdf){
+    const pdfjs=await pfEnsurePdfJs();
+    const doc=await pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+    const page=await doc.getPage(1);
+    const vp1=page.getViewport({scale:1});
+    const vp=page.getViewport({scale:1600/vp1.width});
+    const canvas=document.createElement('canvas');canvas.width=Math.round(vp.width);canvas.height=Math.round(vp.height);
+    const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+    await page.render({canvasContext:ctx,viewport:vp,annotationMode:pdfjs.AnnotationMode?pdfjs.AnnotationMode.ENABLE:1}).promise;
+    // Typed notes added in phone apps often live in annotations rather than page content.
+    let typed=[];
+    try{
+      const anns=await page.getAnnotations();
+      anns.forEach(a=>{const t=(a.contentsObj&&a.contentsObj.str)||a.contents||'';if(t&&t.trim())typed.push(t.trim());});
+    }catch(e){}
+    let pageText='';
+    try{const tc=await page.getTextContent();pageText=tc.items.map(i=>i.str).join(' ').replace(/\s+/g,' ').trim();}catch(e){}
+    return {image:pfCanvasToJpeg(canvas,1600),typed,pageText,pages:doc.numPages};
+  }
+  // Photo / scan
+  const url=URL.createObjectURL(file);
+  try{
+    const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('Could not open image (if it is HEIC, export it as JPG first)'));i.src=url;});
+    const canvas=document.createElement('canvas');canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
+    canvas.getContext('2d').drawImage(img,0,0);
+    // Photos of paper letters: keep more resolution so handwriting stays legible.
+    return {image:pfCanvasToJpeg(canvas,2200),typed:[],pageText:'',pages:1,photo:true};
+  }finally{URL.revokeObjectURL(url);}
+}
+
+// ── Gemini read ──
+function pfPrompt(inp,fileName){
+  const keys=PF_ITEMS.map(i=>`"${i.key}": ${i.label}`).join('\n');
+  return `You are reading a returned "Intent to Promote Letter" from Noble's Martial Arts, filled out by a parent.
+${inp.photo?'The image is a phone photo or scan of the paper letter: it may be tilted, curled, shadowed or slightly cut off, and marks and notes are usually handwritten in pen or pencil.\n':''}The "Parent/Teacher Evaluation" table has two columns of 5 rows. Each row has a "Yes" cell and a "No" cell.
+Rows, left column top to bottom, then right column top to bottom:
+${keys}
+
+For each row decide which option the parent marked. Marks may be circles (often off-center, partial, or overlapping the cell edge), checkmarks, X's, highlights, underlines, or the other word crossed out.
+- Pick the cell the mark is mostly on. A mark that touches both: choose the one it encloses or is centered on.
+- If neither Yes nor No is marked in a row, use null. If the whole table is unmarked, every value is null — do NOT assume Yes.
+Also read the "Anything noteworthy to include?" box (handwritten or typed) verbatim. If a handwritten word is unclear, give your best reading followed by [?].
+${inp.typed.length?'\nTyped annotations found in the PDF (treat as part of the notes box unless clearly elsewhere):\n- '+inp.typed.join('\n- '):''}
+${inp.pageText?'\nText layer of the PDF (may include typed notes): '+inp.pageText.slice(0,2000):''}
+File name: ${fileName}
+
+Classify the note. "concerns" = areas the parent says the child needs to work on (even if phrased positively, like "working on not interrupting"). "strengths" = things going well. Use only these theme names:
+${PF_THEMES.join(', ')}
+"programFeedback" = any comment about the martial arts program itself (requests, praise for an activity), else null.
+
+Return ONLY JSON:
+{"studentName":string|null,"rankPromotingTo":string|null,"answers":{${PF_ITEMS.map(i=>`"${i.key}":"yes"|"no"|null`).join(',')}},"note":string|null,"concerns":[string],"strengths":[string],"programFeedback":string|null,"uncertain":[row keys you are unsure about],"confidence":"high"|"medium"|"low"}`;
+}
+function pfParseJson(text){
+  const t=String(text||'').replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'').trim();
+  try{return JSON.parse(t);}catch(e){}
+  const m=t.match(/\{[\s\S]*\}/);if(m)return JSON.parse(m[0]);
+  throw new Error('Gemini did not return readable results');
+}
+async function pfAskGemini(inp,fileName){
+  const b64=inp.image.split(',')[1];
+  const body=model=>JSON.stringify({
+    model,
+    contents:[{role:'user',parts:[{text:pfPrompt(inp,fileName)},{inlineData:{mimeType:'image/jpeg',data:b64}}]}],
+    generationConfig:{temperature:0,responseMimeType:'application/json',maxOutputTokens:4096}
+  });
+  // Try the full Flash model first; if the request times out, retry on the faster Flash-Lite.
+  let lastErr='';
+  for(const model of [null,'gemini-3.5-flash-lite']){
+    let res;
+    try{res=await fetch(GEMINI_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:body(model)});}
+    catch(e){lastErr=e.message;continue;}
+    let data=null;try{data=await res.json();}catch(e){}
+    if(res.ok&&data&&!data.error){
+      const parts=(data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts)||[];
+      const text=parts.filter(p=>p.text&&!p.thought).map(p=>p.text).join('');
+      return pfNormalize(pfParseJson(text));
+    }
+    lastErr=(data&&data.error&&data.error.message)||('HTTP '+res.status);
+    if(res.status!==502&&res.status!==504&&res.status!==503)break;
+  }
+  throw new Error(lastErr||'Gemini request failed');
+}
+function pfNormalize(r){
+  const answers={};
+  PF_ITEMS.forEach(i=>{const v=r&&r.answers?String(r.answers[i.key]||'').toLowerCase():'';answers[i.key]=v==='yes'?'yes':v==='no'?'no':null;});
+  const clean=a=>(Array.isArray(a)?a:[]).map(x=>PF_THEMES.find(t=>t.toLowerCase()===String(x).toLowerCase())).filter(Boolean);
+  return {
+    studentName:r&&r.studentName||null,
+    rankPromotingTo:r&&r.rankPromotingTo||null,
+    answers,
+    note:r&&r.note?String(r.note).trim():'',
+    concerns:[...new Set(clean(r&&r.concerns))],
+    strengths:[...new Set(clean(r&&r.strengths))],
+    programFeedback:r&&r.programFeedback?String(r.programFeedback).trim():'',
+    uncertain:(Array.isArray(r&&r.uncertain)?r.uncertain:[]).filter(k=>PF_ITEMS.some(i=>i.key===k)),
+    confidence:['high','medium','low'].includes(r&&r.confidence)?r.confidence:'medium'
+  };
+}
+
+// ── Student matching ──
+function pfNorm(s){return String(s||'').toLowerCase().replace(/[^a-z]/g,'');}
+function pfMatchStudent(name,fileName){
+  const pool=DB.students.slice().sort((a,b)=>(a.status==='Active'?0:1)-(b.status==='Active'?0:1));
+  const full=s=>pfNorm(s.first+s.last);
+  const n=pfNorm(name);
+  if(n){
+    let hit=pool.find(s=>full(s)===n);if(hit)return hit.id;
+    hit=pool.find(s=>n.includes(pfNorm(s.first))&&n.includes(pfNorm(s.last))&&pfNorm(s.last).length>1);if(hit)return hit.id;
+  }
+  const f=pfNorm(String(fileName||'').replace(/\.[a-z0-9]+$/i,''));
+  if(f){
+    // longest full-name match inside the file name
+    const hits=pool.filter(s=>pfNorm(s.first).length>1&&pfNorm(s.last).length>1&&f.includes(full(s))).sort((a,b)=>full(b).length-full(a).length);
+    if(hits.length)return hits[0].id;
+  }
+  return null;
+}
+
+// ── Upload flow ──
+async function pfHandleFiles(fileList){
+  const ev=pfSelectedEvent();
+  if(!ev){alert('Pick the belt test these letters are for first.');return;}
+  const files=[...fileList];if(!files.length)return;
+  const items=files.map(f=>({id:DB.nextId++,fileName:f.name,file:f,status:'reading',error:'',thumb:'',result:null,studentId:null,eventId:ev.id}));
+  pfQueue=pfQueue.concat(items);renderPfQueue();
+  // Read a few at a time so the page stays responsive.
+  const workers=Math.min(3,items.length);let idx=0;
+  async function next(){
+    while(idx<items.length){
+      const it=items[idx++];
+      try{
+        const inp=await pfFileToInputs(it.file);
+        it.thumb=inp.image;renderPfQueue();
+        const r=await pfAskGemini(inp,it.fileName);
+        it.result=r;it.studentId=pfMatchStudent(r.studentName,it.fileName);
+        it.status='review';
+      }catch(e){it.status='error';it.error=e.message||String(e);}
+      delete it.file;renderPfQueue();
+    }
+  }
+  await Promise.all(Array.from({length:workers},next));
+  const ok=items.filter(i=>i.status==='review').length;
+  toast(ok+' of '+items.length+' letter'+(items.length!==1?'s':'')+' read — review and save below.');
+}
+function pfSetAnswer(qid,key,val){const it=pfQueue.find(q=>q.id===qid);if(!it||!it.result)return;it.result.answers[key]=it.result.answers[key]===val?null:val;it.result.uncertain=it.result.uncertain.filter(k=>k!==key);renderPfQueue();}
+function pfToggleTheme(qid,kind,theme){const it=pfQueue.find(q=>q.id===qid);if(!it||!it.result)return;const arr=it.result[kind];const i=arr.indexOf(theme);if(i>=0)arr.splice(i,1);else arr.push(theme);renderPfQueue();}
+function pfSetField(qid,field,val){const it=pfQueue.find(q=>q.id===qid);if(!it)return;if(field==='studentId')it.studentId=parseInt(val)||null;else if(it.result)it.result[field]=val;}
+function pfDiscard(qid){pfQueue=pfQueue.filter(q=>q.id!==qid);renderPfQueue();}
+function pfSave(qid,silent){
+  const it=pfQueue.find(q=>q.id===qid);if(!it||!it.result)return false;
+  if(!it.studentId){if(!silent)alert('Choose which student this letter is for.');return false;}
+  const s=DB.students.find(x=>x.id===it.studentId);if(!s)return false;
+  const ev=DB.testEvents.find(e=>e.id===it.eventId);
+  const r=it.result;
+  if(!DB.parentFeedback)DB.parentFeedback=[];
+  // One record per student per test — re-uploading replaces it.
+  DB.parentFeedback=DB.parentFeedback.filter(f=>!(f.studentId===s.id&&f.eventId===it.eventId));
+  DB.parentFeedback.push({id:it.id,eventId:it.eventId,studentId:s.id,group:s.group,belt:s.belt,
+    answers:Object.assign({},r.answers),note:r.note||'',concerns:r.concerns.slice(),strengths:r.strengths.slice(),
+    programFeedback:r.programFeedback||'',fileName:it.fileName,savedDate:localToday()});
+  const nos=PF_ITEMS.filter(i=>r.answers[i.key]==='no').map(i=>i.theme);
+  const focus=[...new Set(nos.concat(r.concerns))];
+  addHistory(s,'note','Parent feedback'+(ev?' ('+ev.name+')':'')+': '+(focus.length?'working on '+focus.join(', '):'no concerns noted')+(r.note?' — "'+r.note.slice(0,80)+(r.note.length>80?'…':'')+'"':''));
+  pfQueue=pfQueue.filter(q=>q.id!==qid);
+  if(!silent){save();renderPfQueue();renderPfSummary();toast('Saved feedback for '+s.first+'.');}
+  return true;
+}
+function pfSaveAll(){
+  const ids=pfQueue.filter(q=>q.status==='review').map(q=>q.id);
+  const missing=pfQueue.filter(q=>q.status==='review'&&!q.studentId).length;
+  if(missing&&!confirm(missing+' letter(s) have no student selected and will be skipped. Save the rest?'))return;
+  let n=0;ids.forEach(id=>{if(pfSave(id,true))n++;});
+  save();renderPfQueue();renderPfSummary();toast('Saved '+n+' letter'+(n!==1?'s':'')+'.');
+}
+
+function renderPfQueue(){
+  const el=$('pf-queue');if(!el)return;
+  if(!pfQueue.length){el.innerHTML='';return;}
+  const studentOpts=sel=>'<option value="">— Choose student —</option>'+DB.students.slice()
+    .sort((a,b)=>(a.status==='Active'?0:1)-(b.status==='Active'?0:1)||(a.first+a.last).localeCompare(b.first+b.last))
+    .map(s=>`<option value="${s.id}" ${s.id===sel?'selected':''}>${pfEsc(s.first+' '+s.last)}${s.status!=='Active'?' (inactive)':''}</option>`).join('');
+  const reviewCount=pfQueue.filter(q=>q.status==='review').length;
+  el.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:18px 0 10px;">
+      <div style="font-family:var(--font-display);font-size:15px;font-weight:700;">Review (${pfQueue.length})</div>
+      ${reviewCount?`<button class="btn primary small" onclick="pfSaveAll()">Save all ${reviewCount}</button>`:''}
+    </div>`+pfQueue.map(it=>{
+    const head=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;"><div style="font-weight:600;font-size:13px;flex:1;min-width:160px;word-break:break-all;">${pfEsc(it.fileName)}</div>`;
+    if(it.status==='reading')return `<div class="pf-card">${head}<span class="badge badge-blue">Reading…</span></div></div>`;
+    if(it.status==='error')return `<div class="pf-card">${head}<span class="badge badge-red">Couldn't read</span><button class="btn small" onclick="pfDiscard(${it.id})">Remove</button></div><div style="font-size:12px;color:var(--red);">${pfEsc(it.error)}</div></div>`;
+    const r=it.result;const unsure=new Set(r.uncertain);
+    const allNull=PF_ITEMS.every(i=>r.answers[i.key]==null);
+    const row=i=>{const v=r.answers[i.key];const u=unsure.has(i.key);
+      return `<div class="pf-row${u?' pf-unsure':''}"><div class="pf-row-label">${pfEsc(i.label)}${u?' <span class="badge badge-amber" style="font-size:9px;">check</span>':''}</div>
+        <button class="pf-yn${v==='yes'?' on-yes':''}" onclick="pfSetAnswer(${it.id},'${i.key}','yes')">Yes</button><button class="pf-yn${v==='no'?' on-no':''}" onclick="pfSetAnswer(${it.id},'${i.key}','no')">No</button></div>`;};
+    const chips=kind=>PF_THEMES.map(t=>{const on=r[kind].includes(t);return `<button class="pf-chip${on?(kind==='concerns'?' on-c':' on-s'):''}" onclick="pfToggleTheme(${it.id},'${kind}','${t.replace(/'/g,"\\'")}')">${pfEsc(t)}</button>`;}).join('');
+    return `<div class="pf-card">${head}
+        <span class="badge ${r.confidence==='high'?'badge-green':r.confidence==='low'?'badge-red':'badge-amber'}">${r.confidence} confidence</span>
+        <button class="btn small" onclick="pfDiscard(${it.id})">Discard</button>
+        <button class="btn small primary" onclick="pfSave(${it.id})">Save</button></div>
+      <div class="pf-grid">
+        <div>${it.thumb?`<a href="${it.thumb}" target="_blank" title="Open full size"><img src="${it.thumb}" style="width:100%;border:1px solid var(--border);border-radius:8px;background:#fff;"></a>`:''}</div>
+        <div>
+          <div class="form-group" style="margin:0 0 10px;"><label class="form-label">Student${r.studentName?` <span style="font-weight:400;color:var(--ink-muted);">(letter says “${pfEsc(r.studentName)}”)</span>`:''}</label>
+            <select class="form-select" onchange="pfSetField(${it.id},'studentId',this.value)">${studentOpts(it.studentId)}</select></div>
+          ${allNull?'<div style="font-size:12px;background:var(--amber-light);color:var(--amber);border-radius:8px;padding:7px 10px;margin-bottom:8px;">No Yes/No answers were marked on this letter — saved as “not answered”.</div>':''}
+          <div class="pf-rows">${PF_ITEMS.map(row).join('')}</div>
+          <div class="form-group" style="margin:10px 0 6px;"><label class="form-label">Parent's note</label>
+            <textarea class="form-input" rows="3" oninput="pfSetField(${it.id},'note',this.value)">${pfEsc(r.note)}</textarea></div>
+          <div class="form-label" style="margin-top:6px;">Working on (from the note)</div><div class="pf-chips">${chips('concerns')}</div>
+          <div class="form-label" style="margin-top:8px;">Going well</div><div class="pf-chips">${chips('strengths')}</div>
+          <div class="form-group" style="margin:10px 0 0;"><label class="form-label">Feedback about NMA</label>
+            <input class="form-input" value="${pfEsc(r.programFeedback)}" placeholder="—" oninput="pfSetField(${it.id},'programFeedback',this.value)"></div>
+        </div>
+      </div></div>`;
+  }).join('');
+}
+
+// ── Summary ──
+function pfFocusFor(f){
+  const out={};
+  PF_ITEMS.forEach(i=>{if(f.answers&&f.answers[i.key]==='no')(out[i.theme]=out[i.theme]||[]).push('marked No');});
+  (f.concerns||[]).forEach(t=>{(out[t]=out[t]||[]).push('note');});
+  return out; // theme -> sources
+}
+function renderPfSummary(){
+  const el=$('pf-summary');if(!el)return;
+  const ev=pfSelectedEvent();
+  if(!ev){el.innerHTML='';return;}
+  let list=(DB.parentFeedback||[]).filter(f=>f.eventId===ev.id);
+  const groups=[...new Set(list.map(f=>{const s=DB.students.find(x=>x.id===f.studentId);return f.group||(s&&s.group)||'';}).filter(Boolean))].sort();
+  if(pfSummaryGroup&&!groups.includes(pfSummaryGroup))pfSummaryGroup='';
+  if(pfSummaryGroup)list=list.filter(f=>f.group===pfSummaryGroup);
+  const name=f=>{const s=DB.students.find(x=>x.id===f.studentId);return s?s.first+' '+s.last:'(removed student)';};
+  const total=(DB.parentFeedback||[]).filter(f=>f.eventId===ev.id).length;
+  if(!total){el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;text-align:center;color:var(--ink-muted);font-size:13px;">No letters saved for ${pfEsc(ev.name)} yet. Upload the returned letters above.</div>`;return;}
+  const notAnswered=list.filter(f=>PF_ITEMS.every(i=>!f.answers||f.answers[i.key]==null));
+  // theme -> [{name, sources}]
+  const themes={};
+  list.forEach(f=>{const fm=pfFocusFor(f);Object.entries(fm).forEach(([t,src])=>{(themes[t]=themes[t]||[]).push({f,src});});});
+  const ranked=Object.entries(themes).sort((a,b)=>b[1].length-a[1].length||a[0].localeCompare(b[0]));
+  const max=ranked.length?ranked[0][1].length:1;
+  const strengths={};list.forEach(f=>(f.strengths||[]).forEach(t=>{strengths[t]=(strengths[t]||0)+1;}));
+  const notes=list.filter(f=>f.note);
+  const program=list.filter(f=>f.programFeedback);
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+      <div style="font-family:var(--font-display);font-size:16px;font-weight:700;flex:1;">Focus for next cycle</div>
+      ${groups.length>1?`<select class="form-select" style="width:auto;" onchange="pfSummaryGroup=this.value;renderPfSummary()"><option value="">All groups</option>${groups.map(g=>`<option ${g===pfSummaryGroup?'selected':''}>${pfEsc(g)}</option>`).join('')}</select>`:''}
+      <button class="btn small" onclick="pfPlanWithAI()">✨ Plan next cycle with AI</button>
+    </div>
+    <div class="stats-row" style="margin-bottom:14px;">
+      <div class="stat-card"><div class="stat-label">Letters returned</div><div class="stat-value">${list.length}</div><div class="stat-sub">${pfSummaryGroup?pfEsc(pfSummaryGroup):pfEsc(ev.name)}</div></div>
+      <div class="stat-card ${ranked.length?'warn':'good'}"><div class="stat-label">Students with a focus area</div><div class="stat-value">${list.filter(f=>Object.keys(pfFocusFor(f)).length).length}</div><div class="stat-sub">from “No” answers or notes</div></div>
+      <div class="stat-card"><div class="stat-label">Checklist left blank</div><div class="stat-value">${notAnswered.length}</div><div class="stat-sub">note only / not answered</div></div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px;">
+      ${ranked.length?ranked.map(([t,arr])=>`<div style="padding:9px 0;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:10px;"><div style="font-weight:600;font-size:13px;min-width:190px;">${pfEsc(t)}</div>
+          <div style="flex:1;background:var(--paper);border-radius:6px;height:10px;overflow:hidden;"><div style="width:${Math.round(arr.length/max*100)}%;height:100%;background:var(--amber);"></div></div>
+          <div style="font-size:12px;font-weight:600;min-width:70px;text-align:right;">${arr.length} student${arr.length!==1?'s':''}</div></div>
+        <div style="font-size:12px;color:var(--ink-muted);margin-top:4px;">${arr.map(x=>`${pfEsc(name(x.f))} <span style="color:var(--ink-faint);">(${[...new Set(x.src)].join(' + ')})</span>`).join(' · ')}</div>
+      </div>`).join(''):'<div style="font-size:13px;color:var(--ink-muted);">No concerns raised — every returned letter was all “Yes” with no areas to work on. 🎉</div>'}
+    </div>
+    ${Object.keys(strengths).length?`<div style="font-size:12px;color:var(--ink-muted);margin-bottom:14px;"><strong style="color:var(--ink);">Going well:</strong> ${Object.entries(strengths).sort((a,b)=>b[1]-a[1]).map(([t,n])=>pfEsc(t)+' ('+n+')').join(' · ')}</div>`:''}
+    ${program.length?`<div style="background:var(--blue-light);border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:13px;"><div style="font-weight:700;margin-bottom:4px;color:var(--blue);">Feedback about NMA</div>${program.map(f=>`<div style="margin-top:4px;">“${pfEsc(f.programFeedback)}” <span style="color:var(--ink-muted);">— ${pfEsc(name(f))}'s family</span></div>`).join('')}</div>`:''}
+    <div class="table-wrap"><table><thead><tr><th>Student</th><th>Group</th><th>Marked “No”</th><th>Parent's note</th><th></th></tr></thead><tbody>
+      ${list.slice().sort((a,b)=>name(a).localeCompare(name(b))).map(f=>{
+        const nos=PF_ITEMS.filter(i=>f.answers&&f.answers[i.key]==='no').map(i=>i.label);
+        const blank=PF_ITEMS.every(i=>!f.answers||f.answers[i.key]==null);
+        return `<tr><td><strong>${pfEsc(name(f))}</strong></td><td style="font-size:12px;color:var(--ink-muted);">${pfEsc(f.group||'')}</td>
+          <td style="font-size:12px;">${blank?'<span class="badge badge-gray">Not answered</span>':nos.length?nos.map(pfEsc).join('<br>'):'<span class="badge badge-green">All Yes</span>'}</td>
+          <td style="font-size:12px;max-width:340px;">${pfEsc(f.note||'—')}</td>
+          <td><button class="btn small danger" onclick="pfDelete(${f.id})" title="Remove">✕</button></td></tr>`;}).join('')}
+    </tbody></table></div>`;
+}
+function pfDelete(id){
+  if(!confirm('Remove this saved letter?'))return;
+  DB.parentFeedback=(DB.parentFeedback||[]).filter(f=>f.id!==id);save();renderPfSummary();
+}
+function pfPlanWithAI(){
+  const ev=pfSelectedEvent();if(!ev)return;
+  let list=(DB.parentFeedback||[]).filter(f=>f.eventId===ev.id);
+  if(pfSummaryGroup)list=list.filter(f=>f.group===pfSummaryGroup);
+  if(!list.length){toast('No saved letters to plan from yet.');return;}
+  const counts={};list.forEach(f=>Object.keys(pfFocusFor(f)).forEach(t=>{counts[t]=(counts[t]||0)+1;}));
+  const lines=Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([t,n])=>'- '+t+': '+n+' of '+list.length+' students');
+  const notes=list.filter(f=>f.note).map(f=>'- ('+(f.group||'')+') '+f.note);
+  const prompt='Parents returned '+list.length+' Intent to Promote letters for '+ev.name+(pfSummaryGroup?' ('+pfSummaryGroup+')':'')+'. Areas they want their kids to work on:\n'+(lines.join('\n')||'- none')+
+    (notes.length?'\n\nParent notes:\n'+notes.join('\n'):'')+
+    '\n\nSuggest how I can build these into the next curriculum cycle: a character-lesson theme for each week, short mat-talk ideas, and drills or games that reinforce them for my age groups.';
+  nav('ai');
+  setTimeout(()=>{const i=$('ai-input');if(i){i.value=prompt;i.focus();i.style.height='160px';}},150);
 }
 </script>
 </body>

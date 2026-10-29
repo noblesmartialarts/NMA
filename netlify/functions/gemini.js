@@ -30,8 +30,10 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: { message: 'Request needs a non-empty "contents" array' } }) };
     }
 
-    const preferred = process.env.GEMINI_MODEL;
-    const models = preferred ? [preferred, ...CANDIDATES.filter(m => m !== preferred)] : CANDIDATES;
+    // Caller may ask for a specific model first (e.g. the faster Flash-Lite), then env override, then the default chain.
+    const requested = typeof body.model === 'string' && /^gemini-[\w.-]+$/.test(body.model) ? body.model : null;
+    const preferred = [requested, process.env.GEMINI_MODEL].filter(Boolean);
+    const models = [...new Set([...preferred, ...CANDIDATES])];
 
     const payload = {
       contents: body.contents,
