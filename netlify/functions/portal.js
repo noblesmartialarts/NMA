@@ -131,6 +131,43 @@ function scopeView(view, guardian, pending) {
   });
 }
 
+// Monthly RecDesk links live in the website's admin (nma_site_content), so read them fresh.
+let _site = { at: 0, regUrls: {} };
+async function siteRegUrls() {
+  if (Date.now() - _site.at < 5 * 60e3) return _site.regUrls;
+  try {
+    const r = await rows('nma_site_content?id=eq.main&select=reg:data->regUrls');
+    _site = { at: Date.now(), regUrls: (r[0] && r[0].reg) || {} };
+  } catch (e) { _site.at = Date.now(); }
+  return _site.regUrls;
+}
+const groupKey = g => String(g || '').toLowerCase().replace(/[^a-z]/g, '');
+
+// What one guardian sees for each of their families, plus their own pending submissions.
+async function familiesFor(gs) {
+  const famIds = [...new Set(gs.map(g => g.family_id))];
+  if (!famIds.length) return [];
+  const list = famIds.map(enc).join(',');
+  const views = await rows('portal_views?id=in.(' + list + ')&select=id,data,updated_at');
+  const inbox = await rows('portal_inbox?family_id=in.(' + list + ')&kind=in.(intent,absence,contact)&select=id,family_id,email,kind,student_id,event_id,payload,status,created_at&order=created_at.desc&limit=200');
+  const reg = await siteRegUrls();
+  const regBy = {}; Object.keys(reg || {}).forEach(k => { if (reg[k]) regBy[groupKey(k)] = reg[k]; });
+  const today = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10); // Eastern-ish
+  return gs.map(g => {
+    const v = views.find(x => x.id === g.family_id); if (!v) return null;
+    const mine = inbox.filter(i => i.family_id === g.family_id);
+    const out = Object.assign(scopeView(v.data, g, mine.filter(i => i.kind === 'intent' && i.status === 'new')), { familyId: g.family_id, updatedAt: v.updated_at });
+    out.students.forEach(s => { if (s.regEligible) s.regLink = regBy[groupKey(s.group)] || s.regLink || ''; else s.regLink = ''; });
+    const ids = new Set(out.students.map(s => String(s.id)));
+    out.absences = mine.filter(i => i.kind === 'absence' && i.status !== 'dismissed' && ids.has(String(i.student_id)))
+      .flatMap(i => (i.payload.dates || []).filter(d => d >= today).map(d => ({ studentId: i.student_id, first: i.payload.first || '', date: d, reason: i.payload.reason || '' })))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const pc = mine.find(i => i.kind === 'contact' && i.status === 'new' && i.email === g.email);
+    out.contactPending = pc ? pc.payload.next : null;
+    return out;
+  }).filter(Boolean);
+}
+
 async function parentOps(op, body, event) {
   const ip = clientIp(event);
 
@@ -191,16 +228,52 @@ async function parentOps(op, body, event) {
   if (!gs.length) return json(401, { error: 'signed_out' });
 
   if (op === 'me') {
-    const famIds = [...new Set(gs.map(g => g.family_id))];
-    const views = await rows('portal_views?id=in.(' + famIds.map(enc).join(',') + ')&select=id,data,updated_at');
-    const pending = await rows('portal_inbox?family_id=in.(' + famIds.map(enc).join(',') + ')&status=eq.new&kind=eq.intent&select=student_id,event_id');
-    const families = gs.map(g => { const v = views.find(x => x.id === g.family_id); return v ? Object.assign(scopeView(v.data, g, pending), { familyId: g.family_id, updatedAt: v.updated_at }) : null; }).filter(Boolean);
+    const families = await familiesFor(gs);
     const last = gs[0].last_seen ? new Date(gs[0].last_seen).getTime() : 0;
     if (Date.now() - last > 3600e3) { // once an hour is plenty
       await write('PATCH', 'portal_guardians?email=eq.' + enc(sess.e), { last_seen: now() });
       await log('viewed', sess.e, gs[0].family_id, ip);
     }
     return json(200, { email: sess.e, families });
+  }
+
+  // Find a student this guardian may act for.
+  async function scopedStudent(sid) {
+    for (const g of gs) {
+      const v = (await rows('portal_views?id=eq.' + enc(g.family_id) + '&select=data'))[0];
+      if (!v) continue;
+      const s = scopeView(v.data, g, []).students.find(x => String(x.id) === String(sid));
+      if (s) return { g, s, view: v.data };
+    }
+    return null;
+  }
+
+  if (op === 'submit-absence') {
+    const sids = (Array.isArray(body.studentIds) ? body.studentIds : []).map(String).slice(0, 10);
+    const today = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10);
+    const limit = new Date(Date.now() + 180 * 86400e3).toISOString().slice(0, 10);
+    const dates = [...new Set((Array.isArray(body.dates) ? body.dates : []).map(String))].filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= today && d <= limit).sort().slice(0, 12);
+    if (!sids.length) return json(400, { error: 'Choose which student will be out.' });
+    if (!dates.length) return json(400, { error: 'Choose at least one class date.' });
+    const reason = str(body.reason, 500).trim();
+    const found = [];
+    for (const sid of sids) { const r = await scopedStudent(sid); if (!r) return json(400, { error: 'Student not found.' }); found.push(r); }
+    for (const r of found) {
+      await write('POST', 'portal_inbox', { family_id: r.g.family_id, email: sess.e, kind: 'absence', student_id: String(r.s.id), payload: { dates, reason, first: r.s.first, studentName: r.s.first + (r.s.last ? ' ' + r.s.last : ''), parentName: r.g.name || '', parentEmail: sess.e }, status: 'new', created_at: now() });
+    }
+    await log('absence_reported', sess.e, found[0].g.family_id, ip);
+    return json(200, { ok: true });
+  }
+
+  if (op === 'submit-contact') {
+    const next = { name: str(body.name, 120).trim(), email: normEmail(str(body.email, 200)), phone: str(body.phone, 40).trim() };
+    if (!next.name) return json(400, { error: 'Please enter your name.' });
+    if (!validEmail(next.email)) return json(400, { error: 'Please enter a valid email.' });
+    const g = gs[0];
+    await write('DELETE', 'portal_inbox?family_id=eq.' + enc(g.family_id) + '&kind=eq.contact&email=eq.' + enc(sess.e) + '&status=eq.new');
+    await write('POST', 'portal_inbox', { family_id: g.family_id, email: sess.e, kind: 'contact', payload: { guardianId: g.id, contactId: String(g.id).split(':')[1] || '', next }, status: 'new', created_at: now() });
+    await log('contact_update_requested', sess.e, g.family_id, ip);
+    return json(200, { ok: true });
   }
 
   if (op === 'submit-intent') {
@@ -294,6 +367,15 @@ async function staffOps(op, body, user) {
   if (op === 'staff-inbox') {
     const st = ['new', 'accepted', 'dismissed'].includes(body.status) ? body.status : 'new';
     return json(200, { items: await rows('portal_inbox?status=eq.' + st + '&order=created_at.desc&limit=200&select=*') });
+  }
+
+  // Exactly what a guardian of this family would see (all kids unless a contact is given).
+  if (op === 'staff-preview') {
+    const fid = str(body.familyId, 80);
+    const gid = body.contactId ? fid + ':' + str(body.contactId, 80) : null;
+    const gr = gid ? (await rows('portal_guardians?id=eq.' + enc(gid) + '&select=*'))[0] : null;
+    const g = gr || { id: fid + ':preview', email: '', name: '', family_id: fid, student_ids: null };
+    return json(200, { email: g.email || 'preview', families: await familiesFor([g]), preview: true });
   }
 
   if (op === 'staff-inbox-mark') {

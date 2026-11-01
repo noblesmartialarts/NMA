@@ -4076,7 +4076,9 @@ function renderBBForecast(){
       const progress=stripeCount(s)/maxStripes(s);
       remaining=Math.max(0,stepsLeft-progress);
     }
-    const pace=studentAvgPromoIntervalDays(s)||globalAvg;
+    // Everyone moves one rank per belt-test cycle, so use the school's pace for all —
+    // personal history made same-rank students land on different test dates.
+    const pace=globalAvg;
     const projDays=Math.round(remaining*pace);
     const projDateStr=localDateOffset(projDays);
     // Already a candidate → next BB test (today counts). Otherwise they become a
@@ -4099,7 +4101,7 @@ function renderBBForecast(){
     <div style="font-size:12px;color:var(--ink-muted);margin-bottom:10px;">
       ${nextBB?`Next Black Belt Test: <strong>${fmtFull(nextBB.date)}</strong>`:'No upcoming Black Belt Test scheduled.'}
       · Black Belt Tests run in <strong>February and August</strong>. <em>Eligible</em> is the projected date a student reaches Black Belt Candidate; <em>Expected BB Test</em> is the first Feb/Aug test after that. Months marked “est.” aren't scheduled yet.
-      · Pace estimated from each student's own promotion history, falling back to the school average of ${Math.round(globalAvg)} days/rank when a student doesn't have enough history yet.
+      · Pace is the school's average of ${Math.round(globalAvg)} days per rank (one belt-test cycle), so students at the same rank and stripes share a date.
     </div>
     <div class="table-wrap"><table>
       <thead><tr><th>Student</th><th>Current Belt</th><th>Stripes</th><th>Ranks to go</th><th>Eligible</th><th>Expected BB Test</th><th>Status</th></tr></thead>
@@ -15236,7 +15238,7 @@ function portalBB(s){
   const today=localToday();
   let remaining=0;
   if(s.belt!=='Black Belt Candidate'&&s.belt!=='BB Red')remaining=Math.max(0,candIdx-mPath.indexOf(s.belt)-stripeCount(s)/maxStripes(s));
-  const pace=studentAvgPromoIntervalDays(s)||computeGlobalAvgPromoIntervalDays();
+  const pace=computeGlobalAvgPromoIntervalDays();
   const proj=localDateOffset(Math.round(remaining*pace));
   const t=remaining<=0?bbTestOnOrAfter(today,true):bbTestOnOrAfter(proj,false);
   return {title:s.belt==='BB Red'?'1st Degree Black Belt Test':'Black Belt Test',eligible:remaining<=0?'now':proj,test:t?{date:t.date,label:t.label,scheduled:!!t.scheduled}:null};
@@ -15249,6 +15251,22 @@ function portalIntentFor(s,upcoming){
   if(!ev)return null;
   const received=(DB.parentFeedback||[]).some(p=>p.studentId===s.id&&p.eventId===ev.id);
   return {open:!received,status:received?'received':'open',eventId:ev.id,eventName:ev.name||ev.type,eventDate:ev.date,promotingTo:promo.belt,kind:bb?'bb':'standard',fee:+ev.fee||0};
+}
+// Gear / weapon order links shown once a student has their first stripe of the cycle.
+function portalNextWeapon(key){
+  const cur=CURRICULUM[key];if(!cur)return '';
+  const n=cur.currentCycle%cur.cycleCount+1;const c=cur.cycles.find(x=>x.num===n);
+  return c&&c.weapon||'';
+}
+function portalOrdersFor(s){
+  const L=portalCfg().orderLinks||{};const out=[];
+  if(stripeCount(s)<1)return out;
+  const add=(k,why)=>{const l=L[k];if(l&&l.url)out.push({label:l.label||'Order form',url:l.url,why});};
+  if(s.group==='Karate Kids'&&(s.belt==='Orange'||s.belt==='Orange II'))add('purple','For the move up to Purple belt');
+  else if(s.group==='Black Belt Club'&&s.belt==='Green II')add('mcWeapon','For the move up to Master\'s Club');
+  else if(s.group==='Black Belt Club')add('bbcWeapon','For next cycle'+(portalNextWeapon(portalCurriculumKey(s))?' ('+portalNextWeapon(portalCurriculumKey(s))+')':''));
+  else if(s.group==="Master's Club")add('mcWeapon','For next cycle'+(portalNextWeapon("Master's Club")?' ('+portalNextWeapon("Master's Club")+')':''));
+  return out;
 }
 // Everything a family's guardians may see. Nothing internal (notes, history, overrides) goes in here.
 function portalViewFor(f){
@@ -15273,7 +15291,10 @@ function portalViewFor(f){
       curriculum:cyc?{label:cyc.label,program:String(cur.program||key).replace(/&amp;/g,'&'),items:[['Self-defense',cyc.selfDefense],['Form',cyc.form],['Kicks',cyc.kicks],['Fight set',cyc.fights],['Weapon',cyc.weapon]].filter(x=>x[1]),videos:(typeof YT_PLAYLISTS!=='undefined'&&YT_PLAYLISTS[key+':'+cyc.num])||''}:null,
       attendance:{since:launch,present:att.filter(a=>a.status==='present').length,days:att},
       intent:portalIntentFor(s,upcoming),
-      regLink:(DB.regLinks&&DB.regLinks[s.group])||(typeof REG_LINKS!=='undefined'&&REG_LINKS[s.group])||''
+      // Next month's RecDesk link once they've earned stripe #1 (the portal fills in the current link from the website admin).
+      regEligible:stripeCount(s)>=1,
+      regLink:(DB.regLinks&&DB.regLinks[s.group])||'',
+      orders:portalOrdersFor(s)
     };
   });
   const open=famOpenItems(f);
@@ -15291,7 +15312,8 @@ function portalViewFor(f){
     guardians:(f.contacts||[]).filter(c=>c.email).map(c=>({name:c.name||'',email:famNormEmail(c.email),phone:c.phone||'',studentIds:c.students&&c.students.length?c.students:null})),
     school:{
       announcement:cfg.announcement||'',challenge:DB.challengeOfMonth||'',payInfo:cfg.payInfo||'',
-      schedule:(DB.classSchedule||[]).filter(c=>groups.has(c.group)||(c.group==='Black Belt Club'&&groups.has('Black Belt Club'))).map(c=>({day:days[c.day]||'',time:c.time,group:c.group,dur:c.dur})),
+      schedule:(DB.classSchedule||[]).filter(c=>groups.has(c.group)).sort((a,b)=>String(a.time).localeCompare(String(b.time))).map(c=>({time:c.time,group:c.group,dur:c.dur})),
+      classDates:(DB.classDates||[]).map(c=>typeof c==='string'?{date:c,note:''}:c).filter(c=>c&&c.date>=today&&c.date<=localDateOffset(180)&&!(DB.cancelledDays||[]).includes(c.date)).sort((a,b)=>a.date.localeCompare(b.date)).map(c=>({date:c.date,note:c.note||''})),
       events:upcoming.filter(e=>e.date<=localDateOffset(120)&&(e.type!=='Black Belt Test'||students.some(x=>x.bb))).map(e=>({name:e.name||e.type,date:e.date,type:e.type}))
     }
   };
@@ -15423,11 +15445,20 @@ async function portalShowActivity(fid,elId){const el=$(elId);if(!el)return;el.in
   };
   renderFamilyEditor._portal=true;
 })();
-function portalPreview(fid){
-  const f=famById(fid);if(!f)return;
-  const v=portalViewFor(f);
-  const w=window.open('','_blank','width=480,height=800');if(!w){alert('Allow pop-ups to preview.');return;}
-  w.document.write('<title>Portal preview — '+famEsc(f.name)+'</title><body style="font-family:system-ui;padding:16px;font-size:13px;"><h3>What the '+famEsc(f.name)+' family sees</h3><p style="color:#666">Each guardian only sees the kids they\'re set up for.</p><pre style="white-space:pre-wrap;font-size:11px;background:#f4f4f4;padding:10px;border-radius:8px;">'+famEsc(JSON.stringify(v,null,2))+'</pre></body>');
+function portalPageUrl(){return /^(localhost|127\.)/.test(location.hostname)?location.origin+'/family':'https://noblesmartialarts.com/family';}
+// Opens the real portal page and hands it this family's view, exactly as a parent would see it.
+async function portalPreview(fid){
+  const url=portalPageUrl();
+  const w=window.open(url+'#preview','nma-portal-preview','width=430,height=860');
+  if(!w){alert('Allow pop-ups for the CRM to preview the portal.');return;}
+  let data;
+  try{if(!(await portalPublish(true)))throw new Error(_portalStatus||'Couldn\'t sync');data=await portalCall('staff-preview',{familyId:fid});}
+  catch(e){data={error:e.message};}
+  const origin=new URL(url).origin;
+  const send=()=>{try{w.postMessage({type:'nma-portal-preview',data},origin);}catch(e){}};
+  const onMsg=e=>{if(e.source===w&&e.data&&e.data.type==='nma-portal-preview-ready')send();};
+  window.addEventListener('message',onMsg);setTimeout(()=>window.removeEventListener('message',onMsg),120000);
+  send();
 }
 
 // Families list: portal settings card.
@@ -15440,8 +15471,9 @@ function portalPreview(fid){
       const host=$('fam-banner');if(!host||famOpenId)return r;
       const cfg=portalCfg();
       const fams=(DB.families||[]).filter(f=>(f.contacts||[]).some(c=>c.portal));
-      host.insertAdjacentHTML('beforeend',`<details class="pf-card" style="margin-bottom:12px;" ${fams.length?'':'open'}>
-        <summary style="cursor:pointer;font-family:var(--font-display);font-size:15px;font-weight:700;">🔑 Family portal <span style="font-weight:400;font-size:12px;color:var(--ink-muted);">— ${fams.length} famil${fams.length===1?'y':'ies'} with access · <span id="portal-sync">${famEsc(_portalStatus||'')}</span> ${_portalInboxCount?`· <a href="#" onclick="nav('parentfeedback');return false;" style="color:var(--red);font-weight:600;">${_portalInboxCount} letter${_portalInboxCount!==1?'s':''} to review</a>`:''}</span></summary>
+      portalPrefillOrderLinks();
+      host.insertAdjacentHTML('beforeend',`<details class="pf-card" style="margin-bottom:12px;" ${fams.length&&!_portalContacts.length?'':'open'}>
+        <summary style="cursor:pointer;font-family:var(--font-display);font-size:15px;font-weight:700;">🔑 Family portal <span style="font-weight:400;font-size:12px;color:var(--ink-muted);">— ${fams.length} famil${fams.length===1?'y':'ies'} with access · <span id="portal-sync">${famEsc(_portalStatus||'')}</span> ${_portalInboxCount?`· <a href="#" onclick="nav('parentfeedback');return false;" style="color:var(--red);font-weight:600;">${_portalInboxCount} letter${_portalInboxCount!==1?'s':''} to review</a>`:''} ${_portalContacts.length?`· <span style="color:var(--red);font-weight:600;">${_portalContacts.length} contact update${_portalContacts.length!==1?'s':''} to approve</span>`:''}</span></summary>
         <div style="font-size:12px;color:var(--ink-muted);margin:8px 0;">Parents sign in at <strong>noblesmartialarts.com/family</strong>. Open a family and tick <em>Family portal access</em> on a guardian, then send the invite.</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
           <div class="form-group" style="margin:0;"><label class="form-label">Show attendance from</label><input type="date" class="form-input" value="${cfg.launchDate||''}" onchange="portalCfg().launchDate=this.value;save();"><div style="font-size:11px;color:var(--ink-muted);">Set automatically the day you first give a family access. Earlier dates stay hidden.</div></div>
@@ -15449,6 +15481,9 @@ function portalPreview(fid){
           <div class="form-group" style="margin:0;"><label class="form-label">Announcement (top of the portal)</label><textarea class="form-input" rows="2" placeholder="e.g. No class Nov 24 — happy Thanksgiving!" onchange="portalCfg().announcement=this.value.trim();save();">${famEsc(cfg.announcement)}</textarea></div>
         </div>
         <label style="font-size:12px;display:block;margin-top:8px;"><input type="checkbox" ${cfg.showLetters!==false?'checked':''} onchange="portalCfg().showLetters=this.checked;save();"> Let parents return Intent to Promote letters in the portal (shows up to 60 days before the test, for kids selected on the Letters tab)</label>
+        <div class="form-label" style="margin-top:12px;">Order links in the portal <span style="font-weight:400;color:var(--ink-muted);">— shown on a student's card once they've earned stripe #1</span></div>
+        ${portalOrderRows()}
+        ${portalContactsHTML()}
       </details>`);
     }catch(e){console.warn(e);}
     return r;
@@ -15456,18 +15491,96 @@ function portalPreview(fid){
   renderFamilies._portal=true;
 })();
 
+const PORTAL_ORDER_RULES=[
+  {k:'purple',who:'Orange / Orange II (Karate Kids)',hint:'Purple belt gear package'},
+  {k:'bbcWeapon',who:'Black Belt Club',hint:()=>'Next cycle: '+(portalNextWeapon('Black Belt Club Level I')||'—')+' (Level I) / '+(portalNextWeapon('Black Belt Club Level II')||'—')+' (Level II)'},
+  {k:'mcWeapon',who:"Master's Club + Green II",hint:()=>"Next cycle: "+(portalNextWeapon("Master's Club")||'—')}
+];
+function portalOrderRows(){
+  const L=portalCfg().orderLinks||{};
+  return PORTAL_ORDER_RULES.map(r=>{const l=L[r.k]||{};const hint=typeof r.hint==='function'?r.hint():r.hint;
+    return `<div style="display:grid;grid-template-columns:minmax(140px,180px) 1fr 1.4fr;gap:6px;align-items:center;margin:4px 0;font-size:12px;">
+      <div><strong>${famEsc(r.who)}</strong><div style="color:var(--ink-muted);font-size:11px;">${famEsc(hint)}</div></div>
+      <input class="form-input" placeholder="Button label" value="${famEsc(l.label||'')}" onchange="portalSetOrder('${r.k}','label',this.value)">
+      <input class="form-input" placeholder="Order form URL (blank = don't show)" value="${famEsc(l.url||'')}" onchange="portalSetOrder('${r.k}','url',this.value)">
+    </div>`;}).join('')+`<div style="font-size:11px;color:var(--ink-muted);">Update these when the cycle's weapon changes. Pre-filled from the Gear &amp; Weapons links on the website.</div>`;
+}
+function portalSetOrder(k,f,v){const c=portalCfg();if(!c.orderLinks)c.orderLinks={};c.orderLinks[k]=Object.assign({},c.orderLinks[k],{[f]:String(v||'').trim()});save();}
+// First time: borrow the website's Gear & Weapons links.
+async function portalPrefillOrderLinks(){
+  const c=portalCfg();if(c.orderLinks||typeof supaDirect==='undefined')return;
+  try{
+    const {data}=await supaDirect.from('nma_site_content').select('data').eq('id','main').single();
+    const gl=((data&&data.data&&data.data.gearLinks)||[]).filter(l=>l&&l.url);
+    const find=(re,not)=>gl.find(l=>re.test(l.label)&&!(not&&not.test(l.label)));
+    const pick=l=>l?{label:l.label,url:l.url}:{label:'',url:''};
+    c.orderLinks={purple:pick(find(/purple/i)),bbcWeapon:pick(find(/escrima|weapon|nunchaku|bo staff/i,/master|purple/i)),mcWeapon:pick(find(/master/i))};
+    save();if(typeof renderFamilies==='function'&&$('page-families')?.classList.contains('active'))renderFamilies();
+  }catch(e){}
+}
+
 // ── Returned letters inbox (Parent Feedback page) ──
 let _portalInbox=[],_portalInboxCount=0;
+let _portalContacts=[];
 async function portalCheckInbox(notify){
   try{
     const j=await portalCall('staff-inbox',{status:'new'});
-    _portalInbox=j.items||[];
+    const items=j.items||[];
+    await portalImportAbsences(items.filter(i=>i.kind==='absence'));
+    _portalInbox=items.filter(i=>i.kind==='intent');
+    const wasC=_portalContacts.length;_portalContacts=items.filter(i=>i.kind==='contact');
     const n=_portalInbox.length;const was=_portalInboxCount;_portalInboxCount=n;
     if(notify&&n&&n!==was)toast(n+' Intent letter'+(n!==1?'s':'')+' returned in the family portal — review on Parent Feedback.');
-  }catch(e){_portalInbox=[];}
+    if(notify&&_portalContacts.length&&_portalContacts.length!==wasC)toast(_portalContacts.length+' contact update'+(_portalContacts.length!==1?'s':'')+' from the family portal — approve on the Families page.');
+    if(_portalContacts.length!==wasC&&$('page-families')?.classList.contains('active')&&!famOpenId)renderFamilies();
+  }catch(e){}
   renderPortalInbox();
   return _portalInbox;
 }
+// Absences reported in the portal go straight into the existing absence requests.
+async function portalImportAbsences(list){
+  if(!list.length)return;
+  if(!DB.pendingAbsences)DB.pendingAbsences=[];
+  let added=0;
+  list.forEach(it=>{
+    const p=it.payload||{};const s=DB.students.find(x=>String(x.id)===String(it.student_id));
+    (p.dates||[]).forEach(d=>{
+      const id='portal_'+it.id+'_'+d;if(DB.pendingAbsences.some(r=>r.id===id))return;
+      DB.pendingAbsences.push({id,studentName:s?s.first+' '+s.last:(p.studentName||''),studentId:s?s.id:null,parentName:p.parentName||'',parentEmail:it.email||p.parentEmail||'',date:d,reason:p.reason||'',submittedAt:it.created_at,status:'pending',source:'portal'});
+      added++;
+    });
+  });
+  if(added)save();
+  for(const it of list){try{await portalCall('staff-inbox-mark',{id:it.id,status:'accepted'});}catch(e){}}
+  if(added)toast(added+' absence notice'+(added!==1?'s':'')+' from the family portal added to absence requests.');
+}
+function portalContactsHTML(){
+  if(!_portalContacts.length)return '';
+  return `<div class="form-label" style="margin-top:14px;color:var(--red);">Contact updates to approve (${_portalContacts.length})</div>`+_portalContacts.map(it=>{
+    const p=it.payload||{};const f=famById(it.family_id);const c=f&&(f.contacts||[]).find(x=>x.id===p.contactId);const nx=p.next||{};
+    const fld=(k,lab)=>{const o=c?String(c[k]||''):'';const n=String(nx[k]||'');const ch=famNormEmail(o)!==famNormEmail(n);return `<div><span style="color:var(--ink-muted);">${lab}:</span> ${ch?`<s style="color:var(--ink-faint);">${famEsc(o||'—')}</s> → <strong>${famEsc(n||'—')}</strong>`:famEsc(n||'—')}</div>`;};
+    return `<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:6px 0;background:var(--paper);font-size:12px;">
+      <div style="font-weight:600;margin-bottom:4px;">${famEsc(f?f.name+' family':'Unknown family')} <span style="font-weight:400;color:var(--ink-muted);">· from ${famEsc(it.email)}</span></div>
+      ${c?fld('name','Name')+fld('email','Email')+fld('phone','Phone'):'<div style="color:var(--red);">That guardian is no longer on the family.</div>'}
+      <div style="display:flex;gap:8px;margin-top:8px;"><button class="btn small primary" ${c?'':'disabled'} onclick="portalApproveContact(${it.id})">✓ Approve</button><button class="btn small" onclick="portalDeclineContact(${it.id})">Decline</button></div>
+    </div>`;}).join('');
+}
+async function portalApproveContact(id){
+  const it=_portalContacts.find(x=>x.id===id);if(!it)return;
+  const p=it.payload||{};const f=famById(it.family_id);const c=f&&(f.contacts||[]).find(x=>x.id===p.contactId);if(!c)return;
+  const nx=p.next||{};const emailChanged=famNormEmail(c.email)!==famNormEmail(nx.email);
+  c.name=nx.name||c.name;c.email=nx.email||c.email;c.phone=nx.phone||'';
+  if(typeof famSyncFamily==='function')famSyncFamily(f);
+  save();
+  try{await portalCall('staff-inbox-mark',{id,status:'accepted'});}catch(e){}
+  _portalContacts=_portalContacts.filter(x=>x.id!==id);renderFamilies();
+  toast('Updated '+(c.name||c.email)+'.'+(emailChanged?' They\'ll sign in to the portal with the new email.':''));
+}
+async function portalDeclineContact(id){
+  try{await portalCall('staff-inbox-mark',{id,status:'dismissed'});}catch(e){alert(e.message);return;}
+  _portalContacts=_portalContacts.filter(x=>x.id!==id);renderFamilies();
+}
+setInterval(()=>{if(crmSession()&&localStorage.getItem('nma_portal_published')==='1')portalCheckInbox(true);},180000);
 function portalInboxItemHTML(it){
   const p=it.payload||{};
   const s=DB.students.find(x=>String(x.id)===String(it.student_id));
