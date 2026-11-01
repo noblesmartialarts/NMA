@@ -15216,8 +15216,11 @@ function portalCfg(){
   const c=DB.portal;
   if(c.launchDate==null)c.launchDate='';
   if(c.announcement==null)c.announcement='';
-  if(c.payInfo==null)c.payInfo='Cash or Venmo (@BNobleFamily)';
+  if(c.payInfo==null||c.payInfo==='Cash or Venmo (@BNobleFamily)')c.payInfo='Cash is also welcome at class.'; // pay buttons cover Venmo/Zelle/PayPal
   if(c.showLetters==null)c.showLetters=true;
+  if(c.venmo==null)c.venmo='BNobleFamily';
+  if(c.zelle==null)c.zelle='noblesmartialarts@gmail.com';
+  if(c.paypal==null)c.paypal='BrandonNoble';
   return c;
 }
 async function portalCall(op,body){
@@ -15294,7 +15297,8 @@ function portalViewFor(f){
       // Next month's RecDesk link once they've earned stripe #1 (the portal fills in the current link from the website admin).
       regEligible:stripeCount(s)>=1,
       regLink:(DB.regLinks&&DB.regLinks[s.group])||'',
-      orders:portalOrdersFor(s)
+      orders:portalOrdersFor(s),
+      notes:(DB.goodJobNotes||[]).filter(n=>n.toId===s.id).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,10).map(n=>({date:n.date,from:n.fromId?n.fromName:'Sensei Brandon',message:n.message}))
     };
   });
   const open=famOpenItems(f);
@@ -15312,6 +15316,8 @@ function portalViewFor(f){
     guardians:(f.contacts||[]).filter(c=>c.email).map(c=>({name:c.name||'',email:famNormEmail(c.email),phone:c.phone||'',studentIds:c.students&&c.students.length?c.students:null})),
     school:{
       announcement:cfg.announcement||'',challenge:DB.challengeOfMonth||'',payInfo:cfg.payInfo||'',
+      pay:{venmo:cfg.venmo||'',zelle:cfg.zelle||'',paypal:cfg.paypal||''},
+      bbGuide:students.some(x=>x.group==="Master's Club"||x.group==='Legends Club'),
       schedule:(DB.classSchedule||[]).filter(c=>groups.has(c.group)).sort((a,b)=>String(a.time).localeCompare(String(b.time))).map(c=>({time:c.time,group:c.group,dur:c.dur})),
       classDates:(DB.classDates||[]).map(c=>typeof c==='string'?{date:c,note:''}:c).filter(c=>c&&c.date>=today&&c.date<=localDateOffset(180)&&!(DB.cancelledDays||[]).includes(c.date)).sort((a,b)=>a.date.localeCompare(b.date)).map(c=>({date:c.date,note:c.note||''})),
       events:upcoming.filter(e=>e.date<=localDateOffset(120)&&(e.type!=='Black Belt Test'||students.some(x=>x.bb))).map(e=>({name:e.name||e.type,date:e.date,type:e.type}))
@@ -15477,7 +15483,13 @@ async function portalPreview(fid){
         <div style="font-size:12px;color:var(--ink-muted);margin:8px 0;">Parents sign in at <strong>noblesmartialarts.com/family</strong>. Open a family and tick <em>Family portal access</em> on a guardian, then send the invite.</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
           <div class="form-group" style="margin:0;"><label class="form-label">Show attendance from</label><input type="date" class="form-input" value="${cfg.launchDate||''}" onchange="portalCfg().launchDate=this.value;save();"><div style="font-size:11px;color:var(--ink-muted);">Set automatically the day you first give a family access. Earlier dates stay hidden.</div></div>
-          <div class="form-group" style="margin:0;"><label class="form-label">How to pay (shown with the balance)</label><textarea class="form-input" rows="2" onchange="portalCfg().payInfo=this.value.trim();save();">${famEsc(cfg.payInfo)}</textarea></div>
+          <div class="form-group" style="margin:0;"><label class="form-label">Pay buttons</label>
+            <div style="display:grid;grid-template-columns:70px 1fr;gap:4px 6px;align-items:center;font-size:12px;">
+              <span>Venmo @</span><input class="form-input" value="${famEsc(cfg.venmo)}" placeholder="blank = hide" onchange="portalCfg().venmo=this.value.trim().replace(/^@/,'');save();">
+              <span>Zelle</span><input class="form-input" value="${famEsc(cfg.zelle)}" placeholder="blank = hide" onchange="portalCfg().zelle=this.value.trim();save();">
+              <span>PayPal.me/</span><input class="form-input" value="${famEsc(cfg.paypal)}" placeholder="blank = hide" onchange="portalCfg().paypal=this.value.trim().replace(/^.*paypal\.me\//i,'');save();">
+            </div></div>
+          <div class="form-group" style="margin:0;"><label class="form-label">Extra payment note (shown with the balance)</label><textarea class="form-input" rows="2" onchange="portalCfg().payInfo=this.value.trim();save();">${famEsc(cfg.payInfo)}</textarea></div>
           <div class="form-group" style="margin:0;"><label class="form-label">Announcement (top of the portal)</label><textarea class="form-input" rows="2" placeholder="e.g. No class Nov 24 — happy Thanksgiving!" onchange="portalCfg().announcement=this.value.trim();save();">${famEsc(cfg.announcement)}</textarea></div>
         </div>
         <label style="font-size:12px;display:block;margin-top:8px;"><input type="checkbox" ${cfg.showLetters!==false?'checked':''} onchange="portalCfg().showLetters=this.checked;save();"> Let parents return Intent to Promote letters in the portal (shows up to 60 days before the test, for kids selected on the Letters tab)</label>
