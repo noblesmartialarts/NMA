@@ -15199,4 +15199,339 @@ function copyJotformLink(){
 }
 
 </script>
+<script>
+// ══════════════════════════════════════════════════════
+// PARENT PORTAL — CRM side
+// ══════════════════════════════════════════════════════
+// Parents sign in at noblesmartialarts.com/family. The CRM decides what each
+// family sees (same belt/test logic as everywhere else here), and publishes it
+// to the portal function whenever data is saved. Access is per guardian:
+// contact.portal = true. Returned Intent letters land in a review inbox on the
+// Parent Feedback page and become normal parent-feedback records when accepted.
+const PORTAL_FN='/.netlify/functions/portal';
+function portalCfg(){
+  if(!DB.portal||typeof DB.portal!=='object')DB.portal={};
+  const c=DB.portal;
+  if(c.launchDate==null)c.launchDate='';
+  if(c.announcement==null)c.announcement='';
+  if(c.payInfo==null)c.payInfo='Cash or Venmo (@BNobleFamily)';
+  if(c.showLetters==null)c.showLetters=true;
+  return c;
+}
+async function portalCall(op,body){
+  const res=await fetch(PORTAL_FN,{method:'POST',headers:Object.assign({'Content-Type':'application/json'},crmAuthHeaders()),body:JSON.stringify(Object.assign({op},body||{}))});
+  const j=await res.json().catch(()=>({}));
+  if(res.status===401&&typeof crmSessionExpired==='function')crmSessionExpired();
+  if(!res.ok)throw new Error(j.message||j.error||('Portal error '+res.status));
+  return j;
+}
+function portalCurriculumKey(s){
+  if(s.group==='Black Belt Club')return isBBC2(s)?'Black Belt Club Level II':'Black Belt Club Level I';
+  return s.group;
+}
+function portalBB(s){
+  const mPath=BELT_PATHS["Master's Club"];const candIdx=mPath.indexOf('Black Belt Candidate'),redIdx=mPath.indexOf('Red');
+  const inPool=(s.group==="Master's Club"&&mPath.indexOf(s.belt)>=redIdx)||(s.group==='Legends Club'&&s.belt==='BB Red');
+  if(!inPool)return null;
+  const today=localToday();
+  let remaining=0;
+  if(s.belt!=='Black Belt Candidate'&&s.belt!=='BB Red')remaining=Math.max(0,candIdx-mPath.indexOf(s.belt)-stripeCount(s)/maxStripes(s));
+  const pace=studentAvgPromoIntervalDays(s)||computeGlobalAvgPromoIntervalDays();
+  const proj=localDateOffset(Math.round(remaining*pace));
+  const t=remaining<=0?bbTestOnOrAfter(today,true):bbTestOnOrAfter(proj,false);
+  return {title:s.belt==='BB Red'?'1st Degree Black Belt Test':'Black Belt Test',eligible:remaining<=0?'now':proj,test:t?{date:t.date,label:t.label,scheduled:!!t.scheduled}:null};
+}
+function portalIntentFor(s,upcoming){
+  if(portalCfg().showLetters===false||!letterEligible(s))return null;
+  const promo=getPromotion(s);if(!promo)return null;
+  const bb=isBlackBeltLetterCase(s);
+  const ev=upcoming.find(e=>isPromotionEvent(e)&&canPromoteAtEvent(s,e)&&(!bb||e.type==='Black Belt Test')&&e.date<=localDateOffset(60));
+  if(!ev)return null;
+  const received=(DB.parentFeedback||[]).some(p=>p.studentId===s.id&&p.eventId===ev.id);
+  return {open:!received,status:received?'received':'open',eventId:ev.id,eventName:ev.name||ev.type,eventDate:ev.date,promotingTo:promo.belt,kind:bb?'bb':'standard',fee:+ev.fee||0};
+}
+// Everything a family's guardians may see. Nothing internal (notes, history, overrides) goes in here.
+function portalViewFor(f){
+  const cfg=portalCfg();const today=localToday();
+  const kids=famMembers(f).filter(s=>s.status==='Active');
+  const upcoming=(DB.testEvents||[]).filter(e=>e.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
+  const launch=cfg.launchDate||today;
+  const attDates=Object.keys(DB.attendance||{}).filter(d=>d>=launch&&d<=today&&attendanceTaken(d)).sort().reverse();
+  const students=kids.map(s=>{
+    const promo=getPromotion(s);const ready=beltTestEligible(s);
+    const ev=upcoming.find(e=>e.type!=='Black Belt Test'||s.belt==='Black Belt Candidate'||s.belt==='BB Red')||null;
+    const testsFor=ev&&ready&&isPromotionEvent(ev)&&canPromoteAtEvent(s,ev)?promo.belt:null;
+    const key=portalCurriculumKey(s);const cur=CURRICULUM[key];
+    const cyc=cur&&cur.cycles.find(x=>x.num===cur.currentCycle);
+    const att=attDates.filter(d=>DB.attendance[d][s.id]!=null).map(d=>({date:d,status:DB.attendance[d][s.id]==='present'?'present':(DB.attendance[d][s.id]==='excused'?'excused':'absent')}));
+    return {
+      id:s.id,first:s.first,last:s.last,group:s.group,belt:s.belt,beltColor:BELT_COLORS[s.belt]||'#888',
+      stripes:stripeCount(s),maxStripes:maxStripes(s),nextBelt:promo?promo.belt:null,nextGroup:promo&&promo.group!==s.group?promo.group:null,
+      ready,
+      nextTest:ev?{name:ev.name||ev.type,date:ev.date,type:ev.type,testingFor:testsFor}:null,
+      bb:portalBB(s),
+      curriculum:cyc?{label:cyc.label,program:String(cur.program||key).replace(/&amp;/g,'&'),items:[['Self-defense',cyc.selfDefense],['Form',cyc.form],['Kicks',cyc.kicks],['Fight set',cyc.fights],['Weapon',cyc.weapon]].filter(x=>x[1]),videos:(typeof YT_PLAYLISTS!=='undefined'&&YT_PLAYLISTS[key+':'+cyc.num])||''}:null,
+      attendance:{since:launch,present:att.filter(a=>a.status==='present').length,days:att},
+      intent:portalIntentFor(s,upcoming),
+      regLink:(DB.regLinks&&DB.regLinks[s.group])||(typeof REG_LINKS!=='undefined'&&REG_LINKS[s.group])||''
+    };
+  });
+  const open=famOpenItems(f);
+  const items=[]
+    .concat(open.gear.map(o=>({kind:'gear',label:(o.orderType||'Gear order')+(o.studentName?' — '+o.studentName:''),amount:+o.amount||0,date:o.date||'',studentId:o.studentId||null})))
+    .concat(open.apparel.map(o=>({kind:'apparel',label:'Apparel — '+((o.products||[]).map(p=>p.name).join(', ')||'order'),amount:+o.total||0,date:o.date||'',studentId:null})))
+    .concat(open.fees.map(x=>({kind:'test',label:(x.ev.name||'Belt test')+' fee — '+x.s.first,amount:+x.ev.fee||0,date:x.ev.date,studentId:x.s.id})));
+  const groups=new Set(kids.map(s=>s.group));
+  const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  return {
+    v:1,generatedAt:new Date().toISOString(),launchDate:launch,
+    family:{name:f.name},
+    students,
+    balance:{items,total:Math.round(items.reduce((a,i)=>a+i.amount,0)*100)/100},
+    guardians:(f.contacts||[]).filter(c=>c.email).map(c=>({name:c.name||'',email:famNormEmail(c.email),phone:c.phone||'',studentIds:c.students&&c.students.length?c.students:null})),
+    school:{
+      announcement:cfg.announcement||'',challenge:DB.challengeOfMonth||'',payInfo:cfg.payInfo||'',
+      schedule:(DB.classSchedule||[]).filter(c=>groups.has(c.group)||(c.group==='Black Belt Club'&&groups.has('Black Belt Club'))).map(c=>({day:days[c.day]||'',time:c.time,group:c.group,dur:c.dur})),
+      events:upcoming.filter(e=>e.date<=localDateOffset(120)&&(e.type!=='Black Belt Test'||students.some(x=>x.bb))).map(e=>({name:e.name||e.type,date:e.date,type:e.type}))
+    }
+  };
+}
+function portalGuardianRows(){
+  const out=[];
+  (DB.families||[]).forEach(f=>(f.contacts||[]).forEach(c=>{
+    if(c.portal&&famNormEmail(c.email))out.push({id:f.id+':'+c.id,familyId:f.id,email:famNormEmail(c.email),name:c.name||'',studentIds:c.students&&c.students.length?c.students:null,enabled:true});
+  }));
+  return out;
+}
+function portalHash(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return h+':'+s.length;}
+let _portalSigs={},_portalGSig='',_portalTimer=null,_portalBusy=null,_portalStatus='';
+// Throttled (not debounced) so a steady stream of saves can't postpone it forever.
+function portalSchedulePublish(ms){if(_portalTimer)return;_portalTimer=setTimeout(()=>{_portalTimer=null;portalPublish().catch(()=>{});},ms||3000);}
+async function portalPublish(force){
+  if(_portalBusy){await _portalBusy.catch(()=>{});}
+  if(typeof _cloudLoadedSuccessfully!=='undefined'&&!_cloudLoadedSuccessfully)return false;
+  if(!crmSession()||!Array.isArray(DB.families))return false;
+  const guardians=portalGuardianRows();
+  let ever=false;try{ever=localStorage.getItem('nma_portal_published')==='1';}catch(e){}
+  if(!guardians.length&&!ever&&!force)return false;
+  const famIds=[...new Set(guardians.map(g=>g.familyId))];
+  const views=[],sigs={};
+  famIds.forEach(id=>{const f=famById(id);if(!f)return;const data=portalViewFor(f);const sig=portalHash(JSON.stringify(Object.assign({},data,{generatedAt:0})));sigs[id]=sig;if(force||_portalSigs[id]!==sig)views.push({id,data});});
+  const gsig=portalHash(JSON.stringify(guardians));
+  if(!force&&!views.length&&gsig===_portalGSig&&Object.keys(_portalSigs).length===famIds.length)return true;
+  _portalBusy=(async()=>{
+    await portalCall('staff-publish',{guardians,views,familyIds:famIds,confirmEmpty:!guardians.length});
+    _portalSigs=sigs;_portalGSig=gsig;_portalStatus='Synced '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+    try{localStorage.setItem('nma_portal_published','1');}catch(e){}
+  })();
+  try{await _portalBusy;return true;}catch(e){_portalStatus='Sync failed: '+e.message;console.warn('Portal publish failed:',e);return false;}
+  finally{_portalBusy=null;const el=$('portal-sync');if(el)el.textContent=_portalStatus;}
+}
+// Publish after every save, and once shortly after the CRM loads (dates move on by themselves).
+(function(){
+  const o=save;save=function(){const r=o.apply(this,arguments);try{portalSchedulePublish();}catch(e){}return r;};
+  let tries=0;const boot=setInterval(()=>{
+    if(++tries>40){clearInterval(boot);return;}
+    if((typeof _cloudLoadedSuccessfully==='undefined'||_cloudLoadedSuccessfully)&&crmSession()&&Array.isArray(DB.families)){
+      clearInterval(boot);
+      portalPublish().then(()=>portalCheckInbox(true)).catch(()=>{});
+    }
+  },3000);
+})();
+
+// ── Guardian access & invites ──
+function portalToggle(fid,cid){
+  const f=famById(fid);const c=f&&f.contacts.find(x=>x.id===cid);if(!c)return;
+  if(!c.portal&&!famNormEmail(c.email)){alert('Add an email for this guardian first — that\'s how they sign in.');return;}
+  c.portal=!c.portal;
+  if(c.portal&&!portalCfg().launchDate)portalCfg().launchDate=localToday();
+  save();renderFamilies();
+  toast(c.portal?'Portal access on for '+(c.name||c.email)+' — send them an invite.':'Portal access off for '+(c.name||c.email)+'. They\'re signed out.');
+}
+async function portalInviteLink(fid,cid){
+  if(!(await portalPublish(true)))throw new Error(_portalStatus||'Couldn\'t sync the portal — check you\'re signed in.');
+  return portalCall('staff-link',{familyId:fid,contactId:cid});
+}
+async function portalInvite(fid,cid,mode){
+  const f=famById(fid);const c=f&&f.contacts.find(x=>x.id===cid);if(!c)return;
+  const kids=famMembers(f).filter(s=>s.status==='Active'&&(!c.students||!c.students.length||c.students.includes(s.id))).map(s=>s.first);
+  let link;
+  try{toast('Creating sign-in link…');link=await portalInviteLink(fid,cid);}catch(e){alert('Couldn\'t create the invite: '+e.message);return;}
+  if(mode==='copy'){
+    try{await navigator.clipboard.writeText(link.url);toast('Sign-in link copied — it works for 14 days.');}catch(e){prompt('Copy this sign-in link (works for 14 days):',link.url);}
+    return;
+  }
+  const names=kids.length>1?kids.slice(0,-1).join(', ')+' & '+kids[kids.length-1]:(kids[0]||'your student');
+  const body='Hi there,\n\n'+
+    'You now have access to the Noble\'s Martial Arts family portal. You can see '+names+'\'s belt progress, upcoming tests, attendance, what they\'re working on this cycle (with practice videos), and any open balance. You can also return Intent to Promote letters right from your phone.\n\n'+
+    'Open your portal (this link signs you in and works for 14 days):\n'+link.url+'\n\n'+
+    'After that, visit noblesmartialarts.com/family any time and sign in with this email address — we\'ll email you a code.\n\n'+
+    'Sensei Brandon\nNoble\'s Martial Arts';
+  if(!gmailToken&&typeof gmailRefresh==='function')await gmailRefresh(true);
+  if(!gmailToken){
+    try{await navigator.clipboard.writeText(body);}catch(e){}
+    alert('Gmail isn\'t connected, so the invite wasn\'t emailed. The full invite message (with the link) is copied — paste it into an email or text to '+(c.email||'them')+'.');
+    return;
+  }
+  const ok=await sendGmailMessage(c.email,'Your Noble\'s Martial Arts family portal',body);
+  if(ok){
+    if(!DB.commLog)DB.commLog=[];
+    kids.forEach(n=>{const s=famMembers(f).find(x=>x.first===n);if(s&&typeof addHistory==='function')addHistory(s,'note','Family portal invite emailed to '+c.email);});
+    save();toast('Invite emailed to '+c.email+'.');
+  }else alert('The email didn\'t send. Try "Copy link" and text it instead.');
+}
+async function portalRevokeAll(fid){
+  const f=famById(fid);if(!f)return;
+  if(!confirm('Sign the '+f.name+' family out of the portal on every device? Their access stays on — they can sign in again with their email.'))return;
+  try{await portalCall('staff-revoke',{familyId:fid});toast('Signed out everywhere.');}catch(e){alert(e.message);}
+}
+async function portalActivityHTML(fid){
+  try{
+    const j=await portalCall('staff-activity',{familyId:fid});
+    const when=t=>t?new Date(t).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'never';
+    const label={signed_in_code:'Signed in (code)',signed_in_link:'Signed in (invite link)',viewed:'Opened the portal',intent_submitted:'Returned an Intent letter',invite_link:'Invite link created',code_sent:'Sign-in code emailed',code_wrong:'Wrong code entered',signed_out_everywhere:'Signed out everywhere',code_send_failed:'Code email failed'};
+    return (j.guardians||[]).map(g=>`<div style="font-size:12px;">${famEsc(g.email)} · invited ${when(g.invited_at)} · last visit ${when(g.last_seen)}</div>`).join('')+
+      `<div style="margin-top:6px;max-height:150px;overflow:auto;">${(j.log||[]).slice(0,20).map(l=>`<div style="font-size:11px;color:var(--ink-muted);">${when(l.at)} — ${famEsc(label[l.event]||l.event)}${l.email?' · '+famEsc(l.email):''}</div>`).join('')||'<div style="font-size:11px;color:var(--ink-muted);">No activity yet.</div>'}</div>`;
+  }catch(e){return `<div style="font-size:12px;color:var(--red);">${famEsc(e.message)}</div>`;}
+}
+async function portalShowActivity(fid,elId){const el=$(elId);if(!el)return;el.innerHTML='<div style="font-size:12px;color:var(--ink-muted);">Loading…</div>';el.innerHTML=await portalActivityHTML(fid);}
+
+// Family editor: portal controls on each guardian, plus a portal card.
+(function(){
+  if(renderFamilyEditor._portal)return;
+  const o=renderFamilyEditor;
+  renderFamilyEditor=function(f){
+    const r=o.apply(this,arguments);
+    try{
+      const el=$('fam-list');if(!el)return r;
+      const rows=el.querySelectorAll('.pf-card')[0]?.querySelectorAll(':scope > div[style*="border:1px solid var(--border)"]')||[];
+      (f.contacts||[]).forEach((c,i)=>{
+        const row=rows[i];if(!row)return;
+        row.insertAdjacentHTML('beforeend',`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:12px;">
+          <label style="font-weight:600;"><input type="checkbox" ${c.portal?'checked':''} onchange="portalToggle('${f.id}','${c.id}')"> 🔑 Family portal access</label>
+          ${c.portal?`<button class="btn small primary" onclick="portalInvite('${f.id}','${c.id}','email')">✉ Email invite</button><button class="btn small" onclick="portalInvite('${f.id}','${c.id}','copy')">🔗 Copy sign-in link</button>`:`<span style="color:var(--ink-muted);">Off — they can't sign in.</span>`}
+        </div>`);
+      });
+      const any=(f.contacts||[]).some(c=>c.portal);
+      el.insertAdjacentHTML('beforeend',`<div class="pf-card">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><div style="font-family:var(--font-display);font-size:15px;font-weight:700;flex:1;">🔑 Family portal</div>
+        ${any?`<button class="btn small" onclick="portalShowActivity('${f.id}','portal-act-${f.id}')">Activity</button><button class="btn small" onclick="portalPreview('${f.id}')">Preview</button><button class="btn small danger" onclick="portalRevokeAll('${f.id}')">Sign out all devices</button>`:''}</div>
+        <div style="font-size:12px;color:var(--ink-muted);margin-top:4px;">${any?'Guardians with access see their kids\' belt, stripes, next test, this cycle\'s curriculum, attendance since '+fmtFull(portalCfg().launchDate||localToday())+', open balance, and can return Intent letters. Turning access off signs them out right away.':'Turn on access for a guardian above, then send them an invite.'}</div>
+        <div id="portal-act-${f.id}" style="margin-top:8px;"></div></div>`);
+    }catch(e){console.warn(e);}
+    return r;
+  };
+  renderFamilyEditor._portal=true;
+})();
+function portalPreview(fid){
+  const f=famById(fid);if(!f)return;
+  const v=portalViewFor(f);
+  const w=window.open('','_blank','width=480,height=800');if(!w){alert('Allow pop-ups to preview.');return;}
+  w.document.write('<title>Portal preview — '+famEsc(f.name)+'</title><body style="font-family:system-ui;padding:16px;font-size:13px;"><h3>What the '+famEsc(f.name)+' family sees</h3><p style="color:#666">Each guardian only sees the kids they\'re set up for.</p><pre style="white-space:pre-wrap;font-size:11px;background:#f4f4f4;padding:10px;border-radius:8px;">'+famEsc(JSON.stringify(v,null,2))+'</pre></body>');
+}
+
+// Families list: portal settings card.
+(function(){
+  if(renderFamilies._portal)return;
+  const o=renderFamilies;
+  renderFamilies=function(){
+    const r=o.apply(this,arguments);
+    try{
+      const host=$('fam-banner');if(!host||famOpenId)return r;
+      const cfg=portalCfg();
+      const fams=(DB.families||[]).filter(f=>(f.contacts||[]).some(c=>c.portal));
+      host.insertAdjacentHTML('beforeend',`<details class="pf-card" style="margin-bottom:12px;" ${fams.length?'':'open'}>
+        <summary style="cursor:pointer;font-family:var(--font-display);font-size:15px;font-weight:700;">🔑 Family portal <span style="font-weight:400;font-size:12px;color:var(--ink-muted);">— ${fams.length} famil${fams.length===1?'y':'ies'} with access · <span id="portal-sync">${famEsc(_portalStatus||'')}</span> ${_portalInboxCount?`· <a href="#" onclick="nav('parentfeedback');return false;" style="color:var(--red);font-weight:600;">${_portalInboxCount} letter${_portalInboxCount!==1?'s':''} to review</a>`:''}</span></summary>
+        <div style="font-size:12px;color:var(--ink-muted);margin:8px 0;">Parents sign in at <strong>noblesmartialarts.com/family</strong>. Open a family and tick <em>Family portal access</em> on a guardian, then send the invite.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
+          <div class="form-group" style="margin:0;"><label class="form-label">Show attendance from</label><input type="date" class="form-input" value="${cfg.launchDate||''}" onchange="portalCfg().launchDate=this.value;save();"><div style="font-size:11px;color:var(--ink-muted);">Set automatically the day you first give a family access. Earlier dates stay hidden.</div></div>
+          <div class="form-group" style="margin:0;"><label class="form-label">How to pay (shown with the balance)</label><textarea class="form-input" rows="2" onchange="portalCfg().payInfo=this.value.trim();save();">${famEsc(cfg.payInfo)}</textarea></div>
+          <div class="form-group" style="margin:0;"><label class="form-label">Announcement (top of the portal)</label><textarea class="form-input" rows="2" placeholder="e.g. No class Nov 24 — happy Thanksgiving!" onchange="portalCfg().announcement=this.value.trim();save();">${famEsc(cfg.announcement)}</textarea></div>
+        </div>
+        <label style="font-size:12px;display:block;margin-top:8px;"><input type="checkbox" ${cfg.showLetters!==false?'checked':''} onchange="portalCfg().showLetters=this.checked;save();"> Let parents return Intent to Promote letters in the portal (shows up to 60 days before the test, for kids selected on the Letters tab)</label>
+      </details>`);
+    }catch(e){console.warn(e);}
+    return r;
+  };
+  renderFamilies._portal=true;
+})();
+
+// ── Returned letters inbox (Parent Feedback page) ──
+let _portalInbox=[],_portalInboxCount=0;
+async function portalCheckInbox(notify){
+  try{
+    const j=await portalCall('staff-inbox',{status:'new'});
+    _portalInbox=j.items||[];
+    const n=_portalInbox.length;const was=_portalInboxCount;_portalInboxCount=n;
+    if(notify&&n&&n!==was)toast(n+' Intent letter'+(n!==1?'s':'')+' returned in the family portal — review on Parent Feedback.');
+  }catch(e){_portalInbox=[];}
+  renderPortalInbox();
+  return _portalInbox;
+}
+function portalInboxItemHTML(it){
+  const p=it.payload||{};
+  const s=DB.students.find(x=>String(x.id)===String(it.student_id));
+  const ev=DB.testEvents.find(e=>String(e.id)===String(it.event_id));
+  const nos=PF_ITEMS.filter(i=>p.answers&&p.answers[i.key]==='no');
+  const when=new Date(it.created_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+  return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:8px 0;background:var(--paper);">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <strong>${famEsc(s?s.first+' '+s.last:(p.studentName||'Unknown student'))}</strong>
+      ${p.kind==='bb'?'<span class="badge badge-amber" style="font-size:10px;">Black Belt letter</span>':''}
+      <span style="font-size:12px;color:var(--ink-muted);">${famEsc(ev?(ev.name||ev.type)+' · '+fmtDate(ev.date):(p.eventName||''))} · promoting to ${famEsc(p.promotingTo||'')}</span>
+      <div style="flex:1;"></div><span style="font-size:11px;color:var(--ink-muted);">Signed “${famEsc(p.signedBy||'')}” · ${famEsc(it.email||'')} · ${when}</span>
+    </div>
+    ${p.kind==='bb'?`<div style="font-size:13px;margin-top:6px;">✅ Parent/guardian affirmation signed by <strong>${famEsc(p.signedBy)}</strong> · Student commitment signed by <strong>${famEsc(p.studentSigned)}</strong></div>`
+      :`<div style="font-size:13px;margin-top:6px;">${nos.length?'<span style="color:var(--red);font-weight:600;">No:</span> '+nos.map(i=>famEsc(i.label)).join(' · '):'<span style="color:var(--green);font-weight:600;">Yes to all 10</span>'}</div>`}
+    ${p.focus&&p.focus.length?`<div style="font-size:12px;margin-top:4px;"><span style="color:var(--ink-muted);">Asked us to focus on:</span> ${p.focus.map(famEsc).join(', ')}</div>`:''}
+    ${p.note?`<div style="font-size:13px;margin-top:6px;font-style:italic;">“${famEsc(p.note)}”</div>`:''}
+    ${p.programFeedback?`<div style="font-size:12px;margin-top:4px;"><span style="color:var(--ink-muted);">Feedback for Sensei:</span> ${famEsc(p.programFeedback)}</div>`:''}
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="btn small primary" ${s?'':'disabled title="Student not found"'} onclick="portalAccept(${it.id})">✓ Save to Parent Feedback</button>
+      <button class="btn small" onclick="portalDismiss(${it.id})">Dismiss</button>
+    </div></div>`;
+}
+function renderPortalInbox(){
+  const page=$('page-parentfeedback');if(!page)return;
+  let el=$('portal-inbox');
+  if(!el){el=document.createElement('div');el.id='portal-inbox';const q=$('pf-queue');if(q)q.parentNode.insertBefore(el,q);else page.appendChild(el);}
+  el.innerHTML=_portalInbox.length?`<div class="section-divider"><span>🔑 Returned in the family portal (${_portalInbox.length})</span></div>${_portalInbox.map(portalInboxItemHTML).join('')}`:'';
+}
+async function portalAccept(id){
+  const it=_portalInbox.find(x=>x.id===id);if(!it)return;
+  const p=it.payload||{};
+  const s=DB.students.find(x=>String(x.id)===String(it.student_id));if(!s){alert('Student not found.');return;}
+  const ev=DB.testEvents.find(e=>String(e.id)===String(it.event_id));
+  const eventId=ev?ev.id:it.event_id;
+  if(!DB.parentFeedback)DB.parentFeedback=[];
+  DB.parentFeedback=DB.parentFeedback.filter(f=>!(f.studentId===s.id&&f.eventId===eventId));
+  DB.parentFeedback.push({id:'portal-'+it.id,eventId,studentId:s.id,group:s.group,belt:s.belt,kind:p.kind||'standard',
+    answers:Object.assign({},p.answers||{}),note:p.note||'',concerns:(p.focus||[]).slice(),strengths:[],
+    programFeedback:p.programFeedback||'',fileName:'Returned in family portal',source:'portal',signedBy:p.signedBy||'',studentSigned:p.studentSigned||'',savedDate:localToday()});
+  if(p.kind==='bb'){
+    addHistory(s,'note','Black Belt intent letter returned online'+(ev?' ('+(ev.name||ev.type)+')':'')+' — guardian affirmation signed by '+p.signedBy+', student commitment signed by '+p.studentSigned);
+  }else{
+    const nos=PF_ITEMS.filter(i=>p.answers&&p.answers[i.key]==='no').map(i=>i.theme);
+    const focus=[...new Set(nos.concat(p.focus||[]))];
+    addHistory(s,'note','Parent feedback (online)'+(ev?' ('+(ev.name||ev.type)+')':'')+': '+(focus.length?'working on '+focus.join(', '):'no concerns noted')+(p.note?' — "'+p.note.slice(0,80)+(p.note.length>80?'…':'')+'"':''));
+  }
+  save();
+  try{await portalCall('staff-inbox-mark',{id,status:'accepted'});}catch(e){alert('Saved here, but couldn\'t update the portal inbox: '+e.message);}
+  _portalInbox=_portalInbox.filter(x=>x.id!==id);_portalInboxCount=_portalInbox.length;
+  renderPortalInbox();if(typeof renderPfSummary==='function')renderPfSummary();
+  toast('Saved '+s.first+'\'s letter to Parent Feedback.');
+}
+async function portalDismiss(id){
+  if(!confirm('Dismiss this returned letter? It won\'t be saved to Parent Feedback.'))return;
+  try{await portalCall('staff-inbox-mark',{id,status:'dismissed'});}catch(e){alert(e.message);return;}
+  _portalInbox=_portalInbox.filter(x=>x.id!==id);_portalInboxCount=_portalInbox.length;renderPortalInbox();
+}
+(function(){
+  if(initParentFeedback._portal)return;
+  const o=initParentFeedback;
+  initParentFeedback=function(){const r=o.apply(this,arguments);renderPortalInbox();portalCheckInbox(false);return r;};
+  initParentFeedback._portal=true;
+})();
+
+</script>
 </html>
