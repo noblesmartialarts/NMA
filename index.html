@@ -5296,6 +5296,9 @@ function emailMissedSelected(){
   }
 }
 
+// Missed-registration emails, sent straight from the CRM through Gmail.
+// Siblings who share an email get one message that names all of them.
+let _bulkGroups=[];
 function showBulkEmailModal(students){
   let modal=$('modal-bulk-email');
   if(!modal){
@@ -5303,36 +5306,67 @@ function showBulkEmailModal(students){
     modal.id='modal-bulk-email';
     modal.className='modal-backdrop';
     modal.innerHTML=`<div class="modal modal-lg">
-      <div class="modal-header"><div class="modal-title">✉ Bulk — Missed Registration Emails</div><button class="btn ghost" onclick="closeModal('modal-bulk-email')">✕</button></div>
+      <div class="modal-header"><div class="modal-title">✉ Missed Registration Emails</div><button class="btn ghost" onclick="closeModal('modal-bulk-email')">✕</button></div>
       <div class="modal-body" id="bulk-email-body"></div>
-      <div class="modal-footer"><button class="btn" onclick="closeModal('modal-bulk-email')">Close</button></div>
+      <div class="modal-footer" style="display:flex;gap:8px;align-items:center;"><span id="bulk-email-status" style="flex:1;font-size:12px;color:var(--ink-muted);"></span><button class="btn" onclick="closeModal('modal-bulk-email')">Close</button><button class="btn primary" id="bulk-send-btn" onclick="bulkEmailSend()">Send</button></div>
     </div>`;
     document.body.appendChild(modal);
   }
   const t=getAllTemplates().find(x=>x.id==='missed_reg');
+  const byEmail={};_bulkGroups=[];
+  students.forEach(s=>{
+    const em=String(s.email||'').trim().toLowerCase();
+    if(!em){_bulkGroups.push({email:'',kids:[s]});return;}
+    if(!byEmail[em]){byEmail[em]={email:s.email.trim(),kids:[]};_bulkGroups.push(byEmail[em]);}
+    byEmail[em].kids.push(s);
+  });
+  const names=k=>k.length>1?k.slice(0,-1).map(x=>x.first).join(', ')+' & '+k[k.length-1].first:k[0].first;
+  _bulkGroups.forEach((g,i)=>{g.i=i;g.subject=t?t.subject(Object.assign({},g.kids[0],{first:names(g.kids)})):names(g.kids)+' — NMA Registration';g.status='';});
+  const sendable=_bulkGroups.filter(g=>g.email);
   const body=$('bulk-email-body');
   body.innerHTML=`
-    <div style="font-size:13px;color:var(--ink-muted);margin-bottom:14px;">
-      Click each student's <strong>Open in Gmail</strong> button to open a pre-filled compose window. The body is the same for all — edit once if needed.
-    </div>
-    ${students.map(s=>{
-      const subject=t?t.subject(s):`${s.first} — ${DB.scoreboard.label||'This Month'}'s NMA Registration`;
-      const bodyText=t?(typeof t.body==='function'?t.body(s):''):'';
-      const hasEmail=!!s.email;
-      const gmailUrl=hasEmail?`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(s.email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`:'';
-      return `<div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);">
-        <div style="flex:1;"><div style="font-weight:500;font-size:13px;">${s.first} ${s.last}</div>
-        <div style="font-size:12px;color:var(--ink-muted);">${s.email||'<em style="color:var(--red);">No email on file</em>'}</div></div>
-        ${hasEmail
-          ?`<a href="${gmailUrl}" target="_blank" class="btn small primary">✉ Open in Gmail ↗</a>`
-          :`<span class="badge badge-gray">No email</span>`}
-      </div>`;
-    }).join('')}
-    <div style="margin-top:14px;padding:11px 14px;background:var(--paper);border-radius:8px;">
-      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-muted);margin-bottom:6px;">Email body (same for all)</div>
-      <pre style="font-size:12px;font-family:Georgia,serif;line-height:1.7;white-space:pre-wrap;color:var(--ink);">${t?t.body(students[0]).replace(/</g,'&lt;'):''}</pre>
+    <div style="font-size:13px;color:var(--ink-muted);margin-bottom:10px;">Sends from <strong>noblesmartialarts@gmail.com</strong> — one email per family. Untick anyone you'd rather skip.</div>
+    ${_bulkGroups.map(g=>`<label style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);${g.email?'cursor:pointer;':'opacity:.6;'}">
+        <input type="checkbox" class="bulk-em-check" data-i="${g.i}" ${g.email?'checked':'disabled'}>
+        <div style="flex:1;"><div style="font-weight:500;font-size:13px;">${g.kids.map(k=>famEsc(k.first+' '+k.last)).join(', ')}</div>
+        <div style="font-size:12px;color:var(--ink-muted);">${g.email?famEsc(g.email)+' · <em>'+famEsc(g.subject)+'</em>':'<em style="color:var(--red);">No email on file</em>'}</div></div>
+        <span id="bulk-em-st-${g.i}" style="font-size:12px;"></span>
+      </label>`).join('')}
+    <div style="margin-top:14px;">
+      <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-muted);margin-bottom:6px;">Message (same for everyone — edit here before sending)</div>
+      <textarea id="bulk-em-body" class="form-input" style="width:100%;min-height:280px;font-family:Georgia,serif;font-size:13px;line-height:1.6;">${famEsc(t?t.body(students[0]):'')}</textarea>
     </div>`;
+  const btn=$('bulk-send-btn');btn.disabled=!sendable.length;btn.textContent='Send '+sendable.length+' email'+(sendable.length!==1?'s':'');
+  $('bulk-email-status').textContent=gmailToken?'':'Gmail will connect when you send.';
   modal.classList.add('open');
+}
+async function bulkEmailSend(){
+  const picks=[...document.querySelectorAll('.bulk-em-check:checked')].map(cb=>_bulkGroups[+cb.dataset.i]).filter(g=>g&&g.email&&g.status!=='sent');
+  if(!picks.length){toast('Nothing selected to send.');return;}
+  const text=($('bulk-em-body').value||'').trim();if(!text){alert('The message is empty.');return;}
+  if(!gmailToken&&typeof gmailRefresh==='function')await gmailRefresh(true);
+  if(!gmailToken){if(confirm('Gmail isn\'t connected. Connect it now? (Then click Send again.)'))connectGmail();return;}
+  const btn=$('bulk-send-btn');btn.disabled=true;
+  let ok=0,fail=0;
+  for(const g of picks){
+    const st=$('bulk-em-st-'+g.i);if(st)st.innerHTML='<span style="color:var(--ink-muted);">Sending…</span>';
+    $('bulk-email-status').textContent='Sending '+(ok+fail+1)+' of '+picks.length+'…';
+    const sent=await sendGmailMessage(g.email,g.subject,text);
+    if(sent){
+      ok++;g.status='sent';if(st)st.innerHTML='<span style="color:var(--green);font-weight:600;">✓ Sent</span>';
+      const cb=document.querySelector('.bulk-em-check[data-i="'+g.i+'"]');if(cb){cb.checked=false;cb.disabled=true;}
+      g.kids.forEach(k=>{
+        if(!DB.commLog)DB.commLog=[];
+        DB.commLog.push({id:DB.nextId++,studentId:k.id,date:localToday(),type:'Email',notes:'Missed registration email sent to '+g.email,followup:false});
+        addHistory(k,'reg','Missed registration email sent');
+      });
+    }else{fail++;g.status='failed';if(st)st.innerHTML='<span style="color:var(--red);font-weight:600;">✗ Failed</span>';}
+  }
+  save();
+  $('bulk-email-status').textContent=ok+' sent'+(fail?' · '+fail+' failed — you can retry them':'')+'.';
+  const left=_bulkGroups.filter(g=>g.email&&g.status!=='sent').length;
+  btn.disabled=!left;btn.textContent=left?'Retry '+left:'All sent';
+  toast(ok+' missed-registration email'+(ok!==1?'s':'')+' sent'+(fail?', '+fail+' failed':'')+'.');
 }
 function renderEmailTemplates(){
   const key=$('em-student').value||null,tmplId=$('em-template').value,out=$('email-output');
