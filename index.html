@@ -2771,8 +2771,16 @@ async function _pushToCloud(){
   try{
     let mergedRemote=false;
     for(let attempt=0;attempt<4;attempt++){
-      const{data:row,error:readErr}=await supa.from('crm_data').select('data,updated_at').eq('id','main').maybeSingle();
-      if(readErr)throw readErr;
+      // Only download the whole CRM when another device has saved since our last sync;
+      // the optimistic lock on updated_at below still guards the write either way.
+      const{data:stamp,error:stampErr}=await supa.from('crm_data').select('updated_at').eq('id','main').maybeSingle();
+      if(stampErr)throw stampErr;
+      let row=stamp;
+      if(stamp&&(!_cloudUpdatedAt||stamp.updated_at!==_cloudUpdatedAt)){
+        const r=await supa.from('crm_data').select('data,updated_at').eq('id','main').maybeSingle();
+        if(r.error)throw r.error;
+        row=r.data;
+      }
       let out=_plain(DB);
       if(row&&row.data&&row.updated_at!==_cloudUpdatedAt){
         // Someone else saved since this device last synced — fold their changes in instead of overwriting them
@@ -2846,6 +2854,9 @@ async function _pullFromCloud(){
   if(_saveTimer||_saving)return; // a save is about to run and will merge the cloud copy itself
   _pulling=true;
   try{
+    // Cheap check first: the full CRM is ~1 MB, the timestamp is a few bytes.
+    const{data:stamp,error:e1}=await supa.from('crm_data').select('updated_at').eq('id','main').single();
+    if(e1||!stamp||stamp.updated_at===_cloudUpdatedAt)return;
     const{data:row,error}=await supa.from('crm_data').select('data,updated_at').eq('id','main').single();
     if(error||!row||!row.data)return;
     if(row.updated_at===_cloudUpdatedAt)return;          // nothing new
@@ -2893,9 +2904,10 @@ setInterval(_pollCloud,30000);
 
 // Phones and backgrounded tabs drop the live connection, so also catch up whenever the app comes back
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){_unsynced&&!_saveTimer?_pushToCloud():_pullFromCloud();}});
-window.addEventListener('focus',()=>_pullFromCloud());
+let _lastFocusPull=0;
+window.addEventListener('focus',()=>{if(Date.now()-_lastFocusPull>15000){_lastFocusPull=Date.now();_pullFromCloud();}});
 window.addEventListener('online',()=>{_unsynced?_pushToCloud():_pullFromCloud();});
-setInterval(()=>{if(document.visibilityState==='visible')_pullFromCloud();},60000);
+// (The 30-second timestamp check above covers background updates; no separate full pull needed.)
 
 // Safe defaults for new fields
 if(!DB.scoreboard)DB.scoreboard={label:'',fee:31.50,start:'',end:''};
@@ -7440,7 +7452,7 @@ async function sendMonthlyBackupEmail() {
 
     const mime = [
       'To: ' + currentUser.email,
-      'Subject: NMA CRM Monthly Backup — ' + monthLabel,
+      'Subject: ' + mimeEncodeHeader('NMA CRM Monthly Backup — ' + monthLabel),
       'MIME-Version: 1.0',
       'Content-Type: multipart/mixed; boundary="' + boundary + '"',
       '',
@@ -12018,6 +12030,13 @@ async function syncApparelOrders() {
       const total = orderTotal || products.reduce((s,p)=>s+(p.price*p.qty),0);
       return {id:sub.id,date:(sub.created_at||'').slice(0,10),parentName:get('full name'),email:get('e-mail','email'),phone:get('contact number','phone'),students,products,total: orderTotal || products.reduce((s,p)=>s+(p.price*p.qty),0),invoiceId:get('invoice'),notes:get('special instruction','note','comment'),paid,jotformUrl:'https://www.jotform.com/inbox/261055009001137?sid='+sub.id};
     });
+    // Keep what the CRM added (payments marked here, vendor invoice links) when Jotform re-syncs.
+    const prevAp = {}; (DB.apparelOrders || []).forEach(o => { prevAp[o.id] = o; });
+    orders.forEach(o => {
+      const old = prevAp[o.id]; if (!old) return;
+      ['vendorLinks', 'paidDate', 'paymentMethod', 'paymentRef', 'paymentFrom', 'paidManual'].forEach(k => { if (old[k] != null && o[k] == null) o[k] = old[k]; });
+      if (old.paid && !o.paid) o.paid = true;
+    });
     DB.apparelOrders = orders;
     DB.apparelLastSync = localToday();
     save(); renderApparelOrders();
@@ -12043,6 +12062,12 @@ function showApparelAlert(type, msg) {
   el.textContent = msg;
 }
 
+function toggleApparelPaid(id){
+  const o=(DB.apparelOrders||[]).find(x=>String(x.id)===String(id));if(!o)return;
+  if(o.paid){if(!confirm('Mark this apparel order as unpaid?'))return;o.paid=false;delete o.paidDate;delete o.paymentMethod;delete o.paymentRef;delete o.paymentFrom;o.paidManual=false;}
+  else{const m=prompt('How was it paid? (Venmo, Zelle, PayPal, Cash, Jotform…)','Venmo');if(m===null)return;o.paid=true;o.paymentMethod=m.trim()||'Other';o.paidDate=localToday();o.paidManual=true;}
+  save();renderApparelOrders();toast(o.paid?'Apparel order marked paid ✓':'Marked unpaid');
+}
 function renderApparelOrders() {
   if (!DB.apparelOrders) DB.apparelOrders = [];
   if (!DB.apparelOrderStatus) DB.apparelOrderStatus = {};
@@ -12089,9 +12114,9 @@ function renderApparelOrders() {
   tbody.innerHTML = orders.map(o => {
     const status = DB.apparelOrderStatus[o.id] || 'pending';
     const statusBadge = `<span style="background:${statusBg[status]};color:${statusColors[status]};border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;text-transform:capitalize;">${status}</span>`;
-    const paidBadge = o.paid
-      ? `<span class="badge badge-green">Paid ✓</span>`
-      : `<span class="badge badge-gray">Pending</span>`;
+    const paidBadge = (o.paid
+      ? `<span class="badge badge-green">Paid ✓</span>${o.paymentMethod?`<div style="font-size:10px;color:var(--ink-muted);">${o.paymentMethod}${o.paidDate?' · '+fmtDate(o.paidDate):''}</div>`:''}`
+      : `<span class="badge badge-gray">Unpaid</span>`)+`<div><button class="btn small" style="margin-top:3px;font-size:10px;padding:2px 7px;" onclick="toggleApparelPaid('${o.id}')">${o.paid?'↩ Unpaid':'✓ Paid'}</button></div>`;
     const itemList = (o.products || []).map(p =>
       `<div style="font-size:11px;">${p.qty}× ${p.name}${p.options?.length ? ' — ' + p.options.join(', ') : ''}</div>`
     ).join('');
@@ -13805,7 +13830,8 @@ function voSpendSummaryHTML(){
 // amounts that add up exactly). You confirm each one; confirmed items are marked
 // paid with the method, date, payer and confirmation number.
 
-const PM_QUERY = '(from:alerts@notify.wellsfargo.com subject:zelle) OR (from:venmo@venmo.com "paid you") OR (from:(service@paypal.com OR service@intl.paypal.com) ("sent you" OR "got money"))';
+// Venmo/PayPal also match when forwarded into this inbox by a filter.
+const PM_QUERY = '(from:alerts@notify.wellsfargo.com subject:zelle) OR (venmo "paid you") OR (paypal ("sent you" OR "got money"))';
 if(!DB.paymentImports)DB.paymentImports={}; // gmail message id -> {status, items, date}
 if(!DB.paymentsLog)DB.paymentsLog=[];
 let pmQueue=[];let pmScanning=false;
@@ -13831,14 +13857,14 @@ function pmParse(m){
     const d=text.match(/Date:\s*(\d{1,2}\/\d{1,2}\/\d{4})/);if(d)date=pmMDY(d[1])||date;
     const c=text.match(/Confirmation(?: number)?:\s*([A-Z0-9]+)/i);if(c)ref=c[1];
     const n=text.match(/Memo:\s*([^\n]{1,140})/i);if(n)note=n[1].trim();
-  }else if(from.includes('venmo')){
+  }else if(from.includes('venmo')||(/venmo/i.test(text)&&/paid you \$/.test(subj+' '+text))){
     method='Venmo';
     const x=(subj+' \n'+text).match(/([A-Z][\w'.\- ]{1,60}?) paid you \$([\d,]+\.\d{2})/);
     if(x){payer=pmName(x[1]);amount=pmMoney(x[2]);}
     const c=text.match(/(?:Transaction|Payment) ID:?\s*([0-9]{6,})/i);if(c)ref=c[1];
     const after=text.split(/paid you \$[\d,]+\.\d{2}/)[1]||'';
     note=(after.split(/\n/).map(l=>l.trim()).filter(l=>l&&!/^(transaction|payment|see|view|money|\$|venmo|privacy|this)/i.test(l))[0]||'').slice(0,140);
-  }else if(from.includes('paypal')){
+  }else if(from.includes('paypal')||(/paypal/i.test(text)&&/sent you \$/.test(subj+' '+text))){
     method='PayPal';
     const x=(subj+' \n'+text).match(/([A-Z][\w'.\- ]{1,60}?) sent you \$([\d,]+\.\d{2})/);
     if(x){payer=pmName(x[1]);amount=pmMoney(x[2]);}
@@ -13857,6 +13883,12 @@ function pmOpenItems(){
     const s=o.studentId?DB.students.find(x=>x.id===o.studentId):null;
     const contact=((o.details||'').match(/Your name:\s*([^;]+)/i)||[])[1]||'';
     items.push({key:'g'+o.id,kind:'gear',id:o.id,amount:amt,date:o.date||'',student:s,label:(o.studentName||(s?s.first+' '+s.last:'Unknown'))+' — '+(o.orderType||'Gear order'),names:[o.studentName,contact,s&&s.parent,s&&s.parent2].concat(s&&typeof famOf==='function'&&famOf(s)?famOf(s).contacts.map(c=>c.name):[]).filter(Boolean)});
+  });
+  (DB.apparelOrders||[]).forEach(o=>{
+    const amt=+o.total||0;if(o.paid||amt<=0)return;
+    const names=String(o.students||'').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+    const s=DB.students.find(x=>names.includes((x.first+' '+x.last).toLowerCase()))||DB.students.find(x=>x.email&&o.email&&x.email.toLowerCase()===String(o.email).toLowerCase())||null;
+    items.push({key:'a'+o.id,kind:'apparel',id:o.id,amount:amt,date:o.date||'',student:s,label:(o.students||o.parentName||'Apparel')+' — Apparel ('+((o.products||[]).map(p=>p.name).join(', ')||'order')+')',names:[o.parentName,s&&s.parent,s&&s.parent2].concat(s&&typeof famOf==='function'&&famOf(s)?famOf(s).contacts.map(c=>c.name):[]).filter(Boolean)});
   });
   const today=localToday();
   (DB.testEvents||[]).filter(e=>e.type!=='Stripe Test'&&(+e.fee||0)>0&&e.date>=localDateOffset(-60)&&e.date<=localDateOffset(60)).forEach(ev=>{
@@ -13916,10 +13948,10 @@ function pmBuildCard(msgId,p){
 }
 
 // ── Scan Gmail ──
-async function pmScanGmail(){
+async function pmScanGmail(auto){
   if(pmScanning)return;
-  if(!gmailToken){alert('Connect Gmail first on the Email tab, then come back here.');return;}
-  const range=($('pm-range')||{}).value||'since';
+  if(!gmailToken){if(auto)return;alert('Connect Gmail first on the Email tab, then come back here.');return;}
+  const range=auto?'since':(($('pm-range')||{}).value||'since');
   let after;
   if(range==='since')after=DB.paymentLastScan?pmShift(DB.paymentLastScan,-3):localDateOffset(-60);
   else after=localDateOffset(-(parseInt(range)||60));
@@ -13941,11 +13973,29 @@ async function pmScanGmail(){
       pmQueue.push(pmBuildCard(id,p));found++;
     }
     pmQueue.sort((a,b)=>a.date.localeCompare(b.date));
-    DB.paymentLastScan=localToday();save();
+    const changed=found||unread||DB.paymentLastScan!==localToday();
+    DB.paymentLastScan=localToday();if(changed)save(); // don't re-upload the CRM when nothing changed
     pmStatus(found?`Found ${found} payment${found!==1?'s':''} — confirm the matches below.`:`No new payments since ${fmtFull(after)}.`+(unread?` (${unread} email${unread!==1?'s':''} weren't payments.)`:''));
-  }catch(e){pmStatus('⚠ '+e.message);}
-  finally{pmScanning=false;renderPmQueue();}
+  }catch(e){if(!auto)pmStatus('⚠ '+e.message);}
+  finally{pmScanning=false;renderPmQueue();pmNotice(auto&&found);}
 }
+// Quietly look for new payments when the CRM opens and every 15 minutes while it's in view.
+// Uses Gmail directly — no extra Netlify or Supabase calls unless something is found.
+function pmNotice(announce){
+  let el=$('pm-notice');
+  const n=pmQueue.length;
+  if(!n){if(el)el.remove();return;}
+  if(!el){el=document.createElement('div');el.id='pm-notice';el.style.cssText='position:fixed;right:18px;bottom:18px;z-index:900;background:var(--green,#16a34a);color:#fff;border-radius:999px;padding:10px 16px;font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer;';el.onclick=()=>{nav('gearorders');setTimeout(()=>{const q=$('pm-queue');if(q)q.scrollIntoView({behavior:'smooth'});},200);};document.body.appendChild(el);}
+  el.textContent='💵 '+n+' payment'+(n!==1?'s':'')+' to review';
+  if(announce)toast('💵 New payment'+(n!==1?'s':'')+' found in Gmail — click the green button to match '+(n!==1?'them':'it')+'.');
+}
+async function pmAutoScan(){
+  if(document.visibilityState!=='visible'||pmScanning||!_initComplete)return;
+  if(!gmailToken&&typeof gmailRefresh==='function'&&_gmailServer!==false)await gmailRefresh(true);
+  if(gmailToken)pmScanGmail(true);
+}
+setTimeout(pmAutoScan,20000);
+setInterval(pmAutoScan,15*60000);
 
 function pmToggle(cid,key){const c=pmQueue.find(x=>x.id===cid);if(!c)return;c.selected.has(key)?c.selected.delete(key):c.selected.add(key);renderPmQueue();}
 function pmAddItem(cid,key){
@@ -13970,6 +14020,10 @@ function pmConfirm(cid){
       const o=DB.gearOrders.find(x=>x.id===i.id);if(!o)return;
       Object.assign(o,{paid:true,paymentMethod:c.method,paidDate:c.date,paymentRef:c.ref||'',paymentFrom:c.payer});
       applied.push(i.label);
+    }else if(i.kind==='apparel'){
+      const o=(DB.apparelOrders||[]).find(x=>String(x.id)===String(i.id));if(!o)return;
+      Object.assign(o,{paid:true,paymentMethod:c.method,paidDate:c.date,paymentRef:c.ref||'',paymentFrom:c.payer});
+      applied.push(i.label);
     }else if(i.kind==='test'){
       const s=DB.students.find(x=>x.id===i.studentId);
       const beltTested=s?((getPromotion(s)||{}).belt||s.belt):null;
@@ -13982,7 +14036,7 @@ function pmConfirm(cid){
   DB.paymentsLog.unshift({date:c.date,method:c.method,payer:c.payer,amount:c.amount,ref:c.ref||'',note:c.note||'',applied,msgId:c.msgId});
   DB.paymentImports[c.msgId]={status:'matched',items:chosen.map(i=>i.key),date:localToday()};
   pmQueue=pmQueue.filter(x=>x!==c);
-  save();renderPmQueue();if(typeof renderGearOrders==='function')renderGearOrders();
+  save();renderPmQueue();if(typeof renderGearOrders==='function')renderGearOrders();if(typeof pmNotice==='function')pmNotice();
   toast(c.method+' '+fmt$(c.amount)+' from '+c.payer+' applied to '+applied.length+' item'+(applied.length!==1?'s':''));
 }
 
@@ -15339,6 +15393,7 @@ async function portalPublish(force){
   if(_portalBusy){await _portalBusy.catch(()=>{});}
   if(typeof _cloudLoadedSuccessfully!=='undefined'&&!_cloudLoadedSuccessfully)return false;
   if(!crmSession()||!Array.isArray(DB.families))return false;
+  if(_crmStale){_portalStatus='Paused — reload the CRM to sync the portal';return false;} // an outdated tab mustn't publish
   const guardians=portalGuardianRows();
   let ever=false;try{ever=localStorage.getItem('nma_portal_published')==='1';}catch(e){}
   if(!guardians.length&&!ever&&!force)return false;
@@ -15687,5 +15742,40 @@ async function portalDismiss(id){
   initParentFeedback._portal=true;
 })();
 
+</script>
+<script>
+// ══════════════════════════════════════════════════════
+// NEW VERSION CHECK — prompt to reload when a new CRM is deployed
+// ══════════════════════════════════════════════════════
+// A tiny HEAD request for this page (no function or database call). Netlify
+// changes the page's ETag on every deploy; an outdated tab stops publishing
+// to the family portal and asks to reload.
+var _crmVersionTag=null,_crmStale=false;
+async function crmVersionCheck(){
+  if(_crmStale||document.visibilityState!=='visible')return;
+  try{
+    const r=await fetch(location.pathname,{method:'HEAD',cache:'no-store'});
+    if(!r.ok)return;
+    const tag=r.headers.get('etag')||r.headers.get('last-modified')||'';
+    if(!tag)return;
+    if(_crmVersionTag===null){_crmVersionTag=tag;return;}
+    if(tag!==_crmVersionTag){_crmStale=true;crmShowUpdateBar();}
+  }catch(e){}
+}
+function crmShowUpdateBar(){
+  if(document.getElementById('crm-update-bar'))return;
+  const b=document.createElement('div');b.id='crm-update-bar';
+  b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:10000;background:#1e3a8a;color:#fff;padding:10px 16px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.25);';
+  b.innerHTML='<span>✨ A new version of the CRM is ready.</span><button class="btn small" style="background:#fff;color:#1e3a8a;border:none;font-weight:700;" onclick="crmReloadNow(this)">Reload now</button>';
+  document.body.appendChild(b);
+}
+async function crmReloadNow(btn){
+  btn.disabled=true;btn.textContent='Saving…';
+  try{if(typeof _saveTimer!=='undefined'&&_saveTimer&&typeof _pushToCloud==='function'){clearTimeout(_saveTimer);_saveTimer=null;await _pushToCloud();}}catch(e){}
+  location.reload();
+}
+setTimeout(crmVersionCheck,1500);
+setInterval(crmVersionCheck,5*60000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')crmVersionCheck();});
 </script>
 </html>
