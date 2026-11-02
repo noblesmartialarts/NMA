@@ -3,7 +3,9 @@
 // Parent ops (POST JSON, no CRM access):
 //   request-code {email}            → emails a 6-digit sign-in code (same reply whether or not the email is on file)
 //   verify-code  {email, code}      → {token, exp}
-//   redeem-link  {link}             → {token, exp}   (invite links from the CRM)
+//   redeem-link  {link}             → {token, exp}   (single-use invite links from the CRM)
+//   device-code  {token}            → {code} to sign in on another device (shown on screen, not emailed)
+//   request-guardian {token, name, email, phone, relationship, studentIds} → Sensei approves in the CRM
 //   me           {token}            → the family's portal view, filtered to the guardian's kids
 //   submit-intent{token, studentId, eventId, answers, note, focus, programFeedback, signedBy, affirm, studentSigned}
 //
@@ -24,7 +26,7 @@ const G = require('../lib/gmail');
 const PORTAL_URL = process.env.PORTAL_URL || 'https://noblesmartialarts.com/family';
 const SESSION_DAYS = 90;
 const CODE_MINUTES = 10;
-const LINK_DAYS = 14, LINK_USES = 3;
+const LINK_DAYS = 3, LINK_USES = 1; // invite links: one sign-in, then codes
 const PF_KEYS = ['practices_home', 'no_talk_back', 'shares', 'chores', 'attention_school', 'listens', 'bedtime', 'honest', 'respectful', 'academics'];
 const PF_THEMES = ['Respect & manners', 'Listening', 'Interrupting / talking back', 'Self-control & calm', 'Frustration / perseverance', 'Focus & attention', 'Practice at home', 'Chores & responsibility', 'Bedtime & routines', 'Honesty', 'Sharing & kindness', 'Schoolwork', 'Confidence'];
 
@@ -149,7 +151,7 @@ async function familiesFor(gs) {
   if (!famIds.length) return [];
   const list = famIds.map(enc).join(',');
   const views = await rows('portal_views?id=in.(' + list + ')&select=id,data,updated_at');
-  const inbox = await rows('portal_inbox?family_id=in.(' + list + ')&kind=in.(intent,absence,contact)&select=id,family_id,email,kind,student_id,event_id,payload,status,created_at&order=created_at.desc&limit=200');
+  const inbox = await rows('portal_inbox?family_id=in.(' + list + ')&kind=in.(intent,absence,contact,guardian)&select=id,family_id,email,kind,student_id,event_id,payload,status,created_at&order=created_at.desc&limit=200');
   const reg = await siteRegUrls();
   const regBy = {}; Object.keys(reg || {}).forEach(k => { if (reg[k]) regBy[groupKey(k)] = reg[k]; });
   const today = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10); // Eastern-ish
@@ -164,8 +166,33 @@ async function familiesFor(gs) {
       .sort((a, b) => a.date.localeCompare(b.date));
     const pc = mine.find(i => i.kind === 'contact' && i.status === 'new' && i.email === g.email);
     out.contactPending = pc ? pc.payload.next : null;
+    out.guardianPending = mine.filter(i => i.kind === 'guardian' && i.status === 'new').map(i => ({ name: i.payload.next.name, email: i.payload.next.email }));
     return out;
   }).filter(Boolean);
+}
+
+// ── Devices: alert the guardian by email the first time a new device signs in ──
+function deviceLabel(ua) {
+  ua = String(ua || '');
+  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac OS X/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /CrOS/.test(ua) ? 'Chromebook' : /Linux/.test(ua) ? 'Linux' : 'a device';
+  const br = /Edg\//.test(ua) ? 'Edge' : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /FxiOS|Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : '';
+  return br ? os + ' · ' + br : os;
+}
+async function noteDevice(email, device, event, ip, how) {
+  try {
+    const id = /^[A-Za-z0-9_-]{8,64}$/.test(String(device || '')) ? String(device) : 'unknown-' + sha(ip + (event.headers || {})['user-agent']).slice(0, 12);
+    const gs = await rows('portal_guardians?email=eq.' + enc(email) + '&select=id,family_id,devices');
+    const known = []; gs.forEach(g => (g.devices || []).forEach(d => { if (!known.some(k => k.id === d.id)) known.push(d); }));
+    if (known.some(d => d.id === id)) return;
+    const label = deviceLabel((event.headers || {})['user-agent']);
+    const list = known.concat({ id, label, at: now() }).slice(-12);
+    await write('PATCH', 'portal_guardians?email=eq.' + enc(email), { devices: list });
+    await log('new_device', email, gs[0] && gs[0].family_id, ip);
+    if (!known.length) return; // first device — that's them accepting the invite
+    const when = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    await sendEmail(email, 'New sign-in to your Noble\'s Martial Arts family portal',
+      'Hi there,\n\nYour Noble\'s Martial Arts family portal was just opened on a new device:\n\n    ' + label + '\n    ' + when + ' (Eastern)\n    Signed in with ' + how + '\n\nIf this was you, there\'s nothing to do.\n\nIf it wasn\'t you, reply to this email and Sensei Brandon will sign out every device and lock your access.\n\nNoble\'s Martial Arts');
+  } catch (e) { /* never block a sign-in on the alert */ }
 }
 
 async function parentOps(op, body, event) {
@@ -183,7 +210,7 @@ async function parentOps(op, body, event) {
     const sends = ((cur && cur.sends) || []).filter(t => Date.now() - new Date(t).getTime() < 15 * 60e3);
     if (sends.length >= 3) return json(429, { error: 'A few codes were already sent. Check your inbox (and spam), or try again in 15 minutes.' });
     const code = String(crypto.randomInt(0, 1e6)).padStart(6, '0');
-    await write('POST', 'portal_codes?on_conflict=id', { id: email, code_hash: sha(email + ':' + code), expires_at: new Date(Date.now() + CODE_MINUTES * 60e3).toISOString(), attempts: 0, sends: sends.concat(now()) }, 'resolution=merge-duplicates,return=minimal');
+    await write('POST', 'portal_codes?on_conflict=id', { id: email, code_hash: sha(email + ':' + code), expires_at: new Date(Date.now() + CODE_MINUTES * 60e3).toISOString(), attempts: 0, sends: sends.concat(now()), paired: false }, 'resolution=merge-duplicates,return=minimal');
     const sent = await sendEmail(email, 'Your Noble\'s Martial Arts sign-in code: ' + code,
       'Hi there,\n\nYour sign-in code for the Noble\'s Martial Arts family portal is:\n\n    ' + code + '\n\nIt expires in ' + CODE_MINUTES + ' minutes. If you didn\'t ask for this, you can ignore this email.\n\nSensei Brandon\nNoble\'s Martial Arts');
     if (!sent) { await log('code_send_failed', email, gs[0].family_id, ip); return json(503, { error: 'email_unavailable', message: 'We couldn\'t send a code right now. Ask Sensei Brandon for a sign-in link.' }); }
@@ -202,10 +229,11 @@ async function parentOps(op, body, event) {
       await log('code_wrong', email, null, ip);
       return bad;
     }
-    await write('PATCH', 'portal_codes?id=eq.' + enc(email), { code_hash: null, attempts: 0 });
+    await write('PATCH', 'portal_codes?id=eq.' + enc(email), { code_hash: null, attempts: 0, paired: false });
     const gs = await guardiansFor(email, Math.floor(Date.now() / 1000));
     if (!gs.length) return json(403, { error: 'This email doesn\'t have portal access.' });
     await log('signed_in_code', email, gs[0].family_id, ip);
+    await noteDevice(email, body.device, event, ip, cur.paired ? 'a code from one of your other devices' : 'an emailed code');
     return json(200, signPortal(email));
   }
 
@@ -218,6 +246,7 @@ async function parentOps(op, body, event) {
     if (!gs.length) return json(403, { error: 'This email doesn\'t have portal access.' });
     await write('PATCH', 'portal_links?id=eq.' + l.id, { uses: l.uses + 1 });
     await log('signed_in_link', l.email, l.family_id, ip);
+    await noteDevice(l.email, body.device, event, ip, 'your invite link');
     return json(200, Object.assign(signPortal(l.email), { email: l.email }));
   }
 
@@ -246,6 +275,34 @@ async function parentOps(op, body, event) {
       if (s) return { g, s, view: v.data };
     }
     return null;
+  }
+
+  // A signed-in device can show a code for signing in on another device (no email needed).
+  if (op === 'device-code') {
+    const email = sess.e;
+    const cur = (await rows('portal_codes?id=eq.' + enc(email) + '&select=*'))[0];
+    const sends = ((cur && cur.sends) || []).filter(t => Date.now() - new Date(t).getTime() < 15 * 60e3);
+    if (sends.length >= 5) return json(429, { error: 'Too many codes in a row. Try again in 15 minutes.' });
+    const code = String(crypto.randomInt(0, 1e6)).padStart(6, '0');
+    await write('POST', 'portal_codes?on_conflict=id', { id: email, code_hash: sha(email + ':' + code), expires_at: new Date(Date.now() + CODE_MINUTES * 60e3).toISOString(), attempts: 0, sends: sends.concat(now()), paired: true }, 'resolution=merge-duplicates,return=minimal');
+    await log('device_code', email, gs[0].family_id, ip);
+    return json(200, { code, email, minutes: CODE_MINUTES });
+  }
+
+  if (op === 'request-guardian') {
+    const next = { name: str(body.name, 120).trim(), email: normEmail(str(body.email, 200)), phone: str(body.phone, 40).trim(), relationship: str(body.relationship, 60).trim() };
+    if (!next.name) return json(400, { error: 'Please enter their name.' });
+    if (!validEmail(next.email)) return json(400, { error: 'Please enter a valid email for them.' });
+    if (next.email === sess.e) return json(400, { error: 'That\'s your email — use "Sign in on another device" instead.' });
+    const g = gs[0];
+    const v = (await rows('portal_views?id=eq.' + enc(g.family_id) + '&select=data'))[0];
+    const mineKids = v ? scopeView(v.data, g, []).students.map(x => String(x.id)) : [];
+    const kids = (Array.isArray(body.studentIds) ? body.studentIds : []).map(String).filter(x => mineKids.includes(x));
+    next.studentIds = kids.length && kids.length < mineKids.length ? kids : null;
+    await write('DELETE', 'portal_inbox?family_id=eq.' + enc(g.family_id) + '&kind=eq.guardian&status=eq.new&payload->next->>email=eq.' + enc(next.email));
+    await write('POST', 'portal_inbox', { family_id: g.family_id, email: sess.e, kind: 'guardian', payload: { requestedBy: g.name || sess.e, next }, status: 'new', created_at: now() });
+    await log('guardian_requested', sess.e, g.family_id, ip);
+    return json(200, { ok: true });
   }
 
   if (op === 'submit-absence') {
@@ -388,7 +445,7 @@ async function staffOps(op, body, user) {
 
   if (op === 'staff-activity') {
     const f = body.familyId ? '&family_id=eq.' + enc(str(body.familyId, 80)) : '';
-    const g = await rows('portal_guardians?select=id,email,family_id,enabled,invited_at,last_seen,revoked_after' + f);
+    const g = await rows('portal_guardians?select=id,email,family_id,enabled,invited_at,last_seen,revoked_after,devices' + f);
     const l = await rows('portal_log?select=at,email,family_id,event&order=at.desc&limit=60' + f);
     return json(200, { guardians: g, log: l });
   }

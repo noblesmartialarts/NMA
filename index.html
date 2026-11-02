@@ -15386,14 +15386,14 @@ async function portalInvite(fid,cid,mode){
   let link;
   try{toast('Creating sign-in link…');link=await portalInviteLink(fid,cid);}catch(e){alert('Couldn\'t create the invite: '+e.message);return;}
   if(mode==='copy'){
-    try{await navigator.clipboard.writeText(link.url);toast('Sign-in link copied — it works for 14 days.');}catch(e){prompt('Copy this sign-in link (works for 14 days):',link.url);}
+    try{await navigator.clipboard.writeText(link.url);toast('Sign-in link copied — it works once, within 3 days.');}catch(e){prompt('Copy this sign-in link (works once, within 3 days):',link.url);}
     return;
   }
   const names=kids.length>1?kids.slice(0,-1).join(', ')+' & '+kids[kids.length-1]:(kids[0]||'your student');
   const body='Hi there,\n\n'+
     'You now have access to the Noble\'s Martial Arts family portal. You can see '+names+'\'s belt progress, upcoming tests, attendance, what they\'re working on this cycle (with practice videos), and any open balance. You can also return Intent to Promote letters right from your phone.\n\n'+
-    'Open your portal (this link signs you in and works for 14 days):\n'+link.url+'\n\n'+
-    'After that, visit noblesmartialarts.com/family any time and sign in with this email address — we\'ll email you a code.\n\n'+
+    'Open your portal (this link signs you in once and expires in 3 days):\n'+link.url+'\n\n'+
+    'After that, visit noblesmartialarts.com/family any time and sign in with this email address — we\'ll email you a code. To add another phone or computer, open the portal and tap "Sign in on another device".\n\n'+
     'Sensei Brandon\nNoble\'s Martial Arts';
   if(!gmailToken&&typeof gmailRefresh==='function')await gmailRefresh(true);
   if(!gmailToken){
@@ -15417,8 +15417,8 @@ async function portalActivityHTML(fid){
   try{
     const j=await portalCall('staff-activity',{familyId:fid});
     const when=t=>t?new Date(t).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'never';
-    const label={signed_in_code:'Signed in (code)',signed_in_link:'Signed in (invite link)',viewed:'Opened the portal',intent_submitted:'Returned an Intent letter',invite_link:'Invite link created',code_sent:'Sign-in code emailed',code_wrong:'Wrong code entered',signed_out_everywhere:'Signed out everywhere',code_send_failed:'Code email failed'};
-    return (j.guardians||[]).map(g=>`<div style="font-size:12px;">${famEsc(g.email)} · invited ${when(g.invited_at)} · last visit ${when(g.last_seen)}</div>`).join('')+
+    const label={new_device:'New device',device_code:'Showed a code for another device',guardian_requested:'Asked to add a guardian',absence_reported:'Reported an absence',contact_update_requested:'Sent a contact update',signed_in_code:'Signed in (code)',signed_in_link:'Signed in (invite link)',viewed:'Opened the portal',intent_submitted:'Returned an Intent letter',invite_link:'Invite link created',code_sent:'Sign-in code emailed',code_wrong:'Wrong code entered',signed_out_everywhere:'Signed out everywhere',code_send_failed:'Code email failed'};
+    return (j.guardians||[]).map(g=>`<div style="font-size:12px;">${famEsc(g.email)} · invited ${when(g.invited_at)} · last visit ${when(g.last_seen)}${(g.devices||[]).length?' · devices: '+g.devices.map(d=>famEsc(d.label)).join(', '):''}</div>`).join('')+
       `<div style="margin-top:6px;max-height:150px;overflow:auto;">${(j.log||[]).slice(0,20).map(l=>`<div style="font-size:11px;color:var(--ink-muted);">${when(l.at)} — ${famEsc(label[l.event]||l.event)}${l.email?' · '+famEsc(l.email):''}</div>`).join('')||'<div style="font-size:11px;color:var(--ink-muted);">No activity yet.</div>'}</div>`;
   }catch(e){return `<div style="font-size:12px;color:var(--red);">${famEsc(e.message)}</div>`;}
 }
@@ -15479,7 +15479,7 @@ async function portalPreview(fid){
       const fams=(DB.families||[]).filter(f=>(f.contacts||[]).some(c=>c.portal));
       portalPrefillOrderLinks();
       host.insertAdjacentHTML('beforeend',`<details class="pf-card" style="margin-bottom:12px;" ${fams.length&&!_portalContacts.length?'':'open'}>
-        <summary style="cursor:pointer;font-family:var(--font-display);font-size:15px;font-weight:700;">🔑 Family portal <span style="font-weight:400;font-size:12px;color:var(--ink-muted);">— ${fams.length} famil${fams.length===1?'y':'ies'} with access · <span id="portal-sync">${famEsc(_portalStatus||'')}</span> ${_portalInboxCount?`· <a href="#" onclick="nav('parentfeedback');return false;" style="color:var(--red);font-weight:600;">${_portalInboxCount} letter${_portalInboxCount!==1?'s':''} to review</a>`:''} ${_portalContacts.length?`· <span style="color:var(--red);font-weight:600;">${_portalContacts.length} contact update${_portalContacts.length!==1?'s':''} to approve</span>`:''}</span></summary>
+        <summary style="cursor:pointer;font-family:var(--font-display);font-size:15px;font-weight:700;">🔑 Family portal <span style="font-weight:400;font-size:12px;color:var(--ink-muted);">— ${fams.length} famil${fams.length===1?'y':'ies'} with access · <span id="portal-sync">${famEsc(_portalStatus||'')}</span> ${_portalInboxCount?`· <a href="#" onclick="nav('parentfeedback');return false;" style="color:var(--red);font-weight:600;">${_portalInboxCount} letter${_portalInboxCount!==1?'s':''} to review</a>`:''} ${_portalContacts.length?`· <span style="color:var(--red);font-weight:600;">${_portalContacts.length} request${_portalContacts.length!==1?'s':''} to approve</span>`:''}</span></summary>
         <div style="font-size:12px;color:var(--ink-muted);margin:8px 0;">Parents sign in at <strong>noblesmartialarts.com/family</strong>. Open a family and tick <em>Family portal access</em> on a guardian, then send the invite.</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
           <div class="form-group" style="margin:0;"><label class="form-label">Show attendance from</label><input type="date" class="form-input" value="${cfg.launchDate||''}" onchange="portalCfg().launchDate=this.value;save();"><div style="font-size:11px;color:var(--ink-muted);">Set automatically the day you first give a family access. Earlier dates stay hidden.</div></div>
@@ -15540,10 +15540,10 @@ async function portalCheckInbox(notify){
     const items=j.items||[];
     await portalImportAbsences(items.filter(i=>i.kind==='absence'));
     _portalInbox=items.filter(i=>i.kind==='intent');
-    const wasC=_portalContacts.length;_portalContacts=items.filter(i=>i.kind==='contact');
+    const wasC=_portalContacts.length;_portalContacts=items.filter(i=>i.kind==='contact'||i.kind==='guardian');
     const n=_portalInbox.length;const was=_portalInboxCount;_portalInboxCount=n;
     if(notify&&n&&n!==was)toast(n+' Intent letter'+(n!==1?'s':'')+' returned in the family portal — review on Parent Feedback.');
-    if(notify&&_portalContacts.length&&_portalContacts.length!==wasC)toast(_portalContacts.length+' contact update'+(_portalContacts.length!==1?'s':'')+' from the family portal — approve on the Families page.');
+    if(notify&&_portalContacts.length&&_portalContacts.length!==wasC)toast(_portalContacts.length+' request'+(_portalContacts.length!==1?'s':'')+' from the family portal (contact updates / new guardians) — approve on the Families page.');
     if(_portalContacts.length!==wasC&&$('page-families')?.classList.contains('active')&&!famOpenId)renderFamilies();
   }catch(e){}
   renderPortalInbox();
@@ -15566,9 +15566,38 @@ async function portalImportAbsences(list){
   for(const it of list){try{await portalCall('staff-inbox-mark',{id:it.id,status:'accepted'});}catch(e){}}
   if(added)toast(added+' absence notice'+(added!==1?'s':'')+' from the family portal added to absence requests.');
 }
+function portalGuardianReqHTML(it){
+  const p=it.payload||{};const f=famById(it.family_id);const nx=p.next||{};
+  const kids=f?famMembers(f).filter(s=>!nx.studentIds||nx.studentIds.includes(String(s.id))).map(s=>s.first):[];
+  const dupe=f&&(f.contacts||[]).find(c=>famNormEmail(c.email)===famNormEmail(nx.email));
+  return `<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:6px 0;background:var(--paper);font-size:12px;">
+    <div style="font-weight:600;margin-bottom:4px;">➕ New guardian for the ${famEsc(f?f.name:'?')} family <span style="font-weight:400;color:var(--ink-muted);">· requested by ${famEsc(p.requestedBy||it.email)}</span></div>
+    <div><strong>${famEsc(nx.name)}</strong>${nx.relationship?' ('+famEsc(nx.relationship)+')':''} · ${famEsc(nx.email)} · ${famEsc(nx.phone||'no phone')}</div>
+    <div style="color:var(--ink-muted);">Would see: ${famEsc(kids.join(', ')||'—')}</div>
+    ${dupe?'<div style="color:var(--amber);">Already a guardian on this family — approving just turns on their portal access.</div>':''}
+    <div style="display:flex;gap:8px;margin-top:8px;"><button class="btn small primary" ${f?'':'disabled'} onclick="portalApproveGuardian(${it.id})">✓ Approve &amp; send invite</button><button class="btn small" onclick="portalDeclineContact(${it.id})">Decline</button></div>
+  </div>`;
+}
+async function portalApproveGuardian(id){
+  const it=_portalContacts.find(x=>x.id===id);if(!it)return;
+  const f=famById(it.family_id);if(!f)return;const nx=(it.payload||{}).next||{};
+  let c=(f.contacts||[]).find(x=>famNormEmail(x.email)===famNormEmail(nx.email));
+  if(!c){
+    c={id:famNewId('c'),name:nx.name||'',email:nx.email||'',phone:nx.phone||'',students:nx.studentIds&&nx.studentIds.length?nx.studentIds.map(x=>famMembers(f).find(s=>String(s.id)===String(x))).filter(Boolean).map(s=>s.id):null,notifyEmail:false,notifySms:false};
+    f.contacts.push(c);
+    if(nx.relationship)f.notes=((f.notes||'')+(f.notes?'\n':'')+nx.name+' — '+nx.relationship+' (added from the family portal)').trim();
+  }
+  c.portal=true;
+  if(typeof famSyncFamily==='function')famSyncFamily(f);
+  save();
+  try{await portalCall('staff-inbox-mark',{id,status:'accepted'});}catch(e){}
+  _portalContacts=_portalContacts.filter(x=>x.id!==id);renderFamilies();
+  await portalInvite(f.id,c.id,'email');
+}
 function portalContactsHTML(){
   if(!_portalContacts.length)return '';
-  return `<div class="form-label" style="margin-top:14px;color:var(--red);">Contact updates to approve (${_portalContacts.length})</div>`+_portalContacts.map(it=>{
+  return `<div class="form-label" style="margin-top:14px;color:var(--red);">Requests to approve (${_portalContacts.length})</div>`+_portalContacts.map(it=>{
+    if(it.kind==='guardian')return portalGuardianReqHTML(it);
     const p=it.payload||{};const f=famById(it.family_id);const c=f&&(f.contacts||[]).find(x=>x.id===p.contactId);const nx=p.next||{};
     const fld=(k,lab)=>{const o=c?String(c[k]||''):'';const n=String(nx[k]||'');const ch=famNormEmail(o)!==famNormEmail(n);return `<div><span style="color:var(--ink-muted);">${lab}:</span> ${ch?`<s style="color:var(--ink-faint);">${famEsc(o||'—')}</s> → <strong>${famEsc(n||'—')}</strong>`:famEsc(n||'—')}</div>`;};
     return `<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:6px 0;background:var(--paper);font-size:12px;">

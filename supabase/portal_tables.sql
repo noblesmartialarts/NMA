@@ -67,3 +67,7 @@ alter table public.portal_inbox     enable row level security;
 alter table public.portal_codes     enable row level security;
 alter table public.portal_links     enable row level security;
 alter table public.portal_log       enable row level security;
+
+-- Nov 1: known devices per guardian (new-device alerts) and on-screen pairing codes
+alter table public.portal_guardians add column if not exists devices jsonb not null default '[]'::jsonb;
+alter table public.portal_codes add column if not exists paired boolean not null default false;
