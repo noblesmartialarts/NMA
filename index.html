@@ -7286,11 +7286,16 @@ async function emailLetters() {
   if (!gmailToken) { alert('Connect Gmail first on the Emails tab.'); return; }
 
   // Same selection the tab shows (respects manual checkboxes + Black Belt letters)
-  const selected = DB.students.filter(s => s.status === 'Active' && getPromotion(s) && letterEligible(s));
+  const selected0 = DB.students.filter(s => s.status === 'Active' && getPromotion(s) && letterEligible(s));
+  // Families on the family portal fill the letter out there (and get an automatic email when it opens).
+  const viaPortal = selected0.filter(s => portalCoversLetter(s));
+  const selected = selected0.filter(s => !viaPortal.includes(s));
+  const portalNote = viaPortal.length ? '\n\n' + viaPortal.length + ' student' + (viaPortal.length !== 1 ? 's are' : ' is') + ' on the family portal and ' + (portalCfg().notifyLetters !== false ? 'their families are emailed a portal link automatically' : 'their families will be emailed a portal link instead of the PDF') + ': ' + viaPortal.map(s => s.first + ' ' + s.last).join(', ') : '';
+  if (viaPortal.length && portalCfg().notifyLetters === false) await portalLetterNotices(viaPortal, ev);
   const eligible = selected.filter(s => s.email);
   const noEmail = selected.filter(s => !s.email);
-  if (!eligible.length) { alert('No selected students with email addresses on file.'); return; }
-  const msg = 'Email Intent to Promote letters (PDF attachment) to ' + eligible.length + ' parent' + (eligible.length !== 1 ? 's' : '') + '?' +
+  if (!eligible.length) { alert((viaPortal.length ? 'Everyone selected is on the family portal.' : 'No selected students with email addresses on file.') + portalNote); return; }
+  const msg = 'Email Intent to Promote letters (PDF attachment) to ' + eligible.length + ' parent' + (eligible.length !== 1 ? 's' : '') + '?' + portalNote +
     (noEmail.length ? '\n\n' + noEmail.length + ' selected student(s) have no email and will be skipped: ' + noEmail.map(s => s.first + ' ' + s.last).join(', ') : '');
   if (!confirm(msg)) return;
 
@@ -13910,6 +13915,17 @@ function pmParse(m){
 }
 
 // ── Open items a payment could cover ──
+// Owes this event's fee: ready to test, or an Intent letter is out for this upcoming test.
+function owesTestFee(s,ev){
+  if(!s||s.status!=='Active')return false;
+  if(typeof canPromoteAtEvent==='function'&&!canPromoteAtEvent(s,ev))return false;
+  if(typeof beltTestEligible==='function'&&beltTestEligible(s))return true;
+  if(ev.date>=localToday()&&ev.date<=localDateOffset(60)&&typeof letterEligible==='function'&&letterEligible(s)){
+    if(typeof isBlackBeltLetterCase==='function'&&isBlackBeltLetterCase(s))return ev.type==='Black Belt Test';
+    return true;
+  }
+  return false;
+}
 function pmOpenItems(){
   const items=[];
   (DB.gearOrders||[]).forEach(o=>{
@@ -13934,7 +13950,7 @@ function pmOpenItems(){
     const att=DB.attendance[ev.date]||{};
     const who=new Set();
     DB.students.filter(s=>s.status==='Active').forEach(s=>{
-      if((typeof canPromoteAtEvent!=='function'||canPromoteAtEvent(s,ev))&&(typeof beltTestEligible==='function'&&beltTestEligible(s)))who.add(s);
+      if(owesTestFee(s,ev))who.add(s);
       if(att[s.id]==='present'&&typeof promotedAtEvent==='function'&&promotedAtEvent(s.id,ev))who.add(s);
     });
     who.forEach(s=>{
@@ -14370,7 +14386,7 @@ function famOpenItems(f){
   const apparel=(DB.apparelOrders||[]).filter(o=>!o.paid&&(emails.has(famNormEmail(o.email))||String(o.students||'').toLowerCase().split(',').some(n=>names.has(n.trim()))));
   const fees=[];
   (DB.testEvents||[]).filter(e=>e.type!=='Stripe Test'&&(+e.fee||0)>0&&e.date>=localDateOffset(-60)&&e.date<=localDateOffset(60)).forEach(ev=>{
-    famMembers(f).filter(s=>s.status==='Active'&&typeof beltTestEligible==='function'&&beltTestEligible(s)&&(typeof canPromoteAtEvent!=='function'||canPromoteAtEvent(s,ev))).forEach(s=>{
+    famMembers(f).filter(s=>owesTestFee(s,ev)).forEach(s=>{
       if(!(DB.testFees||[]).some(x=>x.eventId===ev.id&&x.studentId===s.id&&x.paid))fees.push({s,ev});
     });
   });
@@ -15332,6 +15348,7 @@ function portalCfg(){
   if(c.announcement==null)c.announcement='';
   if(c.payInfo==null||c.payInfo==='Cash or Venmo (@BNobleFamily)')c.payInfo='Cash is also welcome at class.'; // pay buttons cover Venmo/Zelle/PayPal
   if(c.showLetters==null)c.showLetters=true;
+  if(c.notifyLetters==null)c.notifyLetters=true;
   if(c.venmo==null)c.venmo='BNobleFamily';
   if(c.zelle==null)c.zelle='noblesmartialarts@gmail.com';
   if(c.paypal==null)c.paypal='BrandonNoble';
@@ -15367,7 +15384,8 @@ function portalIntentFor(s,upcoming){
   const ev=upcoming.find(e=>isPromotionEvent(e)&&canPromoteAtEvent(s,e)&&(!bb||e.type==='Black Belt Test')&&e.date<=localDateOffset(60));
   if(!ev)return null;
   const received=(DB.parentFeedback||[]).some(p=>p.studentId===s.id&&p.eventId===ev.id);
-  return {open:!received,status:received?'received':'open',eventId:ev.id,eventName:ev.name||ev.type,eventDate:ev.date,promotingTo:promo.belt,kind:bb?'bb':'standard',fee:+ev.fee||0};
+  const feePaid=(DB.testFees||[]).some(f=>f.eventId===ev.id&&f.studentId===s.id&&f.paid);
+  return {open:!received,status:received?'received':'open',eventId:ev.id,eventName:ev.name||ev.type,eventDate:ev.date,promotingTo:promo.belt,kind:bb?'bb':'standard',fee:+ev.fee||0,feePaid};
 }
 // Gear / weapon order links shown once a student has their first stripe of the cycle.
 function portalNextWeapon(key){
@@ -15463,7 +15481,7 @@ async function portalPublish(force){
   const gsig=portalHash(JSON.stringify(guardians));
   if(!force&&!views.length&&gsig===_portalGSig&&Object.keys(_portalSigs).length===famIds.length)return true;
   _portalBusy=(async()=>{
-    await portalCall('staff-publish',{guardians,views,familyIds:famIds,confirmEmpty:!guardians.length});
+    await portalCall('staff-publish',{guardians,views,familyIds:famIds,confirmEmpty:!guardians.length,notify:{letters:portalCfg().notifyLetters!==false}});
     _portalSigs=sigs;_portalGSig=gsig;_portalStatus='Synced '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
     try{localStorage.setItem('nma_portal_published','1');}catch(e){}
   })();
@@ -15481,6 +15499,22 @@ async function portalPublish(force){
     }
   },3000);
 })();
+
+// Is this student's letter handled in the portal (a guardian for them has portal access)?
+function portalCoversLetter(s){
+  const f=typeof famOf==='function'?famOf(s):null;if(!f)return false;
+  return (f.contacts||[]).some(c=>c.portal&&famNormEmail(c.email)&&(!c.students||!c.students.length||c.students.includes(s.id)));
+}
+// Manual fallback when automatic letter emails are off: a short portal link email from the Letters tab.
+async function portalLetterNotices(list,ev){
+  for(const s of list){
+    const f=famOf(s);if(!f)continue;
+    const to=(f.contacts||[]).filter(c=>c.portal&&famNormEmail(c.email)&&(!c.students||!c.students.length||c.students.includes(s.id))).map(c=>c.email);
+    if(!to.length)continue;
+    const body='Hi there,\n\nCongratulations! '+s.first+' is testing for '+((getPromotion(s)||{}).belt||'their next rank')+' on '+fmtFull(ev.date)+'.\n\n'+s.first+'\'s Intent to Promote letter is ready in your family portal. Please fill it out and pay the $'+(+ev.fee||10)+' belt testing fee (Venmo preferred) there:\nhttps://noblesmartialarts.com/family\n\nPlease complete it by '+s.first+'\'s belt test class. Any questions — just reply here.\n\n— Sensei Brandon\nNoble\'s Martial Arts';
+    await sendGmailMessage(to.join(', '),'Noble\'s Martial Arts — '+s.first+'\'s Intent to Promote letter is ready',body);
+  }
+}
 
 // ── Guardian access & invites ──
 function portalToggle(fid,cid){
@@ -15608,6 +15642,7 @@ async function portalPreview(fid){
           <div class="form-group" style="margin:0;"><label class="form-label">Announcement (top of the portal)</label><textarea class="form-input" rows="2" placeholder="e.g. No class Nov 24 — happy Thanksgiving!" onchange="portalCfg().announcement=this.value.trim();save();">${famEsc(cfg.announcement)}</textarea></div>
         </div>
         <label style="font-size:12px;display:block;margin-top:8px;"><input type="checkbox" ${cfg.showLetters!==false?'checked':''} onchange="portalCfg().showLetters=this.checked;save();"> Let parents return Intent to Promote letters in the portal (shows up to 60 days before the test, for kids selected on the Letters tab)</label>
+        <label style="font-size:12px;display:block;margin-top:4px;"><input type="checkbox" ${cfg.notifyLetters!==false?'checked':''} onchange="portalCfg().notifyLetters=this.checked;save();"> Email portal families automatically when an Intent letter opens for their child (with the $ fee and a link) — they won't also get the PDF</label>
         <div class="form-label" style="margin-top:12px;">Order links in the portal <span style="font-weight:400;color:var(--ink-muted);">— shown on a student's card once they've earned stripe #1</span></div>
         ${portalOrderRows()}
         ${portalContactsHTML()}

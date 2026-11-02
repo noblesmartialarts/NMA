@@ -377,6 +377,27 @@ async function parentOps(op, body, event) {
   return json(400, { error: 'Unknown request' });
 }
 
+function longDate(iso) { return new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }); }
+async function sendIntentNotice(n) {
+  const gs = (await rows('portal_guardians?family_id=eq.' + enc(n.familyId) + '&enabled=is.true&select=email,student_ids'))
+    .filter(g => !Array.isArray(g.student_ids) || !g.student_ids.length || g.student_ids.map(String).includes(String(n.student.id)));
+  if (!gs.length) return 0;
+  const s = n.student, it = n.intent;
+  const bb = it.kind === 'bb';
+  const text = 'Hi there,\n\n' +
+    (bb ? 'Congratulations! ' + s.first + ' has been selected as a Black Belt Candidate for the Black Belt Test on ' + longDate(it.eventDate) + '!'
+        : 'Congratulations! ' + s.first + ' is testing for ' + it.promotingTo + ' on ' + longDate(it.eventDate) + '.') + '\n\n' +
+    'Two quick steps in your family portal:\n' +
+    '  1. Fill out ' + s.first + '\'s ' + (bb ? 'Black Belt Intent to Promote letter' : 'Intent to Promote letter') + ' (about 2 minutes)\n' +
+    (it.fee && !it.feePaid ? '  2. Pay the $' + it.fee + ' belt testing fee — Venmo preferred, the button fills everything in\n' : '') +
+    '\n' + PORTAL_URL + '\n\nPlease finish by ' + s.first + '\'s belt test class. Any questions — just reply here.\n\nSensei Brandon\nNoble\'s Martial Arts';
+  let sent = 0;
+  for (const g of gs) {
+    if (await sendEmail(g.email, s.first + '\'s Intent to Promote letter is ready', text)) { sent++; await log('notified_intent', g.email, n.familyId, null); }
+  }
+  return sent;
+}
+
 async function staffOps(op, body, user) {
   if (op === 'staff-publish') {
     const guardians = Array.isArray(body.guardians) ? body.guardians : [];
@@ -395,11 +416,32 @@ async function staffOps(op, body, user) {
     const drop = existing.filter(g => !keep.has(g.id)).map(g => g.id);
     if (drop.length) await write('DELETE', 'portal_guardians?id=in.(' + drop.map(enc).join(',') + ')');
     const vs = views.filter(v => v && v.id && v.data && familyIds.has(String(v.id))).map(v => ({ id: str(v.id, 80), data: v.data, updated_at: now() }));
-    if (vs.length) await write('POST', 'portal_views?on_conflict=id', vs, 'resolution=merge-duplicates,return=minimal');
+    // Emails for things that just became available (e.g. an Intent letter opened).
+    const notices = [];
+    if (vs.length) {
+      const prev = await rows('portal_views?id=in.(' + vs.map(v => enc(v.id)).join(',') + ')&select=id,notified');
+      for (const v of vs) {
+        const old = prev.find(x => x.id === v.id);
+        const notified = Object.assign({}, (old && old.notified) || {});
+        for (const st of (v.data.students || [])) {
+          const it = st.intent;
+          if (!it || !it.open) continue;
+          const key = 'intent:' + st.id + ':' + it.eventId;
+          if (notified[key]) continue;
+          notified[key] = now();
+          // First publish for a family: their invite covers what's already open.
+          if (old && body.notify && body.notify.letters) notices.push({ familyId: v.id, student: st, intent: it });
+        }
+        v.notified = notified;
+      }
+      await write('POST', 'portal_views?on_conflict=id', vs, 'resolution=merge-duplicates,return=minimal');
+    }
+    let sentNotices = 0;
+    for (const n of notices) sentNotices += await sendIntentNotice(n);
     const ev = await rows('portal_views?select=id');
     const dropV = ev.filter(v => !familyIds.has(v.id)).map(v => v.id);
     if (dropV.length) await write('DELETE', 'portal_views?id=in.(' + dropV.map(enc).join(',') + ')');
-    return json(200, { ok: true, guardians: clean.length, views: vs.length, removed: drop.length + dropV.length });
+    return json(200, { ok: true, guardians: clean.length, views: vs.length, removed: drop.length + dropV.length, notices: sentNotices });
   }
 
   if (op === 'staff-link') {

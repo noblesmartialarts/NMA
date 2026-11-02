@@ -71,3 +71,6 @@ alter table public.portal_log       enable row level security;
 -- Nov 1: known devices per guardian (new-device alerts) and on-screen pairing codes
 alter table public.portal_guardians add column if not exists devices jsonb not null default '[]'::jsonb;
 alter table public.portal_codes add column if not exists paired boolean not null default false;
+
+-- Nov 1: which portal emails a family has already been sent (e.g. "intent:<student>:<event>")
+alter table public.portal_views add column if not exists notified jsonb not null default '{}'::jsonb;
