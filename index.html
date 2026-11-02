@@ -12619,6 +12619,10 @@ if(!DB.gearSheetSources)DB.gearSheetSources=[];
       ${stale.length?`<button class="btn small" onclick="gearArchiveOld()">🗄 Archive ${stale.length} old order${stale.length!==1?'s':''}</button><span>Paid or $0 orders older than 60 days.</span>`:''}
       ${nArch?`<span>${nArch} archived — choose “Archived” in the filter to see them.</span>`:''}</div>`:'';
 
+  let sb=$('gear-sales');
+  if(!sb&&ab){sb=document.createElement('div');sb.id='gear-sales';ab.insertAdjacentElement('afterend',sb);}
+  if(sb)sb.innerHTML=salesSummaryHTML();
+
   const tbody=$('gear-tbody');if(!tbody)return;
   if(!orders.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--ink-muted);">No orders yet — click "+ Add Order" to log one.</td></tr>';return;}
   tbody.innerHTML=orders.map(o=>{
@@ -14133,6 +14137,76 @@ async function pmAutoScan(){
 setTimeout(pmAutoScan,20000);
 setInterval(pmAutoScan,15*60000);
 
+// ── Walk-in sales (e.g. $8 shirts at class) ──
+function salesItems(){
+  if(!Array.isArray(DB.quickSales)||!DB.quickSales.length)DB.quickSales=[{id:'shirt',label:'T-shirt',price:8,icon:'👕'}];
+  return DB.quickSales;
+}
+function recordSale(o){
+  if(!DB.merchSales)DB.merchSales=[];
+  DB.merchSales.unshift(Object.assign({id:DB.nextId++},o));
+}
+function pmRecordSale(cid,itemId){
+  const c=pmQueue.find(x=>x.id===cid);if(!c)return;
+  let item,qty,unit;
+  if(itemId==='other'){
+    item=prompt('What was this '+fmt$(c.amount)+' for?','');if(item===null)return;item=item.trim()||'Other income';qty=1;unit=c.amount;
+  }else{
+    const it=salesItems().find(x=>x.id===itemId);if(!it)return;
+    const q=c.amount/it.price;
+    if(Math.abs(q-Math.round(q))<0.001&&q>=1)qty=Math.round(q);
+    else{const a=prompt(fmt$(c.amount)+' isn\'t an even number of '+it.label+'s at $'+it.price+'. How many?',String(Math.max(1,Math.round(q))));if(a===null)return;qty=Math.max(1,parseInt(a)||1);}
+    item=it.label;unit=it.price;
+  }
+  recordSale({date:c.date,item,qty,unit,amount:c.amount,method:c.method,payer:c.payer,ref:c.ref||'',note:c.note||'',msgId:c.msgId});
+  DB.paymentsLog.unshift({date:c.date,method:c.method,payer:c.payer,amount:c.amount,ref:c.ref||'',note:c.note||'',applied:[qty+' × '+item],msgId:c.msgId});
+  DB.paymentImports[c.msgId]={status:'sale',date:localToday()};
+  pmQueue=pmQueue.filter(x=>x!==c);
+  save();renderPmQueue();if(typeof renderGearOrders==='function')renderGearOrders();if(typeof pmNotice==='function')pmNotice();
+  toast('Recorded '+qty+' × '+item+' — '+fmt$(c.amount)+' from '+c.payer+'.');
+}
+function logCashSale(){
+  const items=salesItems();
+  const pick=prompt('Cash sale — which item?\n'+items.map((it,i)=>(i+1)+'. '+it.label+' ($'+it.price+')').join('\n')+'\n'+(items.length+1)+'. Something else','1');if(pick===null)return;
+  const n=parseInt(pick);let it=items[n-1],item,unit;
+  if(it){item=it.label;unit=it.price;}else{item=prompt('What was sold?','');if(!item)return;unit=parseFloat(prompt('Price each?','')||'0')||0;}
+  const qty=Math.max(1,parseInt(prompt('How many?','1')||'1')||1);
+  recordSale({date:localToday(),item,qty,unit,amount:Math.round(qty*unit*100)/100,method:'Cash',payer:'',ref:'',note:''});
+  save();renderGearOrders();toast('Logged '+qty+' × '+item+' (cash).');
+}
+function editSalesItems(){
+  const cur=salesItems().map(it=>it.label+' '+it.price).join(', ');
+  const v=prompt('Items you sell at class, as "name price" separated by commas:\n(e.g. T-shirt 8, Hoodie 25, Water 1)',cur);if(v===null)return;
+  const list=v.split(',').map(x=>x.trim()).filter(Boolean).map((x,i)=>{const m=x.match(/^(.*?)\s*\$?([\d.]+)$/);return m?{id:'q'+i+'_'+m[1].toLowerCase().replace(/[^a-z0-9]/g,''),label:m[1].trim(),price:parseFloat(m[2]),icon:/shirt|tee/i.test(m[1])?'👕':'🛍'}:null;}).filter(x=>x&&x.label&&x.price>0);
+  if(!list.length){alert('Nothing recognized — use "name price", e.g. T-shirt 8.');return;}
+  DB.quickSales=list;save();renderGearOrders();renderPmQueue();
+}
+function salesSummaryHTML(){
+  const all=DB.merchSales||[];
+  const m=localToday().slice(0,7);
+  const month=all.filter(x=>String(x.date).slice(0,7)===m);
+  const byItem={};month.forEach(x=>{byItem[x.item]=(byItem[x.item]||0)+x.qty;});
+  const tot=month.reduce((a,x)=>a+(+x.amount||0),0);
+  return `<div class="pf-card" style="margin:10px 0;">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div style="font-family:var(--font-display);font-weight:700;font-size:14px;flex:1;">🛍 Walk-in sales <span style="font-weight:400;font-size:12px;color:var(--ink-muted);">— this month: ${month.length?Object.entries(byItem).map(([k,v])=>v+' × '+pmEsc(k)).join(', ')+' · <strong style="color:var(--green);">'+fmt$(tot)+'</strong>':'none yet'} · all time ${fmt$(all.reduce((a,x)=>a+(+x.amount||0),0))}</span></div>
+      <button class="btn small" onclick="logCashSale()">+ Log cash sale</button>
+      <button class="btn small" onclick="editSalesItems()">Items &amp; prices</button>
+      ${all.length?`<button class="btn small" onclick="_salesOpen=!_salesOpen;renderGearOrders()">${_salesOpen?'Hide':'Show'} list</button>`:''}
+    </div>
+    ${_salesOpen&&all.length?`<div style="margin-top:8px;max-height:260px;overflow:auto;">${all.slice(0,100).map(x=>`<div style="display:flex;gap:10px;font-size:12px;padding:5px 2px;border-bottom:1px solid var(--border);align-items:center;">
+      <span style="color:var(--ink-muted);width:56px;">${fmtDate(x.date)}</span><span style="flex:1;">${x.qty} × ${pmEsc(x.item)}${x.payer?' · '+pmEsc(x.payer):''} <span class="badge" style="font-size:9px;background:var(--blue-light);color:var(--blue);">${pmEsc(x.method)}</span></span>
+      <strong>${fmt$(x.amount)}</strong><span title="Remove" style="cursor:pointer;color:var(--ink-faint);" onclick="salesRemove(${x.id})">✕</span></div>`).join('')}</div>`:''}
+  </div>`;
+}
+let _salesOpen=false;
+function salesRemove(id){
+  const x=(DB.merchSales||[]).find(y=>y.id===id);if(!x)return;
+  if(!confirm('Remove this sale ('+x.qty+' × '+x.item+', '+fmt$(x.amount)+')?'+(x.msgId?' The payment will show up again to match.':'')))return;
+  DB.merchSales=DB.merchSales.filter(y=>y.id!==id);
+  if(x.msgId){delete DB.paymentImports[x.msgId];DB.paymentsLog=(DB.paymentsLog||[]).filter(l=>l.msgId!==x.msgId);}
+  save();renderGearOrders();
+}
 function pmToggle(cid,key){const c=pmQueue.find(x=>x.id===cid);if(!c)return;c.selected.has(key)?c.selected.delete(key):c.selected.add(key);renderPmQueue();}
 function pmAddItem(cid,key){
   const c=pmQueue.find(x=>x.id===cid);if(!c||!key)return;
@@ -14207,7 +14281,12 @@ function renderPmQueue(){
         <span style="font-size:12px;color:${Math.abs(diff)<0.005?'var(--green)':'var(--amber)'};">${sel.length?(Math.abs(diff)<0.005?'✓ Adds up exactly':diff>0?fmt$(diff)+' not covered by ticked items':'Ticked items exceed the payment by '+fmt$(-diff)):'Nothing ticked'}</span>
         <div style="flex:1;"></div>
         <button class="btn small" onclick="pmSkip(${c.id})" title="Not for anything tracked here">Skip</button>
-        <button class="btn small primary" onclick="pmConfirm(${c.id})">Mark ${sel.length||''} paid</button></div></div>`;
+        <button class="btn small primary" onclick="pmConfirm(${c.id})">Mark ${sel.length||''} paid</button></div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:12px;">
+        <span style="color:var(--ink-muted);">Or record it as a sale:</span>
+        ${salesItems().map(it=>{const q=c.amount/it.price;const even=Math.abs(q-Math.round(q))<0.001&&q>=1;return `<button class="btn small" ${even?'style="border-color:var(--green);color:var(--green);"':''} onclick="pmRecordSale(${c.id},'${it.id}')">${pmEsc(it.icon||'🛍')} ${pmEsc(it.label)}${even?' × '+Math.round(q):' ($'+it.price+' ea)'}</button>`;}).join('')}
+        <button class="btn small" onclick="pmRecordSale(${c.id},'other')">Other income…</button>
+      </div></div>`;
   }).join('');
 }
 </script>
