@@ -4377,7 +4377,7 @@ function renderRevenue(){
     <div class="stat-card ${oCharged-oCost>=0?'good':'danger'}"><div class="stat-label">Order margin</div><div class="stat-value" style="font-size:20px;">${fmt$(oCharged-oCost)}</div><div class="stat-sub">Revenue − wholesale</div></div>`;
   $('reg-tbody').innerHTML=active.map(s=>{
     let statusBadge=s.omitFromReg?'<span class="badge badge-blue">Comp</span>':s.registered==='Yes'&&s.paidVenmo?'<span class="badge badge-venmo">Venmo</span>':s.registered==='Yes'?'<span class="badge badge-green">Registered</span>':'<span class="badge badge-gray">No</span>';
-    return `<tr><td><strong>${s.first} ${s.last}</strong></td><td style="font-size:12px;color:var(--ink-muted);">${s.group}</td><td>${statusBadge}</td><td>${s.paidVenmo?'<span class="badge badge-venmo">Venmo</span>':s.omitFromReg?'—':'Cash / Card'}</td>
+    return `<tr><td><strong>${s.first} ${s.last}</strong></td><td style="font-size:12px;color:var(--ink-muted);">${s.group}</td><td>${statusBadge}</td><td>${s.paidVenmo?'<span class="badge badge-venmo">'+((s.regPayment&&s.regPayment.method)||'Venmo')+(s.regPayment&&s.regPayment.amount?' '+fmt$(s.regPayment.amount):'')+'</span>':s.omitFromReg?'—':'Cash / Card'}</td>
     <td style="white-space:nowrap;">
       <button class="btn small" onclick="toggleReg(${s.id})">${s.registered==='Yes'?'Unregister':'Register'}</button>
       <button class="btn small" style="${s.paidVenmo?'border-color:var(--blue);color:var(--blue);':''}" onclick="toggleVenmo(${s.id})">${s.paidVenmo?'✓ Venmo':'Venmo?'}</button>
@@ -13897,7 +13897,7 @@ function pmParse(m){
     if(x){payer=pmName(x[1]);amount=pmMoney(x[2]);}
     const c=text.match(/(?:Transaction|Payment) ID:?\s*([0-9]{6,})/i);if(c)ref=c[1];
     const after=text.split(/paid you \$[\d,]+\.\d{2}/)[1]||'';
-    note=(after.split(/\n/).map(l=>l.trim()).filter(l=>l&&!/^(transaction|payment|see|view|money|\$|venmo|privacy|this)/i.test(l))[0]||'').slice(0,140);
+    note=(after.split(/\n/).map(l=>l.trim()).filter(l=>l&&!/^(transaction|payment|see|view|money|\$|venmo|privacy|this|fwd|from:|to:|date:|subject:)/i.test(l)&&!/paid you|forwarded message/i.test(l))[0]||'').slice(0,140);
   }else if(from.includes('paypal')||(/paypal/i.test(text)&&/sent you \$/.test(subj+' '+text))){
     method='PayPal';
     const x=(subj+' \n'+text).match(/([A-Z][\w'.\- ]{1,60}?) sent you \$([\d,]+\.\d{2})/);
@@ -13917,6 +13917,11 @@ function pmOpenItems(){
     const s=o.studentId?DB.students.find(x=>x.id===o.studentId):null;
     const contact=((o.details||'').match(/Your name:\s*([^;]+)/i)||[])[1]||'';
     items.push({key:'g'+o.id,kind:'gear',id:o.id,amount:amt,date:o.date||'',student:s,label:(o.studentName||(s?s.first+' '+s.last:'Unknown'))+' — '+(o.orderType||'Gear order'),names:[o.studentName,contact,s&&s.parent,s&&s.parent2].concat(s&&typeof famOf==='function'&&famOf(s)?famOf(s).contacts.map(c=>c.name):[]).filter(Boolean)});
+  });
+  // Registration paid straight to NMA (e.g. after a missed-registration email). Prices vary,
+  // so the amount is "whatever's left" of the payment once other ticked items are covered.
+  DB.students.filter(s=>s.status==='Active'&&s.registered!=='Yes'&&!s.omitFromReg).forEach(s=>{
+    items.push({key:'r'+s.id,kind:'reg',studentId:s.id,flex:true,amount:0,date:localToday(),student:s,label:s.first+' '+s.last+' — '+(DB.scoreboard&&DB.scoreboard.label||'this month')+' registration',names:[s.parent,s.parent2].concat(typeof famOf==='function'&&famOf(s)?famOf(s).contacts.map(c=>c.name):[]).filter(Boolean)});
   });
   (DB.apparelOrders||[]).forEach(o=>{
     const amt=+o.total||0;if(o.paid||amt<=0)return;
@@ -13967,11 +13972,25 @@ function pmExactCombo(items,amount){
   }
   return found?found.map(x=>x.i):null;
 }
+// Amounts for the ticked items: fixed ones as-is, registrations share what's left.
+function pmAllocate(c){
+  const sel=c.items.filter(i=>c.selected.has(i.key));
+  const fixed=sel.filter(i=>!i.flex).reduce((a,i)=>a+i.amount,0);
+  const flex=sel.filter(i=>i.flex);
+  const each=flex.length?Math.max(0,Math.round((c.amount-fixed)/flex.length*100)/100):0;
+  const amt={};sel.forEach(i=>{amt[i.key]=i.flex?each:i.amount;});
+  return {sel,amt,sum:Math.round((fixed+each*flex.length)*100)/100};
+}
 function pmBuildCard(msgId,p){
   const open=pmOpenItems().map(i=>Object.assign(i,{score:pmFamilyScore(p.payer,i)}));
   const fam=open.filter(i=>i.score>0).sort((a,b)=>b.score-a.score||a.date.localeCompare(b.date));
-  let pick=pmExactCombo(fam,p.amount)||[];
+  let pick=pmExactCombo(fam.filter(i=>!i.flex),p.amount)||[];
   let basis=pick.length?'family':'';
+  if(!pick.length){
+    const regs=fam.filter(i=>i.kind==='reg');
+    const best=regs.length?Math.max(...regs.map(i=>i.score)):0;
+    pick=regs.filter(i=>i.score===best);if(pick.length)basis='registration';
+  }
   let shown=fam.slice(0,12);
   if(!pick.length){
     const same=open.filter(i=>Math.abs(i.amount-p.amount)<0.005&&!fam.includes(i)).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6);
@@ -14045,7 +14064,7 @@ function pmSkip(cid){
 }
 function pmConfirm(cid){
   const c=pmQueue.find(x=>x.id===cid);if(!c)return;
-  const chosen=c.items.filter(i=>c.selected.has(i.key));
+  const al=pmAllocate(c);const chosen=al.sel;
   if(!chosen.length){alert('Tick what this payment covers, or Skip it.');return;}
   if(typeof pushUndo==='function')pushUndo('Match payment');
   const applied=[];
@@ -14053,6 +14072,13 @@ function pmConfirm(cid){
     if(i.kind==='gear'){
       const o=DB.gearOrders.find(x=>x.id===i.id);if(!o)return;
       Object.assign(o,{paid:true,paymentMethod:c.method,paidDate:c.date,paymentRef:c.ref||'',paymentFrom:c.payer});
+      applied.push(i.label);
+    }else if(i.kind==='reg'){
+      const s=DB.students.find(x=>x.id===i.studentId);if(!s)return;
+      // paidVenmo = "paid NMA directly, not through the Town" (kept out of the Town cash total)
+      s.registered='Yes';s.paidVenmo=true;
+      s.regPayment={session:DB.scoreboard&&DB.scoreboard.label||'',method:c.method,amount:al.amt[i.key],date:c.date,ref:c.ref||'',from:c.payer};
+      addHistory(s,'reg','Registered for '+(DB.scoreboard&&DB.scoreboard.label||'this month')+' — paid '+c.method+' '+fmt$(al.amt[i.key])+' ('+c.payer+')',c.date);
       applied.push(i.label);
     }else if(i.kind==='apparel'){
       const o=(DB.apparelOrders||[]).find(x=>String(x.id)===String(i.id));if(!o)return;
@@ -14079,25 +14105,25 @@ function renderPmQueue(){
   if(!pmQueue.length){el.innerHTML='';return;}
   const allOpen=pmOpenItems();
   el.innerHTML=`<div style="font-family:var(--font-display);font-size:15px;font-weight:700;margin:4px 0 10px;">Match payments (${pmQueue.length})</div>`+pmQueue.map(c=>{
-    const sel=c.items.filter(i=>c.selected.has(i.key));
-    const sum=Math.round(sel.reduce((a,i)=>a+i.amount,0)*100)/100;
+    const al=pmAllocate(c);const sel=al.sel;
+    const sum=al.sum;
     const diff=Math.round((c.amount-sum)*100)/100;
     const rows=c.items.map(i=>`<label style="display:flex;gap:9px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;">
         <input type="checkbox" ${c.selected.has(i.key)?'checked':''} onchange="pmToggle(${c.id},'${i.key}')">
         <span style="flex:1;">${pmEsc(i.label)} <span style="font-size:11px;color:var(--ink-muted);">· ${fmtDate(i.date)}</span>${i.score>=3?' <span class="badge badge-green" style="font-size:9px;">parent name</span>':i.score>=2?' <span class="badge badge-blue" style="font-size:9px;">same last name</span>':' <span class="badge badge-gray" style="font-size:9px;">amount only</span>'}</span>
-        <strong>${fmt$(i.amount)}</strong></label>`).join('');
+        <strong>${i.flex?(c.selected.has(i.key)?fmt$(al.amt[i.key]):'<span style="font-weight:400;color:var(--ink-muted);font-size:11px;">rest of payment</span>'):fmt$(i.amount)}</strong></label>`).join('');
     const addOpts=allOpen.filter(i=>!c.items.some(x=>x.key===i.key)).sort((a,b)=>a.label.localeCompare(b.label));
     return `<div class="pf-card">
       <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:8px;">
         <div style="flex:1;min-width:200px;"><div style="font-weight:700;font-size:14px;">${pmEsc(c.payer)} <span class="badge" style="background:var(--blue-light);color:var(--blue);font-size:10px;">${c.method}</span></div>
           <div style="font-size:12px;color:var(--ink-muted);">${fmtFull(c.date)}${c.ref?' · Ref '+pmEsc(c.ref):''}${c.note?' · “'+pmEsc(c.note)+'”':''}</div></div>
         <div style="font-family:var(--font-display);font-size:19px;font-weight:700;">${fmt$(c.amount)}</div></div>
-      ${c.items.length?rows:'<div style="font-size:12px;color:var(--ink-muted);padding:6px 0;">No open gear orders or test fees for this family — add one below or Skip.</div>'}
+      ${c.items.length?rows:'<div style="font-size:12px;color:var(--ink-muted);padding:6px 0;">No open registrations, gear orders, apparel or test fees for this family — add one below or Skip.</div>'}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
-        <select class="form-select vo-mini" style="max-width:360px;" onchange="pmAddItem(${c.id},this.value);this.value='';"><option value="">+ Add another open item…</option>${addOpts.map(i=>`<option value="${i.key}">${pmEsc(i.label)} · ${fmt$(i.amount)}</option>`).join('')}</select>
+        <select class="form-select vo-mini" style="max-width:360px;" onchange="pmAddItem(${c.id},this.value);this.value='';"><option value="">+ Add another open item…</option>${addOpts.map(i=>`<option value="${i.key}">${pmEsc(i.label)}${i.flex?'':' · '+fmt$(i.amount)}</option>`).join('')}</select>
         <span style="font-size:12px;color:${Math.abs(diff)<0.005?'var(--green)':'var(--amber)'};">${sel.length?(Math.abs(diff)<0.005?'✓ Adds up exactly':diff>0?fmt$(diff)+' not covered by ticked items':'Ticked items exceed the payment by '+fmt$(-diff)):'Nothing ticked'}</span>
         <div style="flex:1;"></div>
-        <button class="btn small" onclick="pmSkip(${c.id})" title="Not for a gear order or test fee">Skip</button>
+        <button class="btn small" onclick="pmSkip(${c.id})" title="Not for anything tracked here">Skip</button>
         <button class="btn small primary" onclick="pmConfirm(${c.id})">Mark ${sel.length||''} paid</button></div></div>`;
   }).join('');
 }
