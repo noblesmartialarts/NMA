@@ -151,7 +151,7 @@ async function familiesFor(gs) {
   if (!famIds.length) return [];
   const list = famIds.map(enc).join(',');
   const views = await rows('portal_views?id=in.(' + list + ')&select=id,data,updated_at');
-  const inbox = await rows('portal_inbox?family_id=in.(' + list + ')&kind=in.(intent,absence,contact,guardian)&select=id,family_id,email,kind,student_id,event_id,payload,status,created_at&order=created_at.desc&limit=200');
+  const inbox = await rows('portal_inbox?family_id=in.(' + list + ')&kind=in.(intent,absence,contact,guardian,reg)&select=id,family_id,email,kind,student_id,event_id,payload,status,created_at&order=created_at.desc&limit=200');
   const reg = await siteRegUrls();
   const regBy = {}; Object.keys(reg || {}).forEach(k => { if (reg[k]) regBy[groupKey(k)] = reg[k]; });
   const today = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10); // Eastern-ish
@@ -159,7 +159,11 @@ async function familiesFor(gs) {
     const v = views.find(x => x.id === g.family_id); if (!v) return null;
     const mine = inbox.filter(i => i.family_id === g.family_id);
     const out = Object.assign(scopeView(v.data, g, mine.filter(i => i.kind === 'intent' && i.status === 'new')), { familyId: g.family_id, updatedAt: v.updated_at });
-    out.students.forEach(s => { if (s.regEligible) s.regLink = regBy[groupKey(s.group)] || s.regLink || ''; else s.regLink = ''; });
+    out.students.forEach(s => {
+      if (s.regEligible) s.regLink = regBy[groupKey(s.group)] || s.regLink || ''; else s.regLink = '';
+      const r = s.notRegistered && mine.find(i => i.kind === 'reg' && i.status === 'new' && String(i.student_id) === String(s.id) && (i.payload || {}).month === s.notRegistered.month);
+      if (r) s.notRegistered = Object.assign({}, s.notRegistered, { pending: r.payload.choice });
+    });
     const ids = new Set(out.students.map(s => String(s.id)));
     out.absences = mine.filter(i => i.kind === 'absence' && i.status !== 'dismissed' && ids.has(String(i.student_id)))
       .flatMap(i => (i.payload.dates || []).filter(d => d >= today).map(d => ({ studentId: i.student_id, first: i.payload.first || '', date: d, reason: i.payload.reason || '' })))
@@ -302,6 +306,18 @@ async function parentOps(op, body, event) {
     await write('DELETE', 'portal_inbox?family_id=eq.' + enc(g.family_id) + '&kind=eq.guardian&status=eq.new&payload->next->>email=eq.' + enc(next.email));
     await write('POST', 'portal_inbox', { family_id: g.family_id, email: sess.e, kind: 'guardian', payload: { requestedBy: g.name || sess.e, next }, status: 'new', created_at: now() });
     await log('guardian_requested', sess.e, g.family_id, ip);
+    return json(200, { ok: true });
+  }
+
+  // "Not on this month's roster" notice: parent says they already registered, or are taking the month off.
+  if (op === 'submit-reg') {
+    const r = await scopedStudent(body.studentId);
+    if (!r || !r.s.notRegistered) return json(400, { error: 'Nothing to update for this student.' });
+    const choice = body.choice === 'skip' ? 'skip' : 'registered';
+    const month = r.s.notRegistered.month;
+    await write('DELETE', 'portal_inbox?family_id=eq.' + enc(r.g.family_id) + '&kind=eq.reg&student_id=eq.' + enc(String(r.s.id)) + '&status=eq.new');
+    await write('POST', 'portal_inbox', { family_id: r.g.family_id, email: sess.e, kind: 'reg', student_id: String(r.s.id), payload: { choice, month, note: str(body.note, 500).trim(), studentName: r.s.first + (r.s.last ? ' ' + r.s.last : '') }, status: 'new', created_at: now() });
+    await log(choice === 'skip' ? 'month_off_reported' : 'registration_reported', sess.e, r.g.family_id, ip);
     return json(200, { ok: true });
   }
 

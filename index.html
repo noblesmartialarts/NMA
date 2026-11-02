@@ -927,6 +927,7 @@ tbody td{font-size:11px!important;}
       <option value="">All orders</option>
       <option value="unpaid">Unpaid only</option>
       <option value="paid">Paid only</option>
+      <option value="archived">Archived</option>
     </select>
     <select id="gear-filter-type" class="form-select" style="width:180px;" onchange="renderGearOrders()">
       <option value="">All types</option>
@@ -3000,8 +3001,13 @@ function beltTestEligible(s){
 }
 // Backward-compatible name used throughout the CRM for true belt-test/promotion readiness.
 function stripeEligible(s){return beltTestEligible(s);}
+// Has this month's Town roster been imported? Until then everyone reads "not registered" after Advance Month.
+function rosterCheckedThisMonth(){return !!(DB.rosterImportedFor&&DB.scoreboard&&DB.rosterImportedFor===DB.scoreboard.label);}
+// Missing from this month's roster (and not comped / taking the month off).
+function missingFromRoster(s){return !!s&&s.status==='Active'&&rosterCheckedThisMonth()&&s.registered!=='Yes'&&!s.omitFromReg;}
 function intentLetterAutoEligible(s){
   if(!s||s.status!=='Active')return false;
+  if(missingFromRoster(s))return false; // no letter until they're registered for the month
   if(s.testEligibleOverride===true)return true;
   if(s.testEligibleOverride===false)return false;
   const promo=getPromotion(s);
@@ -3021,6 +3027,7 @@ function isBlackBeltLetterCase(s){
 }
 function blackBeltLetterAutoEligible(s){
   if(!s||s.status!=='Active')return false;
+  if(missingFromRoster(s))return false;
   if(!isBlackBeltLetterCase(s))return false;
   if(s.testEligibleOverride===true)return true;
   if(s.testEligibleOverride===false)return false;
@@ -4759,8 +4766,23 @@ function renderInvoices(){
   if($('vo-spend')&&typeof voSpendSummaryHTML==='function')$('vo-spend').innerHTML=voSpendSummaryHTML();
   if(typeof renderVoQueue==='function')renderVoQueue();
   const el=$('invoice-list');
-  el.innerHTML=DB.invoices.length?DB.invoices.sort((a,b)=>b.date.localeCompare(a.date)).map(inv=>`<div class="inv-card"><div class="inv-hdr"><div><div style="font-weight:600;font-size:14px;">${inv.vendor}${inv.num?' — #'+inv.num:''}</div><div style="font-size:12px;color:var(--ink-muted);">${fmtFull(inv.date)}${inv.notes?' · '+inv.notes:''}</div></div><div style="display:flex;align-items:center;gap:9px;"><div style="font-family:var(--font-display);font-size:19px;font-weight:700;">${fmt$(inv.total)}</div>${inv.file?`<button class="btn small" onclick="viewInvoiceFile(${inv.id})">View</button>`:''}  <button class="btn small" onclick="editInvoice(${inv.id})">Edit</button><button class="btn small danger" onclick="deleteInvoice(${inv.id})">✕</button></div></div>${inv.lineItems?.length?`<div style="border-top:1px solid var(--border);padding-top:8px;">${inv.lineItems.map(li=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid var(--border);"><span>${li.desc||'—'}</span><span style="font-weight:500;">${fmt$(li.amount)}</span></div>`).join('')}</div>`:''}</div>`).join(''):'<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--ink-muted);">No invoices yet.</div>';
+  const invCut=localDateOffset(-90);
+  const invOld=DB.invoices.filter(i=>!i.archived&&String(i.date||'')<invCut);
+  const invArch=DB.invoices.filter(i=>i.archived).length;
+  const invBar=(invOld.length||invArch)?`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--ink-muted);margin:0 0 10px;">
+    ${invOld.length?`<button class="btn small" onclick="invArchiveOld()">🗄 Archive ${invOld.length} invoice${invOld.length!==1?'s':''} older than 90 days</button>`:''}
+    ${invArch?`<label style="cursor:pointer;"><input type="checkbox" ${_invShowArchived?'checked':''} onchange="_invShowArchived=this.checked;renderInvoices()"> Show ${invArch} archived</label>`:''}
+    <span>Archived invoices still count in your spending totals.</span></div>`:'';
+  const invShown=DB.invoices.filter(i=>_invShowArchived?i.archived:!i.archived);
+  el.innerHTML=invBar+(invShown.length?invShown.sort((a,b)=>b.date.localeCompare(a.date)).map(inv=>`<div class="inv-card"><div class="inv-hdr"><div><div style="font-weight:600;font-size:14px;">${inv.vendor}${inv.num?' — #'+inv.num:''}</div><div style="font-size:12px;color:var(--ink-muted);">${fmtFull(inv.date)}${inv.notes?' · '+inv.notes:''}</div></div><div style="display:flex;align-items:center;gap:9px;"><div style="font-family:var(--font-display);font-size:19px;font-weight:700;">${fmt$(inv.total)}</div>${inv.file?`<button class="btn small" onclick="viewInvoiceFile(${inv.id})">View</button>`:''}  <button class="btn small" onclick="editInvoice(${inv.id})">Edit</button><button class="btn small" title="${inv.archived?'Unarchive':'Archive'}" onclick="invArchiveToggle(${inv.id})">${inv.archived?'↩ Unarchive':'🗄'}</button><button class="btn small danger" onclick="deleteInvoice(${inv.id})">✕</button></div></div>${inv.lineItems?.length?`<div style="border-top:1px solid var(--border);padding-top:8px;">${inv.lineItems.map(li=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid var(--border);"><span>${li.desc||'—'}</span><span style="font-weight:500;">${fmt$(li.amount)}</span></div>`).join('')}</div>`:''}</div>`).join(''):'<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--ink-muted);">'+(_invShowArchived?'No archived invoices.':DB.invoices.length?'Everything is archived — tick “Show archived” to see them.':'No invoices yet.')+'</div>');
 }
+let _invShowArchived=false;
+function invArchiveOld(){
+  const cut=localDateOffset(-90);const list=DB.invoices.filter(i=>!i.archived&&String(i.date||'')<cut);if(!list.length)return;
+  if(!confirm('Archive '+list.length+' invoice'+(list.length!==1?'s':'')+' older than 90 days? They still count in your totals and can be unarchived.'))return;
+  list.forEach(i=>{i.archived=true;});save();renderInvoices();toast('Archived '+list.length+' invoice'+(list.length!==1?'s':'')+'.');
+}
+function invArchiveToggle(id){const i=DB.invoices.find(x=>x.id===id);if(!i)return;i.archived=!i.archived;save();renderInvoices();toast(i.archived?'Invoice archived.':'Invoice unarchived.');}
 function viewInvoiceFile(id){const inv=DB.invoices.find(x=>x.id===id);if(!inv?.file)return;const w=window.open('');w.document.write(`<html><body style="margin:0;background:#222;display:flex;justify-content:center;"><img src="${inv.file.data}" style="max-width:100%;"/></body></html>`);}
 function editInvoice(id){const inv=DB.invoices.find(x=>x.id===id);if(!inv)return;editingInvoiceId=id;$('inv-modal-title').textContent='Edit Invoice';$('inv-vendor').value=inv.vendor;$('inv-idate').value=inv.date;$('inv-num').value=inv.num||'';$('inv-notes').value=inv.notes||'';invLineItems=[...(inv.lineItems||[])];invFileData=inv.file||null;renderLineItems();$('modal-invoice').classList.add('open');}
 function deleteInvoice(id){if(!confirm('Delete this invoice?'))return;DB.invoices=DB.invoices.filter(x=>x.id!==id);save();renderInvoices();}
@@ -6628,6 +6650,7 @@ function showRosterPreview(parsed){
       });
       addCount++;regCount++;
     });
+    DB.rosterImportedFor=DB.scoreboard&&DB.scoreboard.label||'';DB.rosterImportedAt=localToday(); // unregistered = not on this month's Town roster
     save();closeModal('modal-roster-preview');
     renderRoster();renderRevenue();
     const summary=`\u2713 ${regCount} registered`+(addCount?` \u00b7 ${addCount} added`:'')+(contactCount?` \u00b7 ${contactCount} contacts updated`:'');
@@ -12558,13 +12581,15 @@ if(!DB.gearSheetSources)DB.gearSheetSources=[];
   const filterType=$('gear-filter-type')?.value||'';
   let orders=[...DB.gearOrders].sort((a,b)=>b.date.localeCompare(a.date));
   if(search)orders=orders.filter(o=>(o.studentName||'').toLowerCase().includes(search)||(o.orderType||'').toLowerCase().includes(search)||(o.details||'').toLowerCase().includes(search)||(o.sourceSheet||'').toLowerCase().includes(search));
+  if(filterPaid==='archived')orders=orders.filter(o=>o.archived);else orders=orders.filter(o=>!o.archived);
   if(filterPaid==='unpaid')orders=orders.filter(o=>!o.paid);
   if(filterPaid==='paid')orders=orders.filter(o=>o.paid);
   if(filterType)orders=orders.filter(o=>(o.orderType||'').includes(filterType));
 
   // Summary bar
   const all=DB.gearOrders;
-  const totalOwed=all.filter(o=>!o.paid).reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
+  const owing=all.filter(o=>!o.paid&&(parseFloat(o.amount)||0)>0).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  const totalOwed=owing.reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
   const totalPaid=all.filter(o=>o.paid).reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
   const totalRevenue=all.reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
   const totalCost=all.reduce((s,o)=>{const act=gearActualCost(o);if(act!=null)return s+act;const cat=(GEAR_CATALOG&&GEAR_CATALOG[o.orderType])||(o.catalogKey&&GEAR_CATALOG[o.catalogKey]);return s+(cat?cat.cost:0);},0);
@@ -12572,10 +12597,27 @@ if(!DB.gearSheetSources)DB.gearSheetSources=[];
   const margin=totalRevenue>0?Math.round(totalProfit/totalRevenue*100):0;
   const summary=$('gear-summary');
   if(summary)summary.innerHTML=`
-    <div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">Outstanding</div><div class="stat-num" style="color:var(--red);">$${totalOwed.toFixed(2)}</div><div class="stat-sub">${all.filter(o=>!o.paid).length} order(s)</div></div>
+    <div class="stat-card" style="flex:1;min-width:140px;${owing.length?'cursor:pointer;':''}" ${owing.length?'onclick="gearToggleOwing()" title="See who owes"':''}><div class="stat-label">Outstanding ${owing.length?'<span style="font-size:10px;">'+(_gearOwingOpen?'▴':'▾')+'</span>':''}</div><div class="stat-num" style="color:var(--red);">$${totalOwed.toFixed(2)}</div><div class="stat-sub">${owing.length} unpaid order${owing.length!==1?'s':''}${owing.length?' · click to see':''}</div></div>
     <div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">Collected</div><div class="stat-num" style="color:var(--green);">$${totalPaid.toFixed(2)}</div><div class="stat-sub">${all.filter(o=>o.paid).length} order(s)</div></div>
     <div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">Est. Profit</div><div class="stat-num" style="color:var(--indigo);">$${totalProfit.toFixed(2)}</div><div class="stat-sub">${margin}% margin</div></div>
     <div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">Total Orders</div><div class="stat-num">${all.length}</div></div>`;
+
+  // Who owes what (opens from the Outstanding card)
+  let ow=$('gear-owing');
+  if(!ow&&summary){ow=document.createElement('div');ow.id='gear-owing';summary.insertAdjacentElement('afterend',ow);}
+  if(ow)ow.innerHTML=_gearOwingOpen&&owing.length?`<div class="pf-card" style="margin:10px 0;">
+      <div style="font-family:var(--font-display);font-weight:700;font-size:14px;margin-bottom:6px;">Unpaid orders (${owing.length}) — click one to jump to it</div>
+      ${owing.map(o=>`<div style="display:flex;gap:10px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;" onclick="gearJumpTo('${String(o.id)}')">
+        <span style="flex:1;"><strong>${o.studentName||'—'}</strong> · ${o.orderType||'Gear order'} <span style="color:var(--ink-muted);font-size:11px;">· ${fmtDate(o.date)}${o.archived?' · archived':''}</span></span>
+        <strong style="color:var(--red);">${fmt$(parseFloat(o.amount)||0)}</strong><span style="color:var(--ink-faint);">→</span></div>`).join('')}
+    </div>`:'';
+  let ab=$('gear-archive-bar');
+  if(!ab&&ow){ab=document.createElement('div');ab.id='gear-archive-bar';ow.insertAdjacentElement('afterend',ab);}
+  const stale=gearArchivable();
+  const nArch=all.filter(o=>o.archived).length;
+  if(ab)ab.innerHTML=(stale.length||nArch)?`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--ink-muted);margin:8px 0;">
+      ${stale.length?`<button class="btn small" onclick="gearArchiveOld()">🗄 Archive ${stale.length} old order${stale.length!==1?'s':''}</button><span>Paid or $0 orders older than 60 days.</span>`:''}
+      ${nArch?`<span>${nArch} archived — choose “Archived” in the filter to see them.</span>`:''}</div>`:'';
 
   const tbody=$('gear-tbody');if(!tbody)return;
   if(!orders.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--ink-muted);">No orders yet — click "+ Add Order" to log one.</td></tr>';return;}
@@ -12586,7 +12628,7 @@ if(!DB.gearSheetSources)DB.gearSheetSources=[];
     const payBadge=o.paymentMethod&&o.paymentMethod!=='Unpaid'
       ?`<span class="badge" style="background:var(--blue-light);color:var(--blue);font-size:10px;">${o.paymentMethod}</span>${o.paidDate?`<div style="font-size:10px;color:var(--ink-faint);" title="${o.paymentRef?'Ref '+o.paymentRef:''}">${fmtDate(o.paidDate)}${o.paymentFrom?' · '+o.paymentFrom:''}</div>`:''}`:
       `<span style="color:var(--ink-faint);font-size:12px;">—</span>`;
-    return `<tr>
+    return `<tr id="gear-row-${String(o.id).replace(/[^0-9a-z]/gi,'_')}">
       <td style="font-size:12px;color:var(--ink-muted);white-space:nowrap;">${fmtDate(o.date)}</td>
       <td><strong style="font-size:13px;">${o.studentName||'—'}</strong></td>
       <td style="font-size:12px;">${o.orderType||'—'}${o.sourceSheet?`<div style="font-size:10px;color:var(--ink-faint);">via ${o.sourceSheet}</div>`:''}${(o.vendorLinks||[]).map(l=>`<div style="font-size:10px;color:var(--blue);" title="${(l.items||[]).join(', ').replace(/"/g,'&quot;')}">🧾 ${l.vendor}${l.num?' #'+l.num:''} · ${fmtDate(l.date)}</div>`).join('')}</td>
@@ -12597,10 +12639,35 @@ if(!DB.gearSheetSources)DB.gearSheetSources=[];
       <td style="white-space:nowrap;">
         <button class="btn small" onclick="toggleGearPaid(${o.id})">${o.paid?'↩ Unpaid':'✓ Paid'}</button>
         <button class="btn small" onclick="editGearOrder(${o.id})">Edit</button>
+        <button class="btn small" title="${o.archived?'Unarchive':'Archive'}" onclick="gearArchiveToggle('${String(o.id)}')">${o.archived?'↩ Unarchive':'🗄'}</button>
         <button class="btn small" onclick="deleteGearOrder(${o.id})">✕</button>
       </td>
     </tr>`;
   }).join('');
+}
+let _gearOwingOpen=false;
+function gearToggleOwing(){_gearOwingOpen=!_gearOwingOpen;renderGearOrders();}
+function gearJumpTo(id){
+  const o=(DB.gearOrders||[]).find(x=>String(x.id)===String(id));if(!o)return;
+  if($('gear-search'))$('gear-search').value='';
+  if($('gear-filter-type'))$('gear-filter-type').value='';
+  if($('gear-filter-paid'))$('gear-filter-paid').value=o.archived?'archived':'unpaid';
+  renderGearOrders();
+  const row=$('gear-row-'+String(id).replace(/[^0-9a-z]/gi,'_'));
+  if(row){row.scrollIntoView({behavior:'smooth',block:'center'});row.style.transition='background .6s';row.style.background='var(--amber-light)';setTimeout(()=>{row.style.background='';},2200);}
+}
+function gearArchivable(){
+  const cut=localDateOffset(-60);
+  return (DB.gearOrders||[]).filter(o=>!o.archived&&String(o.date||'')<cut&&(o.paid||!(parseFloat(o.amount)>0)));
+}
+function gearArchiveOld(){
+  const list=gearArchivable();if(!list.length)return;
+  if(!confirm('Archive '+list.length+' paid or $0 order'+(list.length!==1?'s':'')+' older than 60 days? They stay in your totals and can be unarchived any time.'))return;
+  list.forEach(o=>{o.archived=true;});save();renderGearOrders();toast('Archived '+list.length+' order'+(list.length!==1?'s':'')+'.');
+}
+function gearArchiveToggle(id){
+  const o=(DB.gearOrders||[]).find(x=>String(x.id)===String(id));if(!o)return;
+  o.archived=!o.archived;save();renderGearOrders();toast(o.archived?'Order archived.':'Order unarchived.');
 }
 
 function openAddGearOrder(){
@@ -13920,7 +13987,7 @@ function owesTestFee(s,ev){
   if(!s||s.status!=='Active')return false;
   if(typeof canPromoteAtEvent==='function'&&!canPromoteAtEvent(s,ev))return false;
   if(typeof beltTestEligible==='function'&&beltTestEligible(s))return true;
-  if(ev.date>=localToday()&&ev.date<=localDateOffset(60)&&typeof letterEligible==='function'&&letterEligible(s)){
+  if(ev.date>=localToday()&&ev.date<=localDateOffset(60)&&typeof letterEligible==='function'&&letterEligible(s)&&!missingFromRoster(s)){
     if(typeof isBlackBeltLetterCase==='function'&&isBlackBeltLetterCase(s))return ev.type==='Black Belt Test';
     return true;
   }
@@ -15378,7 +15445,7 @@ function portalBB(s){
   return {title:s.belt==='BB Red'?'1st Degree Black Belt Test':'Black Belt Test',eligible:remaining<=0?'now':proj,test:t?{date:t.date,label:t.label,scheduled:!!t.scheduled}:null};
 }
 function portalIntentFor(s,upcoming){
-  if(portalCfg().showLetters===false||!letterEligible(s))return null;
+  if(portalCfg().showLetters===false||!letterEligible(s)||missingFromRoster(s))return null;
   const promo=getPromotion(s);if(!promo)return null;
   const bb=isBlackBeltLetterCase(s);
   const ev=upcoming.find(e=>isPromotionEvent(e)&&canPromoteAtEvent(s,e)&&(!bb||e.type==='Black Belt Test')&&e.date<=localDateOffset(60));
@@ -15427,7 +15494,8 @@ function portalViewFor(f){
       attendance:{since:launch,present:att.filter(a=>a.status==='present').length,days:att},
       intent:portalIntentFor(s,upcoming),
       // Next month's RecDesk link once they've earned stripe #1 (the portal fills in the current link from the website admin).
-      regEligible:stripeCount(s)>=1,
+      regEligible:stripeCount(s)>=1||missingFromRoster(s),
+      notRegistered:missingFromRoster(s)?{month:DB.scoreboard.label||'this month'}:null,
       regLink:(DB.regLinks&&DB.regLinks[s.group])||'',
       orders:portalOrdersFor(s),
       notes:(DB.goodJobNotes||[]).filter(n=>n.toId===s.id).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,10).map(n=>({date:n.date,from:n.fromId?n.fromName:'Sensei Brandon',message:n.message}))
@@ -15690,7 +15758,7 @@ async function portalCheckInbox(notify){
     const items=j.items||[];
     await portalImportAbsences(items.filter(i=>i.kind==='absence'));
     _portalInbox=items.filter(i=>i.kind==='intent');
-    const wasC=_portalContacts.length;_portalContacts=items.filter(i=>i.kind==='contact'||i.kind==='guardian');
+    const wasC=_portalContacts.length;_portalContacts=items.filter(i=>i.kind==='contact'||i.kind==='guardian'||i.kind==='reg');
     const n=_portalInbox.length;const was=_portalInboxCount;_portalInboxCount=n;
     if(notify&&n&&n!==was)toast(n+' Intent letter'+(n!==1?'s':'')+' returned in the family portal — review on Parent Feedback.');
     if(notify&&_portalContacts.length&&_portalContacts.length!==wasC)toast(_portalContacts.length+' request'+(_portalContacts.length!==1?'s':'')+' from the family portal (contact updates / new guardians) — approve on the Families page.');
@@ -15715,6 +15783,29 @@ async function portalImportAbsences(list){
   if(added)save();
   for(const it of list){try{await portalCall('staff-inbox-mark',{id:it.id,status:'accepted'});}catch(e){}}
   if(added)toast(added+' absence notice'+(added!==1?'s':'')+' from the family portal added to absence requests.');
+}
+function portalRegReqHTML(it){
+  const p=it.payload||{};const s=DB.students.find(x=>String(x.id)===String(it.student_id));
+  const off=p.choice==='skip';
+  return `<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:6px 0;background:var(--paper);font-size:12px;">
+    <div style="font-weight:600;margin-bottom:4px;">${off?'🏖️':'📝'} ${famEsc(s?s.first+' '+s.last:(p.studentName||'Student'))} — ${off?'taking '+famEsc(p.month||'this month')+' off':'says they already registered for '+famEsc(p.month||'this month')} <span style="font-weight:400;color:var(--ink-muted);">· ${famEsc(it.email)}</span></div>
+    ${p.note?`<div style="font-style:italic;">“${famEsc(p.note)}”</div>`:''}
+    ${off?'':'<div style="color:var(--ink-muted);">Check RecDesk (or re-import the roster) before marking them registered.</div>'}
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+      ${s?(off?`<button class="btn small primary" onclick="portalRegResolve(${it.id},'skip')">✓ Mark taking the month off</button>`:`<button class="btn small primary" onclick="portalRegResolve(${it.id},'yes')">✓ Mark registered</button>`):''}
+      <button class="btn small" onclick="portalDeclineContact(${it.id})">Dismiss</button></div>
+  </div>`;
+}
+async function portalRegResolve(id,how){
+  const it=_portalContacts.find(x=>x.id===id);if(!it)return;
+  const s=DB.students.find(x=>String(x.id)===String(it.student_id));if(!s)return;
+  const month=DB.scoreboard&&DB.scoreboard.label||'this month';
+  if(how==='yes'){s.registered='Yes';addHistory(s,'reg','Registered for '+month+' (confirmed after parent said they registered)');}
+  else{s.omitFromReg=true;addHistory(s,'reg','Taking '+month+' off (parent said so in the family portal)'+((it.payload||{}).note?': "'+it.payload.note+'"':''));}
+  save();
+  try{await portalCall('staff-inbox-mark',{id,status:'accepted'});}catch(e){}
+  _portalContacts=_portalContacts.filter(x=>x.id!==id);renderFamilies();
+  toast(how==='yes'?s.first+' marked registered.':s.first+' is taking the month off — off the missed list.');
 }
 function portalGuardianReqHTML(it){
   const p=it.payload||{};const f=famById(it.family_id);const nx=p.next||{};
@@ -15748,6 +15839,7 @@ function portalContactsHTML(){
   if(!_portalContacts.length)return '';
   return `<div class="form-label" style="margin-top:14px;color:var(--red);">Requests to approve (${_portalContacts.length})</div>`+_portalContacts.map(it=>{
     if(it.kind==='guardian')return portalGuardianReqHTML(it);
+    if(it.kind==='reg')return portalRegReqHTML(it);
     const p=it.payload||{};const f=famById(it.family_id);const c=f&&(f.contacts||[]).find(x=>x.id===p.contactId);const nx=p.next||{};
     const fld=(k,lab)=>{const o=c?String(c[k]||''):'';const n=String(nx[k]||'');const ch=famNormEmail(o)!==famNormEmail(n);return `<div><span style="color:var(--ink-muted);">${lab}:</span> ${ch?`<s style="color:var(--ink-faint);">${famEsc(o||'—')}</s> → <strong>${famEsc(n||'—')}</strong>`:famEsc(n||'—')}</div>`;};
     return `<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:6px 0;background:var(--paper);font-size:12px;">
