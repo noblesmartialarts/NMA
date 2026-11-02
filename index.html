@@ -3396,10 +3396,46 @@ function dismissEventPromotions(evId){
   if(!confirm('Hide the promotion prompt for "'+ev.name+'"? You can still run promotions from Belt Testing.'))return;
   ev.promotionsReviewed=true;save();renderMakeupTestAlert();
 }
+// One student's promotion — same bookkeeping as the mass promotion.
+function promoteOne(s,promo,date,ev,why){
+  DB.promotions.push({studentId:s.id,date,eventId:ev?ev.id:null,fromBelt:s.belt,fromGroup:s.group,toBelt:promo.belt,toGroup:promo.group});
+  addHistory(s,'promo',`Promoted: ${s.belt} → ${promo.belt}${why?' ('+why+')':''}`,date);
+  autoResolveMakeupTestsForStudent(s.id,date);
+  s.belt=promo.belt;s.group=promo.group;s.stripes=0;
+  s.testEligibleOverride=null;s.intentLetterOverride=null;
+  if(!NO_BELT_RANKS.has(promo.belt))consumeBeltStock(promo.belt,s.beltSize);
+}
+// Still waiting on the promotion this make-up test was for?
+function makeupNeedsPromotion(m){
+  const s=DB.students.find(x=>x.id===m.studentId);if(!s||!getPromotion(s))return null;
+  if(m.belt&&s.belt!==m.belt)return null;                       // already moved on
+  const ev=DB.testEvents.find(e=>e.id===m.eventId);
+  if(ev&&promotedAtEvent(s.id,ev))return null;
+  if(s.belt==='Black Belt Candidate'&&(!ev||ev.type!=='Black Belt Test'))return null;
+  return {s,promo:getPromotion(s),ev};
+}
 function resolveMakeupTest(id,note){
   const m=(DB.makeupTests||[]).find(x=>x.id===id);if(!m)return;
-  m.resolved=true;m.resolvedDate=localToday();m.resolvedNote=note||'Marked complete';
-  save();renderMakeupTestAlert();renderDashboard();toast('Make-up test marked complete.');
+  const need=makeupNeedsPromotion(m);
+  let promote=false;
+  if(need){
+    promote=confirm(need.s.first+' passed the make-up test?\n\nOK = mark it done and promote '+need.s.first+' from '+need.s.belt+' to '+need.promo.belt+(need.promo.group!==need.s.group?' ('+need.promo.group+')':'')+'.\nCancel = mark it done without promoting.');
+  }
+  if(typeof pushUndo==='function')pushUndo('Make-up test');
+  m.resolved=true;m.resolvedDate=localToday();m.resolvedNote=note||(promote?'Made up — promoted':'Marked complete');
+  if(promote){promoteOne(need.s,need.promo,localToday(),need.ev,'make-up for '+(m.eventName||'belt test'));m.promotedTo=need.promo.belt;}
+  save();renderMakeupTestAlert();renderDashboard();if(typeof renderTesting==='function'&&$('page-testing')?.classList.contains('active'))renderTesting();
+  toast(promote?need.s.first+' promoted to '+need.promo.belt+' ✓':'Make-up test marked complete.');
+  if(promote&&isBlackBeltLetterCase&&need.promo.belt==='BB White'&&typeof openJrBBCertModal==='function')setTimeout(()=>openJrBBCertModal(need.s.id),400);
+}
+// For make-ups already marked done before promotion was automatic.
+function promoteFromMakeup(id){
+  const m=(DB.makeupTests||[]).find(x=>x.id===id);if(!m)return;
+  const need=makeupNeedsPromotion(m);if(!need)return;
+  if(!confirm('Promote '+need.s.first+' '+need.s.last+' from '+need.s.belt+' to '+need.promo.belt+' (make-up for '+m.eventName+')?'))return;
+  if(typeof pushUndo==='function')pushUndo('Make-up promotion');
+  promoteOne(need.s,need.promo,m.resolvedDate||localToday(),need.ev,'make-up for '+(m.eventName||'belt test'));m.promotedTo=need.promo.belt;
+  save();renderTesting();renderDashboard();toast(need.s.first+' promoted to '+need.promo.belt+' ✓');
 }
 function dismissMakeupTest(id){
   if(!confirm('Remove this make-up test reminder without logging it as complete?'))return;
@@ -4015,8 +4051,8 @@ function renderMakeupTestLog(){
       <td>${s?`<strong>${s.first} ${s.last}</strong>`:'<span style="color:var(--ink-faint);">(removed student)</span>'}</td>
       <td style="font-size:12px;">${m.eventName}</td>
       <td style="font-size:12px;color:var(--ink-muted);">${fmtDate(m.eventDate)}</td>
-      <td>${m.resolved?`<span class="badge badge-green">✓ Made up</span>`:`<span class="badge badge-amber">Pending</span>`}</td>
-      <td>${!m.resolved?`<button class="btn small" onclick="resolveMakeupTest(${m.id})">Mark Done</button> <button class="btn small danger" onclick="dismissMakeupTest(${m.id})">✕</button>`:''}</td>
+      <td>${m.resolved?`<span class="badge badge-green">✓ Made up</span>${m.promotedTo?`<div style="font-size:10px;color:var(--ink-muted);">→ ${m.promotedTo}</div>`:''}`:`<span class="badge badge-amber">Pending</span>`}</td>
+      <td>${!m.resolved?`<button class="btn small" onclick="resolveMakeupTest(${m.id})">Mark Done</button> <button class="btn small danger" onclick="dismissMakeupTest(${m.id})">✕</button>`:(makeupNeedsPromotion(m)?`<button class="btn small primary" onclick="promoteFromMakeup(${m.id})" title="Marked done but not promoted yet">⬆ Promote to ${makeupNeedsPromotion(m).promo.belt}</button>`:'')}</td>
     </tr>`;
   }).join('');
 }
