@@ -14920,12 +14920,7 @@ function famSmsTargets(students){
     const btn=$('bc-send-btn');if(btn){btn.disabled=true;btn.textContent='Sending…';}
     const prog=$('bc-send-progress');let sent=0;const failed=[];
     for(const t of targets){
-      const groups=[...new Set(t.students.map(s=>s.group))];
-      let footer='\n\n'+'—'.repeat(30);
-      if($('bc-include-challenge')?.checked&&DB.challengeOfMonth)footer+='\n\nChallenge of the Month:\n'+DB.challengeOfMonth;
-      if($('bc-include-reg')?.checked)groups.forEach(g=>{const u=(DB.regLinks&&DB.regLinks[g])||REG_LINKS[g];if(u)footer+='\n\nRegister for '+g+':\n'+u;});
-      if($('bc-include-playlist')?.checked)groups.forEach(g=>{const yt=getPlaylist(Object.keys(YT_PLAYLISTS).find(k=>k.startsWith(g+':')&&k.endsWith(':'+(CURRICULUM[g]?.currentCycle||1)))?g:null,CURRICULUM[g]?.currentCycle);if(yt)footer+='\n\n'+(groups.length>1?g+' ':'')+'Curriculum Playlist:\n'+yt;});
-      if($('bc-include-linktree')?.checked)footer+='\n\nNMA Parent Hub (announcements, registration, resources):\n'+LINKTREE;
+      const footer=bcFooter(t);
       const ok=await sendGmailMessage(t.email,subject,body+footer);
       if(ok)sent++;else failed.push(t.name||t.email);
       if(prog)prog.innerHTML='<div class="send-progress">Sending… '+sent+' / '+targets.length+'</div>';
@@ -14937,6 +14932,47 @@ function famSmsTargets(students){
   sendBroadcast._fam=true;
 })();
 
+// Current RecDesk links come from the website admin (Parent Hub → registration links).
+let _siteRegUrls=null;
+function siteRegUrl(g){if(!_siteRegUrls)return '';const k=String(g).toLowerCase().replace(/[^a-z]/g,'');const hit=Object.keys(_siteRegUrls).find(x=>x.toLowerCase().replace(/[^a-z]/g,'')===k);return hit?_siteRegUrls[hit]:'';}
+(async function(){try{if(typeof supaDirect==='undefined')return;const{data}=await supaDirect.from('nma_site_content').select('data').eq('id','main').single();_siteRegUrls=(data&&data.data&&data.data.regUrls)||{};}catch(e){}})();
+function bcFooter(t){
+  const groups=[...new Set(t.students.map(s=>s.group))];
+  let footer='\n\n'+'—'.repeat(30);
+  if($('bc-include-challenge')?.checked&&DB.challengeOfMonth)footer+='\n\nChallenge of the Month:\n'+DB.challengeOfMonth;
+  if($('bc-include-reg')?.checked)groups.forEach(g=>{const u=siteRegUrl(g)||(DB.regLinks&&DB.regLinks[g])||REG_LINKS[g];if(u)footer+='\n\nRegister for '+g+':\n'+u;});
+  if($('bc-include-playlist')?.checked)groups.forEach(g=>{const yt=getPlaylist(Object.keys(YT_PLAYLISTS).find(k=>k.startsWith(g+':')&&k.endsWith(':'+(CURRICULUM[g]?.currentCycle||1)))?g:null,CURRICULUM[g]?.currentCycle);if(yt)footer+='\n\n'+(groups.length>1?g+' ':'')+'Curriculum Playlist:\n'+yt;});
+  if($('bc-include-linktree')?.checked)footer+='\n\nNMA Parent Hub (announcements, registration, resources):\n'+LINKTREE;
+  return footer;
+}
+// Broadcast preview: the exact email one family will get (pick any family to check).
+function bcPreviewHTML(targets,idx){
+  const t=targets[idx];if(!t)return '';
+  const subject=$('bc-subject')?.value.trim()||'(no subject yet)';
+  const body=($('bc-body')?.value.trim()||'(no message yet)')+bcFooter(t);
+  return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:12px;">
+      <span style="color:var(--ink-muted);">Preview as:</span>
+      <select class="form-select" style="width:auto;max-width:100%;" onchange="_bcPrevIdx=+this.value;$('bc-prev-body').innerHTML=bcPreviewHTML(_bcPrevTargets,_bcPrevIdx)">${targets.map((x,i)=>`<option value="${i}" ${i===idx?'selected':''}>${famEsc(famJoinNames(x.students.map(s=>s.first))+' '+(x.students[0].last||''))} — ${famEsc(x.email)}</option>`).join('')}</select>
+    </div>
+    <div class="email-card"><div style="padding:10px 16px;font-size:12px;color:var(--ink-muted);">To: ${famEsc(t.name||'')} &lt;${famEsc(t.email)}&gt;</div>
+      <div style="padding:10px 16px;border-top:1px solid var(--border);font-size:13px;"><strong>Subject:</strong> ${famEsc(subject)}</div>
+      <pre style="padding:14px 16px;font-size:12px;font-family:Georgia,serif;line-height:1.7;white-space:pre-wrap;margin:0;border-top:1px solid var(--border);">${famEsc(body)}</pre></div>`;
+}
+let _bcPrevTargets=[],_bcPrevIdx=0;
+previewBroadcast=function(){
+  const students=getBroadcastRecipients();const targets=famEmailTargets(students);
+  if(!targets.length){alert('Pick at least one group (or student) to preview.');return;}
+  // Start with a family that has more than one child, so the combined links are visible.
+  _bcPrevTargets=targets;_bcPrevIdx=Math.max(0,targets.findIndex(x=>x.students.length>1));
+  let modal=$('modal-bc-preview');
+  if(!modal){modal=document.createElement('div');modal.id='modal-bc-preview';modal.className='modal-backdrop';document.body.appendChild(modal);
+    modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('open');});}
+  modal.innerHTML=`<div class="modal modal-lg"><div class="modal-header"><div class="modal-title">👁 Broadcast preview</div><button class="btn ghost" onclick="closeModal('modal-bc-preview')">✕</button></div>
+    <div class="modal-body"><div style="font-size:13px;color:var(--ink-muted);margin-bottom:10px;"><strong>${targets.length}</strong> email${targets.length!==1?'s':''} — one per family (${students.length} student${students.length!==1?'s':''}). Each family's links match their own kids' classes.</div>
+    <div id="bc-prev-body">${bcPreviewHTML(targets,_bcPrevIdx)}</div></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('modal-bc-preview')">Close</button><button class="btn success" onclick="closeModal('modal-bc-preview');sendBroadcast()">✉ Send broadcast</button></div></div>`;
+  modal.classList.add('open');
+};
 // Texts: one per guardian phone, {first} becomes every child's name ("Adara, Caden & Timothy").
 (function(){
   if(typeof smsSelectGroup!=='function'||smsSelectGroup._fam)return;
