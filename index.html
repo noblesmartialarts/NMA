@@ -15531,6 +15531,7 @@ function portalCfg(){
   if(c.payInfo==null||c.payInfo==='Cash or Venmo (@BNobleFamily)')c.payInfo='Cash is also welcome at class.'; // pay buttons cover Venmo/Zelle/PayPal
   if(c.showLetters==null)c.showLetters=true;
   if(c.notifyLetters==null)c.notifyLetters=true;
+  if(c.notifyRegReminder==null)c.notifyRegReminder=true;
   if(c.venmo==null)c.venmo='BNobleFamily';
   if(c.zelle==null)c.zelle='noblesmartialarts@gmail.com';
   if(c.paypal==null)c.paypal='BrandonNoble';
@@ -15568,6 +15569,20 @@ function portalIntentFor(s,upcoming){
   const received=(DB.parentFeedback||[]).some(p=>p.studentId===s.id&&p.eventId===ev.id);
   const feePaid=(DB.testFees||[]).some(f=>f.eventId===ev.id&&f.studentId===s.id&&f.paid);
   return {open:!received,status:received?'received':'open',eventId:ev.id,eventName:ev.name||ev.type,eventDate:ev.date,promotingTo:promo.belt,kind:bb?'bb':'standard',fee:+ev.fee||0,feePaid};
+}
+// RecDesk closes the Wednesday at 11:59 PM before the first class of the next month's session.
+// First class = first class date on the Attendance tab in that month (else the first Monday).
+function portalRegDeadline(){
+  const t=new Date(localToday()+'T12:00:00');
+  const y=t.getMonth()===11?t.getFullYear()+1:t.getFullYear(),m=(t.getMonth()+1)%12;
+  const ym=y+'-'+String(m+1).padStart(2,'0');
+  const cancelled=new Set(DB.cancelledDays||[]);
+  const dates=(DB.classDates||[]).map(c=>typeof c==='string'?c:c&&c.date).filter(d=>d&&d.slice(0,7)===ym&&!cancelled.has(d)).sort();
+  let first=dates[0];
+  if(!first){const d=new Date(y,m,1);while(d.getDay()!==1)d.setDate(d.getDate()+1);first=localISO(d);}
+  const fc=new Date(first+'T12:00:00');const dl=new Date(fc);
+  do{dl.setDate(dl.getDate()-1);}while(dl.getDay()!==3);
+  return {month:fc.toLocaleDateString('en-US',{month:'long'}),firstClass:first,deadline:localISO(dl),estimated:!dates.length};
 }
 // Gear / weapon order links shown once a student has their first stripe of the cycle.
 function portalNextWeapon(key){
@@ -15632,6 +15647,7 @@ function portalViewFor(f){
     school:{
       announcement:cfg.announcement||'',challenge:DB.challengeOfMonth||'',payInfo:cfg.payInfo||'',
       pay:{venmo:cfg.venmo||'',zelle:cfg.zelle||'',paypal:cfg.paypal||''},
+      regDeadline:portalRegDeadline(),regReminder:cfg.notifyRegReminder!==false,
       bbGuide:students.some(x=>x.group==="Master's Club"||x.group==='Legends Club'),
       schedule:(DB.classSchedule||[]).filter(c=>groups.has(c.group)).sort((a,b)=>String(a.time).localeCompare(String(b.time))).map(c=>({time:c.time,group:c.group,dur:c.dur})),
       classDates:(DB.classDates||[]).map(c=>typeof c==='string'?{date:c,note:''}:c).filter(c=>c&&c.date>=today&&c.date<=localDateOffset(180)&&!(DB.cancelledDays||[]).includes(c.date)).sort((a,b)=>a.date.localeCompare(b.date)).map(c=>({date:c.date,note:c.note||''})),
@@ -15825,6 +15841,8 @@ async function portalPreview(fid){
           <div class="form-group" style="margin:0;"><label class="form-label">Announcement (top of the portal)</label><textarea class="form-input" rows="2" placeholder="e.g. No class Nov 24 — happy Thanksgiving!" onchange="portalCfg().announcement=this.value.trim();save();">${famEsc(cfg.announcement)}</textarea></div>
         </div>
         <label style="font-size:12px;display:block;margin-top:8px;"><input type="checkbox" ${cfg.showLetters!==false?'checked':''} onchange="portalCfg().showLetters=this.checked;save();"> Let parents return Intent to Promote letters in the portal (shows up to 60 days before the test, for kids selected on the Letters tab)</label>
+        <div style="font-size:12px;margin-top:8px;">${(()=>{const r=portalRegDeadline();return `📝 Registration banner: ${r.month} registration closes <strong>${fmtFull(r.deadline)} at 11:59 PM</strong> (first class ${fmtFull(r.firstClass)}${r.estimated?' — estimated, add '+r.month+'\'s class dates on Attendance':''}). The banner shows the 10 days before.`;})()}</div>
+        <label style="font-size:12px;display:block;margin-top:4px;"><input type="checkbox" ${cfg.notifyRegReminder!==false?'checked':''} onchange="portalCfg().notifyRegReminder=this.checked;save();"> Also email portal families a registration reminder 3 days before it closes</label>
         <label style="font-size:12px;display:block;margin-top:4px;"><input type="checkbox" ${cfg.notifyLetters!==false?'checked':''} onchange="portalCfg().notifyLetters=this.checked;save();"> Email portal families automatically when an Intent letter opens for their child (with the $ fee and a link) — they won't also get the PDF</label>
         <div class="form-label" style="margin-top:12px;">Order links in the portal <span style="font-weight:400;color:var(--ink-muted);">— shown on a student's card once they've earned stripe #1</span></div>
         ${portalOrderRows()}

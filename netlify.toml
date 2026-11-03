@@ -12,3 +12,7 @@
   for = "/nobles-crm-v4.html"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Family portal: registration reminder emails, daily at 10:05 AM Eastern (15:05 UTC in winter).
+[functions."portal-reminders"]
+  schedule = "5 15 * * *"

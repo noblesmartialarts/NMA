@@ -160,7 +160,8 @@ async function familiesFor(gs) {
     const mine = inbox.filter(i => i.family_id === g.family_id);
     const out = Object.assign(scopeView(v.data, g, mine.filter(i => i.kind === 'intent' && i.status === 'new')), { familyId: g.family_id, updatedAt: v.updated_at });
     out.students.forEach(s => {
-      if (s.regEligible) s.regLink = regBy[groupKey(s.group)] || s.regLink || ''; else s.regLink = '';
+      s.regLinkAll = regBy[groupKey(s.group)] || s.regLink || ''; // for the registration-deadline banner
+      if (s.regEligible) s.regLink = s.regLinkAll; else s.regLink = '';
       const r = s.notRegistered && mine.find(i => i.kind === 'reg' && i.status === 'new' && String(i.student_id) === String(s.id) && (i.payload || {}).month === s.notRegistered.month);
       if (r) s.notRegistered = Object.assign({}, s.notRegistered, { pending: r.payload.choice });
     });
@@ -510,6 +511,39 @@ async function staffOps(op, body, user) {
 
   return json(400, { error: 'Unknown request' });
 }
+
+// Daily registration reminder (called by portal-reminders, a scheduled function):
+// 3 days before RecDesk closes, email each portal family once with their kids' links.
+async function sendRegReminders(today) {
+  const views = await rows('portal_views?select=id,data,notified');
+  const reg = await siteRegUrls();
+  const regBy = {}; Object.keys(reg || {}).forEach(k => { if (reg[k]) regBy[groupKey(k)] = reg[k]; });
+  let sent = 0;
+  for (const v of views) {
+    const sc = (v.data && v.data.school) || {}; const r = sc.regDeadline;
+    if (!r || !r.deadline || sc.regReminder === false) continue;
+    const days = Math.round((Date.parse(r.deadline + 'T12:00:00Z') - Date.parse(today + 'T12:00:00Z')) / 86400e3);
+    if (days < 0 || days > 3) continue;
+    const key = 'regremind:' + r.deadline;
+    if ((v.notified || {})[key]) continue;
+    const gs = await rows('portal_guardians?family_id=eq.' + enc(v.id) + '&enabled=is.true&select=email,student_ids');
+    let any = 0;
+    for (const g of gs) {
+      const ids = Array.isArray(g.student_ids) && g.student_ids.length ? g.student_ids.map(String) : null;
+      const kids = (v.data.students || []).filter(s => !ids || ids.includes(String(s.id)));
+      if (!kids.length) continue;
+      const lines = kids.map(s => '  • ' + s.first + ' (' + s.group + '): ' + (regBy[groupKey(s.group)] || 'noblesmartialarts.com/family')).join('\n');
+      const text = 'Hi there,\n\nQuick reminder: registration for ' + r.month + ' classes closes ' + longDate(r.deadline) + ' at 11:59 PM' + (days === 0 ? ' — that\'s tonight' : '') + '.\n\n' +
+        'Register through the Town\'s RecDesk site:\n' + lines + '\n\n' +
+        'Already registered? Thank you — you can ignore this. Taking ' + r.month + ' off? Just reply and let me know.\n\n' +
+        'Your family portal: ' + PORTAL_URL + '\n\nSensei Brandon\nNoble\'s Martial Arts';
+      if (await sendEmail(g.email, r.month + ' registration closes ' + longDate(r.deadline).replace(/^\w+, /, ''), text)) { any++; sent++; await log('notified_reg_reminder', g.email, v.id, null); }
+    }
+    if (any || !gs.length) await write('PATCH', 'portal_views?id=eq.' + enc(v.id), { notified: Object.assign({}, v.notified || {}, { [key]: now() }) });
+  }
+  return sent;
+}
+module.exports.sendRegReminders = sendRegReminders;
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'method_not_allowed' });
