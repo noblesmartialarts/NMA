@@ -1095,10 +1095,10 @@ tbody td{font-size:11px!important;}
 
   <!-- Template + send -->
   <div class="att-bar" style="margin-bottom:16px;">
-    <div><label>Template</label><div><select id="em-template" class="form-select" style="width:240px;margin-top:4px;" onchange="renderEmailPreview()"></select></div></div>
+    <div><label>Template</label><div><select id="em-template" class="form-select" style="width:240px;margin-top:4px;" onchange="renderEmailPreview();renderBulkChips()"></select></div></div>
     <div><label>Preview as</label><div><select id="em-student" class="form-select" style="width:200px;margin-top:4px;" onchange="renderEmailPreview()"><option value="">Select student…</option></select></div></div>
     <div class="spacer"></div>
-    <button class="btn success" id="send-btn" onclick="sendEmails()" style="display:none;">✉ Send to <span id="send-count">0</span></button>
+    <button class="btn success" id="send-btn" onclick="sendEmails()" style="display:none;">✉ <span id="send-count">Send</span></button>
   </div>
   <div id="send-progress"></div>
   <div id="email-output"></div>
@@ -4922,7 +4922,16 @@ function renderBulkChips(){
   const noEmailCount=[...bulkSelected].map(resolveEmailRecipient).filter(r=>r&&!r.email).length;
   if(countEl)countEl.textContent=n?n+' recipient'+(n!==1?'s':'')+' selected'+(noEmailCount?' · ⚠ some have no email':''):'No recipients selected — use the group buttons or click names above';
   if(sendBtn){sendBtn.style.display=n?'inline-flex':'none';}
-  if(sendCount)sendCount.textContent=n;
+  if(sendCount){
+    // Count actual emails: siblings sharing an address get one together (for templates that allow it).
+    let label='Send to '+n;
+    try{
+      const t=getAllTemplates().find(x=>x.id===($('em-template')||{}).value);
+      const withEmail=[...bulkSelected].map(resolveEmailRecipient).filter(r=>r&&r.email);
+      if(t&&withEmail.length){const m=bulkMergeSiblings(withEmail,t).length;label='Send '+m+' email'+(m!==1?'s':'')+(m<withEmail.length?' ('+withEmail.length+' students)':'');}
+    }catch(e){}
+    sendCount.textContent=label;
+  }
 }
 function toggleBulkRecipient(key){if(bulkSelected.has(key))bulkSelected.delete(key);else bulkSelected.add(key);renderBulkChips();}
 function toggleBulkStudent(id){toggleBulkRecipient(emailKey('s',id));} // legacy alias, still used by a couple call sites
