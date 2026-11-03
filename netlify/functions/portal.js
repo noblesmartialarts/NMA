@@ -83,7 +83,8 @@ async function guardiansFor(email, iat) {
 }
 
 // ── Email (sign-in codes): Gmail via the CRM's stored connection, else Resend ──
-async function sendEmail(to, subject, text) {
+async function sendEmail(to, subject, text, replyTo) {
+  const rt = replyTo && validEmail(normEmail(replyTo)) ? normEmail(replyTo) : '';
   if (G.clientSecret()) {
     try {
       const sec = await G.getSecret();
@@ -91,7 +92,7 @@ async function sendEmail(to, subject, text) {
         const t = await G.tokenRequest({ refresh_token: sec.refresh_token, grant_type: 'refresh_token' });
         if (t.ok) {
           const subj = /[^\x00-\x7F]/.test(subject) ? '=?UTF-8?B?' + Buffer.from(subject).toString('base64') + '?=' : subject;
-          const raw = ['From: "Noble\'s Martial Arts" <' + (sec.email || S.OWNER_EMAIL) + '>', 'To: ' + to, 'Subject: ' + subj, 'MIME-Version: 1.0', 'Content-Type: text/plain; charset=utf-8', '', text].join('\r\n');
+          const raw = ['From: "Noble\'s Martial Arts" <' + (sec.email || S.OWNER_EMAIL) + '>', 'To: ' + to, 'Subject: ' + subj].concat(rt ? ['Reply-To: ' + rt] : []).concat(['MIME-Version: 1.0', 'Content-Type: text/plain; charset=utf-8', '', text]).join('\r\n');
           const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
             method: 'POST', headers: { Authorization: 'Bearer ' + t.data.access_token, 'Content-Type': 'application/json' },
             body: JSON.stringify({ raw: b64u(Buffer.from(raw)) }),
@@ -104,7 +105,7 @@ async function sendEmail(to, subject, text) {
   if (process.env.RESEND_API_KEY && process.env.RESEND_FROM) {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST', headers: { Authorization: 'Bearer ' + process.env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: process.env.RESEND_FROM, to: [to], subject, text, reply_to: S.OWNER_EMAIL }),
+      body: JSON.stringify({ from: process.env.RESEND_FROM, to: [to], subject, text, reply_to: rt || S.OWNER_EMAIL }),
     });
     if (r.ok) return true;
   }
@@ -319,6 +320,48 @@ async function parentOps(op, body, event) {
     await write('DELETE', 'portal_inbox?family_id=eq.' + enc(r.g.family_id) + '&kind=eq.reg&student_id=eq.' + enc(String(r.s.id)) + '&status=eq.new');
     await write('POST', 'portal_inbox', { family_id: r.g.family_id, email: sess.e, kind: 'reg', student_id: String(r.s.id), payload: { choice, month, note: str(body.note, 500).trim(), studentName: r.s.first + (r.s.last ? ' ' + r.s.last : '') }, status: 'new', created_at: now() });
     await log(choice === 'skip' ? 'month_off_reported' : 'registration_reported', sess.e, r.g.family_id, ip);
+    return json(200, { ok: true });
+  }
+
+  // Questions for Sensei: emailed to Brandon with Reply-To the parent, and logged on the family's record.
+  const TOPICS = { question: 'Question', scheduling: 'Scheduling', billing: 'Billing', private: 'Private lessons', other: 'Message' };
+  if (op === 'send-message') {
+    const topic = TOPICS[body.topic] ? body.topic : 'other';
+    const msg = str(body.message, 3000).trim();
+    if (msg.length < 3) return json(400, { error: 'Please write a message.' });
+    const recent = await rows('portal_log?event=eq.message_sent&email=eq.' + enc(sess.e) + '&at=gt.' + enc(new Date(Date.now() - 3600e3).toISOString()) + '&select=id');
+    if (recent.length >= 8) return json(429, { error: 'You\'ve sent several messages this hour — Sensei Brandon will get back to you soon.' });
+    const g = gs[0];
+    const v = (await rows('portal_views?id=eq.' + enc(g.family_id) + '&select=data'))[0];
+    const sc = v ? scopeView(v.data, g, []) : { students: [], family: {} };
+    const ids = (Array.isArray(body.studentIds) ? body.studentIds : []).map(String);
+    const kids = sc.students.filter(x => ids.includes(String(x.id)));
+    const famName = (sc.family && sc.family.name) || '';
+    const about = kids.length ? kids.map(k => k.first + ' (' + k.group + ')').join(', ') : '';
+    const subject = '[NMA Portal] ' + TOPICS[topic] + ' — ' + (famName ? famName + ' family' : sess.e) + (kids.length ? ' (' + kids.map(k => k.first).join(', ') + ')' : '');
+    const text = msg + '\n\n————\nFrom: ' + (g.name || '') + ' <' + sess.e + '>' + (famName ? '\nFamily: ' + famName : '') + (about ? '\nAbout: ' + about : '') + '\nTopic: ' + TOPICS[topic] + '\n\nReply to this email to answer them directly.';
+    const sent = await sendEmail(S.OWNER_EMAIL, subject, text, sess.e);
+    await write('POST', 'portal_inbox', { family_id: g.family_id, email: sess.e, kind: 'message', payload: { topic: TOPICS[topic], message: msg, studentIds: kids.map(k => String(k.id)), name: g.name || '', emailed: sent }, status: 'new', created_at: now() });
+    await log('message_sent', sess.e, g.family_id, ip);
+    return json(200, { ok: true });
+  }
+
+  // General feedback, optionally without the parent's name attached.
+  if (op === 'send-feedback') {
+    const msg = str(body.message, 3000).trim();
+    if (msg.length < 3) return json(400, { error: 'Please write your feedback.' });
+    const anon = body.anonymous === true;
+    const recent = await rows('portal_codes?id=eq.' + enc('fb:' + sess.e) + '&select=sends');
+    const sends = ((recent[0] && recent[0].sends) || []).filter(t => Date.now() - new Date(t).getTime() < 3600e3);
+    if (sends.length >= 5) return json(429, { error: 'Thanks for all the feedback! Please try again in a bit.' });
+    await write('POST', 'portal_codes?on_conflict=id', { id: 'fb:' + sess.e, sends: sends.concat(now()) }, 'resolution=merge-duplicates,return=minimal');
+    const g = gs[0];
+    let groups = [];
+    if (!anon) { const v = (await rows('portal_views?id=eq.' + enc(g.family_id) + '&select=data'))[0]; groups = v ? [...new Set(scopeView(v.data, g, []).students.map(x => x.group))] : []; }
+    // Anonymous feedback keeps no family, email or log entry tied to the parent.
+    await write('POST', 'portal_inbox', { family_id: anon ? 'anonymous' : g.family_id, email: anon ? null : sess.e, kind: 'feedback', payload: { message: msg, anonymous: anon, name: anon ? '' : (g.name || ''), groups }, status: 'new', created_at: now() });
+    await sendEmail(S.OWNER_EMAIL, '[NMA Portal] New ' + (anon ? 'anonymous ' : '') + 'feedback', msg + '\n\n————\n' + (anon ? 'Sent anonymously from the family portal.' : 'From: ' + (g.name || '') + ' <' + sess.e + '>'), anon ? '' : sess.e);
+    await log('feedback_sent', anon ? null : sess.e, anon ? null : g.family_id, anon ? null : ip);
     return json(200, { ok: true });
   }
 

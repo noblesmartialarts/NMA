@@ -13502,6 +13502,21 @@ function renderMcPlan(){
       </div></div>`).join('')}`;
 }
 // Dashboard: the next class day's mat chats (today, or the next one coming up).
+function renderGeneralFeedback(){
+  const page=$('page-parentfeedback');if(!page)return;
+  let el=$('gen-feedback');if(!el){el=document.createElement('div');el.id='gen-feedback';page.appendChild(el);}
+  const list=(DB.generalFeedback||[]);
+  el.innerHTML=list.length?`<div class="section-divider"><span>💬 Feedback from the family portal (${list.length})</span></div>
+    ${list.slice(0,_gfAll?500:8).map(f=>`<div class="pf-card" style="font-size:13px;"><div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px;">
+      <span style="font-size:11px;color:var(--ink-muted);">${fmtDate(f.date)}</span>
+      ${f.anonymous?'<span class="badge badge-gray" style="font-size:10px;">Anonymous</span>':`<strong style="font-size:12px;">${pfEsc(f.from)}</strong>${f.family?' <span style="font-size:11px;color:var(--ink-muted);">· '+pfEsc(f.family)+' family</span>':''}`}
+      ${(f.groups||[]).map(g=>`<span class="badge badge-blue" style="font-size:9px;">${pfEsc(g)}</span>`).join('')}
+      <span style="flex:1;"></span><span title="Remove" style="cursor:pointer;color:var(--ink-faint);" onclick="gfRemove(${f.id})">✕</span></div>
+      <div style="white-space:pre-wrap;">${pfEsc(f.message)}</div></div>`).join('')}
+    ${list.length>8&&!_gfAll?`<button class="btn small" onclick="_gfAll=true;renderGeneralFeedback()">Show all ${list.length}</button>`:''}`:'';
+}
+let _gfAll=false;
+function gfRemove(id){if(!confirm('Remove this feedback?'))return;DB.generalFeedback=(DB.generalFeedback||[]).filter(x=>x.id!==id);save();renderGeneralFeedback();}
 function renderMcDash(){
   const el=$('matchat-dash');if(!el)return;
   const today=localToday();
@@ -13522,7 +13537,7 @@ function renderMcDash(){
 }
 (function(){
   if(renderPfSummary._mc)return;const o=renderPfSummary;
-  renderPfSummary=function(){const r=o.apply(this,arguments);try{renderMcPlan();}catch(e){console.warn(e);}return r;};renderPfSummary._mc=true;
+  renderPfSummary=function(){const r=o.apply(this,arguments);try{renderMcPlan();renderGeneralFeedback();}catch(e){console.warn(e);}return r;};renderPfSummary._mc=true;
   if(typeof renderDashboard==='function'&&!renderDashboard._mc){const d=renderDashboard;renderDashboard=function(){const r=d.apply(this,arguments);try{renderMcDash();}catch(e){}return r;};renderDashboard._mc=true;}
 })();
 function pfDelete(id){
@@ -16004,6 +16019,7 @@ async function portalCheckInbox(notify){
     const j=await portalCall('staff-inbox',{status:'new'});
     const items=j.items||[];
     await portalImportAbsences(items.filter(i=>i.kind==='absence'));
+    await portalImportMessages(items.filter(i=>i.kind==='message'||i.kind==='feedback'),notify);
     _portalInbox=items.filter(i=>i.kind==='intent');
     const wasC=_portalContacts.length;_portalContacts=items.filter(i=>i.kind==='contact'||i.kind==='guardian'||i.kind==='reg');
     const n=_portalInbox.length;const was=_portalInboxCount;_portalInboxCount=n;
@@ -16013,6 +16029,33 @@ async function portalCheckInbox(notify){
   }catch(e){}
   renderPortalInbox();
   return _portalInbox;
+}
+// Messages (already emailed to Sensei) go on the family's communication log;
+// feedback is kept for the Parent Feedback page. Both are then cleared from the portal inbox.
+async function portalImportMessages(list,notify){
+  if(!list.length)return;
+  if(!DB.commLog)DB.commLog=[];if(!DB.generalFeedback)DB.generalFeedback=[];
+  let msgs=0,fb=0;
+  list.forEach(it=>{
+    const p=it.payload||{};
+    if(it.kind==='message'){
+      const f=famById(it.family_id);
+      let kids=(p.studentIds||[]).map(id=>DB.students.find(s=>String(s.id)===String(id))).filter(Boolean);
+      if(!kids.length&&f)kids=famMembers(f).filter(s=>s.status==='Active').slice(0,1);
+      kids.forEach(s=>{if(DB.commLog.some(c=>c.portalId===it.id&&c.studentId===s.id))return;
+        DB.commLog.push({id:DB.nextId++,portalId:it.id,studentId:s.id,date:String(it.created_at).slice(0,10),type:'Email',notes:'Family portal — '+(p.topic||'Message')+' from '+(p.name||it.email)+': '+p.message,followup:true});});
+      msgs++;
+    }else{
+      if(DB.generalFeedback.some(x=>x.portalId===it.id))return;
+      const f=it.family_id!=='anonymous'?famById(it.family_id):null;
+      DB.generalFeedback.unshift({id:DB.nextId++,portalId:it.id,date:String(it.created_at).slice(0,10),message:p.message,anonymous:!!p.anonymous,from:p.anonymous?'':(p.name||it.email||''),family:f?f.name:'',groups:p.groups||[]});
+      fb++;
+    }
+  });
+  save();
+  for(const it of list){try{await portalCall('staff-inbox-mark',{id:it.id,status:'accepted'});}catch(e){}}
+  if(notify&&(msgs||fb))toast((msgs?msgs+' portal message'+(msgs!==1?'s':'')+' (also in your Gmail)':'')+(msgs&&fb?' and ':'')+(fb?fb+' new feedback — see Parent Feedback':'')+'.');
+  if(typeof renderGeneralFeedback==='function')renderGeneralFeedback();
 }
 // Absences reported in the portal go straight into the existing absence requests.
 async function portalImportAbsences(list){
