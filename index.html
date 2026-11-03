@@ -412,6 +412,7 @@ tbody td{font-size:11px!important;}
 <div id="page-dashboard" class="page active">
   <div class="page-header"><div class="page-title">Dashboard</div><div class="page-subtitle" id="dash-date"></div></div>
   <div id="pl-dash-alert"></div>
+  <div id="matchat-dash"></div>
   <div id="bb-test-alert"></div>
   <div id="makeup-test-alert"></div>
   <div id="scoreboard-area"></div>
@@ -13384,7 +13385,8 @@ function renderPfSummary(){
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
       <div style="font-family:var(--font-display);font-size:16px;font-weight:700;flex:1;">Focus for next cycle</div>
       ${groups.length>1?`<select class="form-select" style="width:auto;" onchange="pfSummaryGroup=this.value;renderPfSummary()"><option value="">All groups</option>${groups.map(g=>`<option ${g===pfSummaryGroup?'selected':''}>${pfEsc(g)}</option>`).join('')}</select>`:''}
-      <button class="btn small" onclick="pfPlanWithAI()">✨ Plan next cycle with AI</button>
+      <button class="btn small primary" onclick="mcBuild(${ev.id})">🗣 Build mat chat plan</button>
+      <button class="btn small" onclick="pfPlanWithAI()">✨ Brainstorm with AI</button>
     </div>
     <div class="stats-row" style="margin-bottom:14px;">
       <div class="stat-card"><div class="stat-label">Letters returned</div><div class="stat-value">${list.length}</div><div class="stat-sub">${pfSummaryGroup?pfEsc(pfSummaryGroup):pfEsc(ev.name)}</div></div>
@@ -13411,6 +13413,118 @@ function renderPfSummary(){
           <td><button class="btn small danger" onclick="pfDelete(${f.id})" title="Remove">✕</button></td></tr>`;}).join('')}
     </tbody></table></div>`;
 }
+// ══════════════════════════════════════════════════════
+// MAT CHATS — weekly talk topics per class, built from returned Intent letters
+// ══════════════════════════════════════════════════════
+const MC_AGES={'Little Dragons':'ages 4–6, attention span 2–3 minutes, very concrete language and a quick game','Karate Kids':'ages 6–9, simple stories and examples','Black Belt Club':'ages 8–12, can discuss real situations at school and home','Master\'s Club':'ages 10–13, leadership and responsibility angles','Legends Club':'junior black belts, mentoring younger students and leading by example'};
+function mcPlans(){if(!Array.isArray(DB.matChats))DB.matChats=[];return DB.matChats;}
+function mcPlanFor(evId){return mcPlans().find(p=>p.eventId===evId)||null;}
+// Class days in the cycle after this test, up to the next belt test (max 10), else 8 Mondays.
+function mcCycleDates(ev){
+  const next=(DB.testEvents||[]).filter(e=>isPromotionEvent(e)&&e.date>ev.date).sort((a,b)=>a.date.localeCompare(b.date))[0];
+  const cancelled=new Set(DB.cancelledDays||[]);
+  let dates=(DB.classDates||[]).map(c=>typeof c==='string'?c:c&&c.date).filter(d=>d&&d>ev.date&&(!next||d<next.date)&&!cancelled.has(d)).sort().slice(0,10);
+  if(!dates.length){const d=new Date(ev.date+'T12:00:00');for(let i=0;i<8;i++){do{d.setDate(d.getDate()+1);}while(d.getDay()!==1);dates.push(localISO(d));}}
+  return dates;
+}
+async function mcAsk(group,focus,notes,dates){
+  const prompt='You are helping Sensei Brandon, head instructor at Noble\'s Martial Arts (Kenpo Karate and Krav Maga for kids), plan short "mat chats" — 2–3 minute character talks at the start of class.\n'+
+    'Class: '+group+' ('+(MC_AGES[group]||'kids')+').\n'+
+    'Parents just returned Intent to Promote letters. Areas they want this class to work on (how many students):\n'+(focus.length?focus.map(f=>'- '+f[0]+': '+f[1]).join('\n'):'- nothing specific — use general character themes (respect, focus, self-control, kindness)')+
+    (notes.length?'\nA few parent notes (for context, never name or single out a child):\n'+notes.slice(0,8).map(n=>'- '+n).join('\n'):'')+
+    '\n\nMake one mat chat for each class date: '+dates.join(', ')+'. Cover the biggest focus areas first, revisit the top one later in the cycle, and keep it positive (never "some of you were reported…").\n'+
+    'Return JSON only: {"chats":[{"date":"YYYY-MM-DD","title":"short theme, max 6 words","points":["2–4 short talking points or questions to ask the class"],"drill":"one quick game or drill that reinforces it","home":"one-sentence home challenge for families"}]}';
+  const body=model=>JSON.stringify({model,contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:0.7,responseMimeType:'application/json',maxOutputTokens:6144}});
+  let last='';
+  for(const model of [null,'gemini-3.5-flash-lite']){
+    let res;try{res=await fetch(GEMINI_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:body(model)});}catch(e){last=e.message;continue;}
+    let data=null;try{data=await res.json();}catch(e){}
+    if(res.ok&&data&&!data.error){
+      const parts=(data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts)||[];
+      const text=parts.filter(p=>p.text&&!p.thought).map(p=>p.text).join('');
+      const j=pfParseJson(text);const chats=(j&&Array.isArray(j.chats)?j.chats:[]);
+      return dates.map((d,i)=>{const c=chats.find(x=>x&&x.date===d)||chats[i]||{};return {date:d,title:String(c.title||'').slice(0,80),points:(Array.isArray(c.points)?c.points:[]).map(x=>String(x).slice(0,240)).slice(0,5),drill:String(c.drill||'').slice(0,300),home:String(c.home||'').slice(0,240)};});
+    }
+    last=(data&&data.error&&data.error.message)||('HTTP '+res.status);
+    if(![502,503,504].includes(res.status))break;
+  }
+  throw new Error(last||'Gemini request failed');
+}
+async function mcBuild(evId){
+  const ev=DB.testEvents.find(e=>e.id===evId);if(!ev)return;
+  const all=(DB.parentFeedback||[]).filter(f=>f.eventId===ev.id);
+  if(!all.length){toast('Save some returned letters first.');return;}
+  const old=mcPlanFor(ev.id);
+  if(old&&!confirm('Replace the existing mat chat plan for '+ev.name+'? (Your edits to it will be lost.)'))return;
+  const groupsActive=[...new Set(DB.students.filter(s=>s.status==='Active').map(s=>s.group))];
+  const order=['Little Dragons','Karate Kids','Black Belt Club',"Master's Club",'Legends Club'];
+  const groups=order.filter(g=>groupsActive.includes(g)).concat(groupsActive.filter(g=>!order.includes(g)));
+  const dates=mcCycleDates(ev);
+  const el=$('mc-plan');if(el)el.innerHTML='<div class="pf-card" style="font-size:13px;color:var(--ink-muted);">🗣 Building mat chats for '+groups.length+' classes × '+dates.length+' class days…</div>';
+  const out={};const errs=[];
+  await Promise.all(groups.map(async g=>{
+    const list=all.filter(f=>(f.group||((DB.students.find(x=>x.id===f.studentId)||{}).group))===g);
+    const counts={};list.forEach(f=>Object.keys(pfFocusFor(f)).forEach(t=>{counts[t]=(counts[t]||0)+1;}));
+    const focus=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+    try{out[g]=await mcAsk(g,focus,list.filter(f=>f.note).map(f=>f.note),dates);}catch(e){errs.push(g+': '+e.message);}
+  }));
+  if(!Object.keys(out).length){alert('Couldn\'t build the plan: '+errs.join('; '));renderMcPlan();return;}
+  DB.matChats=mcPlans().filter(p=>p.eventId!==ev.id);
+  const ordered={};groups.forEach(g=>{if(out[g])ordered[g]=out[g];});
+  DB.matChats.push({id:DB.nextId++,eventId:ev.id,eventName:ev.name,created:localToday(),dates,groups:ordered});
+  save();renderMcPlan();if(typeof renderMcDash==='function')renderMcDash();
+  toast('Mat chat plan ready'+(errs.length?' (couldn\'t build: '+errs.map(e=>e.split(':')[0]).join(', ')+')':'')+'.');
+}
+function mcEdit(pid,g,i,field,val){
+  const p=mcPlans().find(x=>x.id===pid);if(!p||!p.groups[g]||!p.groups[g][i])return;
+  const c=p.groups[g][i];
+  if(field==='points')c.points=String(val).split('\n').map(x=>x.replace(/^[-•]\s*/,'').trim()).filter(Boolean);else c[field]=String(val).trim();
+  save();if(typeof renderMcDash==='function')renderMcDash();
+}
+let mcGroupSel='';
+function renderMcPlan(){
+  const host=$('pf-summary');if(!host)return;
+  let el=$('mc-plan');if(!el){el=document.createElement('div');el.id='mc-plan';host.insertAdjacentElement('afterend',el);}
+  const ev=pfSelectedEvent();const p=ev&&mcPlanFor(ev.id);
+  if(!p){el.innerHTML='';return;}
+  const gs=Object.keys(p.groups);if(!gs.includes(mcGroupSel))mcGroupSel=gs[0];
+  const today=localToday();
+  el.innerHTML=`<div class="section-divider"><span>🗣 Mat chats — ${pfEsc(p.eventName)} cycle</span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center;">${gs.map(g=>`<button class="btn small ${g===mcGroupSel?'primary':''}" onclick="mcGroupSel='${g.replace(/'/g,"\\'")}';renderMcPlan()">${pfEsc(g)}</button>`).join('')}
+      <span style="flex:1;"></span><span style="font-size:11px;color:var(--ink-muted);">Built ${fmtDate(p.created)} · click any text to edit · shows on the Dashboard on class days</span></div>
+    ${(p.groups[mcGroupSel]||[]).map((c,i)=>`<div class="pf-card" style="${c.date===today?'border-color:var(--amber);':''}${c.date<today?'opacity:.65;':''}">
+      <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;"><span style="font-size:12px;color:var(--ink-muted);min-width:90px;">${new Date(c.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span>
+        <input class="form-input" style="flex:1;min-width:200px;font-weight:700;" value="${pfEsc(c.title)}" onchange="mcEdit(${p.id},'${mcGroupSel.replace(/'/g,"\\'")}',${i},'title',this.value)"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;font-size:12px;">
+        <label>Talking points<textarea class="form-input" rows="4" style="font-size:12px;" onchange="mcEdit(${p.id},'${mcGroupSel.replace(/'/g,"\\'")}',${i},'points',this.value)">${pfEsc((c.points||[]).map(x=>'• '+x).join('\n'))}</textarea></label>
+        <div><label>Drill / game<textarea class="form-input" rows="2" style="font-size:12px;" onchange="mcEdit(${p.id},'${mcGroupSel.replace(/'/g,"\\'")}',${i},'drill',this.value)">${pfEsc(c.drill)}</textarea></label>
+        <label>Home challenge<textarea class="form-input" rows="2" style="font-size:12px;" onchange="mcEdit(${p.id},'${mcGroupSel.replace(/'/g,"\\'")}',${i},'home',this.value)">${pfEsc(c.home)}</textarea></label></div>
+      </div></div>`).join('')}`;
+}
+// Dashboard: the next class day's mat chats (today, or the next one coming up).
+function renderMcDash(){
+  const el=$('matchat-dash');if(!el)return;
+  const today=localToday();
+  let best=null;
+  mcPlans().forEach(p=>Object.entries(p.groups).forEach(([g,list])=>list.forEach(c=>{if(c.date>=today&&(!best||c.date<best))best=c.date;})));
+  if(!best||best>localDateOffset(7)){el.innerHTML='';return;}
+  const rows=[];
+  mcPlans().forEach(p=>Object.entries(p.groups).forEach(([g,list])=>list.forEach(c=>{if(c.date===best)rows.push({g,c});})));
+  const order=['Legends Club','Little Dragons','Karate Kids','Black Belt Club',"Master's Club"];
+  const sched=g=>((DB.classSchedule||[]).find(x=>x.group===g)||{}).time||'';
+  rows.sort((a,b)=>String(sched(a.g)).localeCompare(String(sched(b.g)))||order.indexOf(a.g)-order.indexOf(b.g));
+  el.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:16px;">
+    <div style="font-family:var(--font-display);font-size:15px;font-weight:700;margin-bottom:8px;">🗣 Mat chats — ${best===today?'today':new Date(best+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</div>
+    ${rows.map(({g,c})=>`<details style="border-top:1px solid var(--border);padding:8px 0;" ${best===today?'open':''}><summary style="cursor:pointer;font-size:13px;"><strong>${pfEsc(g)}</strong>${sched(g)?' <span style="color:var(--ink-muted);font-size:11px;">'+sched(g)+'</span>':''} — ${pfEsc(c.title)}</summary>
+      <ul style="margin:6px 0 4px 18px;font-size:13px;">${(c.points||[]).map(x=>'<li>'+pfEsc(x)+'</li>').join('')}</ul>
+      ${c.drill?`<div style="font-size:12px;"><strong>Drill:</strong> ${pfEsc(c.drill)}</div>`:''}${c.home?`<div style="font-size:12px;color:var(--ink-muted);"><strong>Home challenge:</strong> ${pfEsc(c.home)}</div>`:''}</details>`).join('')}
+  </div>`;
+}
+(function(){
+  if(renderPfSummary._mc)return;const o=renderPfSummary;
+  renderPfSummary=function(){const r=o.apply(this,arguments);try{renderMcPlan();}catch(e){console.warn(e);}return r;};renderPfSummary._mc=true;
+  if(typeof renderDashboard==='function'&&!renderDashboard._mc){const d=renderDashboard;renderDashboard=function(){const r=d.apply(this,arguments);try{renderMcDash();}catch(e){}return r;};renderDashboard._mc=true;}
+})();
 function pfDelete(id){
   if(!confirm('Remove this saved letter?'))return;
   DB.parentFeedback=(DB.parentFeedback||[]).filter(f=>f.id!==id);save();renderPfSummary();
