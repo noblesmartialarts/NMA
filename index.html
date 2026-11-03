@@ -1081,7 +1081,7 @@ tbody td{font-size:11px!important;}
       <button class="btn small" onclick="bulkSelectGroup('Little Dragons')">Little Dragons</button>
       <button class="btn small" onclick="bulkSelectGroup('Karate Kids')">Karate Kids</button>
       <button class="btn small" onclick="bulkSelectGroup('Black Belt Club')">BBC</button>
-      <button class="btn small" onclick="bulkSelectGroup('Master&#39;s Club')">Master's</button>
+      <button class="btn small" onclick="bulkSelectGroup(&quot;Master's Club&quot;)">Master's</button>
       <button class="btn small" onclick="bulkSelectGroup('Legends Club')">Legends</button>
       <button class="btn small" onclick="bulkSelectUnregistered()">Unregistered</button>
       <span style="width:1px;background:var(--border);align-self:stretch;"></span>
@@ -4964,7 +4964,28 @@ function sendEmails(){
   if(!gmailToken){
     alert('Connect Gmail first using the "Connect Gmail" button at the top.');return;
   }
-  openSendConfirmModal(withEmail,noEmail,t);
+  openSendConfirmModal(bulkMergeSiblings(withEmail,t),noEmail,t);
+}
+// Siblings who share an email get ONE message naming them all — as long as the
+// template says the same thing for each of them (e.g. not "Adara earned her 2nd stripe").
+function bulkMergeSiblings(list,t){
+  const render=r=>{const b=typeof t.body==='function'?(t.body.length>1?t.body(r,DB.testEvents):t.body(r)):t.body;const su=typeof t.subject==='function'?t.subject(r):t.subject;return su+'\n'+b;};
+  const out=[],byEmail={};
+  list.forEach(r=>{
+    if(r.type!=='s'){out.push(r);return;}
+    const k=String(r.email).trim().toLowerCase();
+    if(!byEmail[k]){byEmail[k]=[];out.push({_group:byEmail[k]});}
+    byEmail[k].push(r);
+  });
+  return out.flatMap(x=>{
+    if(!x._group)return [x];
+    const g=x._group;if(g.length===1)return g;
+    // Same wording for every sibling once their own name is swapped out?
+    const same=g.every(r=>render(Object.assign({},r,{first:'\u0001',last:'\u0002',label:''}))===render(Object.assign({},g[0],{first:'\u0001',last:'\u0002',label:''})));
+    if(!same)return g;
+    const names=g.length>1?g.slice(0,-1).map(r=>r.first).join(', ')+' & '+g[g.length-1].first:g[0].first;
+    return [Object.assign({},g[0],{first:names,label:g.map(r=>r.first+' '+r.last).join(' + '),_siblings:g})];
+  });
 }
 
 function openSendConfirmModal(withEmail,noEmail,t){
@@ -4981,7 +5002,7 @@ function openSendConfirmModal(withEmail,noEmail,t){
     <div class="modal-header"><div class="modal-title">✉ Preview &amp; Confirm Send</div><button class="btn ghost" onclick="closeModal('modal-send-confirm')">✕</button></div>
     <div class="modal-body">
       <div style="font-size:13px;color:var(--ink-muted);margin-bottom:14px;">
-        Sending to <strong>${withEmail.length}</strong> recipient${withEmail.length!==1?'s':''}${noEmail.length?' · <span style="color:var(--red);">'+noEmail.length+' skipped (no email on file)</span>':''}. Each recipient gets their own name filled in — shown below is exactly what <strong>${first.label}</strong> will receive.
+        Sending <strong>${withEmail.length}</strong> email${withEmail.length!==1?'s':''}${withEmail.some(r=>r._siblings)?' (siblings who share an email get one together)':''}${noEmail.length?' · <span style="color:var(--red);">'+noEmail.length+' skipped (no email on file)</span>':''}. Each recipient gets their own name filled in — shown below is exactly what <strong>${first.label}</strong> will receive.
       </div>
       <div class="email-card" style="margin-bottom:14px;">
         <div class="email-hdr">
@@ -5018,7 +5039,7 @@ async function confirmSendEmails(){
     const ok=await sendGmailMessage(r.email,subject,body);
     if(ok){
       sent++;
-      if(r.type==='s'){const rec=DB.students.find(x=>x.id===r.id);if(rec)addHistory(rec,'reg',t.name+' email sent');}
+      if(r.type==='s'){(r._siblings||[r]).forEach(x=>{const rec=DB.students.find(y=>y.id===x.id);if(rec)addHistory(rec,'reg',t.name+' email sent');});}
       else if(r.type==='p'){const rec=(DB.prospects||[]).find(x=>x.id===r.id);if(rec)rec.notes=(rec.notes?rec.notes+'\n':'')+'['+todayStr()+'] '+t.name+' email sent';}
     }
     else failed.push(r.label);
