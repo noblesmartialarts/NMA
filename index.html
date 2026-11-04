@@ -16587,4 +16587,100 @@ function renderBusiness(){
 }
 
 </script>
+<script>
+// ══════════════════════════════════════════════════════
+// WEEKLY LEADER MESSAGE — drafted for you, sent only when you click Send
+// ══════════════════════════════════════════════════════
+function ldLeaders(){return DB.students.filter(s=>s.status==='Active'&&(s.leader||s.ai||s.jrInstructor||s.instructor||s.masterInstructor));}
+function ldRole(s){return s.masterInstructor?'Master Instructor':s.instructor?'Instructor':s.ai?'Assistant Instructor':s.jrInstructor?'Jr. Instructor':'Student Leader';}
+function ldNextClass(){
+  const today=localToday();const cancelled=new Set(DB.cancelledDays||[]);
+  return (DB.classDates||[]).map(c=>typeof c==='string'?c:c&&c.date).filter(d=>d&&d>=today&&!cancelled.has(d)).sort()[0]||'';
+}
+function ldMatChats(date){
+  const out=[];
+  (typeof mcPlans==='function'?mcPlans():[]).forEach(p=>Object.entries(p.groups||{}).forEach(([g,list])=>list.forEach(c=>{if(c.date===date)out.push({g,c});})));
+  return out;
+}
+const LD_SKILLS=['Crisp, full-speed blocks during warm-ups','Help a newer student fix their stance','Loud, confident kiai on every technique','Lead a line with eye contact and a strong voice','Show patience — let younger students try before helping','Perfect bowing and mat etiquette, every time','Encourage a teammate by name at least twice','Be first in line and ready when class starts'];
+function ldDraftDefaults(){
+  const d=DB.leaderDraft||{};
+  const week=Math.floor(Date.now()/604800000);
+  return {skill:d.skill||LD_SKILLS[week%LD_SKILLS.length],jobs:d.jobs||'Warm-ups: \nStations: \nBuddy for a newer student: ',shout:d.shout||'',video:d.video||''};
+}
+function ldSaveDraft(){DB.leaderDraft={skill:$('ld-skill').value,jobs:$('ld-jobs').value,shout:$('ld-shout').value,video:$('ld-video').value};save();}
+function ldBuild(){
+  const date=ldNextClass();const chats=ldMatChats(date);const v=ldDraftDefaults();
+  const when=date?new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}):'this week';
+  let b='Hi leaders!\n\nHere\'s your focus for class on '+when+'.\n';
+  if(v.video)b+='\n▶ This week\'s leader video: '+v.video+'\n';
+  if(chats.length){b+='\nMAT CHATS — be ready to help lead these:\n';chats.forEach(x=>{b+='• '+x.g+': '+x.c.title+((x.c.points||[])[0]?' — '+x.c.points[0]:'')+'\n';});}
+  if(v.skill)b+='\nSKILL TO MODEL:\n'+v.skill+'\n';
+  if(v.jobs&&v.jobs.replace(/[\s:]|Warm-ups|Stations|Buddy for a newer student/g,'').length)b+='\nYOUR JOBS:\n'+v.jobs.trim()+'\n';
+  if(v.shout)b+='\nSHOUT-OUT ⭐\n'+v.shout+'\n';
+  b+='\nLeaders set the example for everyone on the mat. Thank you for stepping up!\n\nSensei Brandon\nNoble\'s Martial Arts';
+  return {subject:'Leader focus — '+(date?new Date(date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):'this week'),body:b,date};
+}
+// One email per family address (parents pass it along); never sent automatically.
+function ldTargets(){
+  const leaders=ldLeaders();
+  if(typeof famEmailTargets==='function'){
+    // Main contact for each leader, even if their announcement emails are off.
+    const by={};
+    leaders.forEach(s=>{const f=typeof famOf==='function'?famOf(s):null;const c=f?famContactsFor(f,s).find(x=>x.email):null;const em=(c&&c.email)||s.email;if(!em)return;const k=String(em).toLowerCase();(by[k]=by[k]||{email:em,students:[]}).students.push(s);});
+    return Object.values(by);
+  }
+  return leaders.filter(s=>s.email).map(s=>({email:s.email,students:[s]}));
+}
+function ldCardHTML(){
+  const L=ldLeaders();const v=ldDraftDefaults();const d=ldBuild();const T=ldTargets();
+  const last=(DB.leaderMsgs||[])[0];
+  return `<div class="pf-card" style="margin-bottom:18px;">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><div style="font-family:var(--font-display);font-size:16px;font-weight:700;flex:1;">📣 Weekly leader message</div>
+      <span style="font-size:12px;color:var(--ink-muted);">${last?'Last sent '+fmtDate(last.date)+' — “'+grEsc(last.subject)+'”':'Not sent yet'}</span></div>
+    <div style="font-size:12px;color:var(--ink-muted);margin:4px 0 10px;">Drafted for ${d.date?'your next class ('+fmtDate(d.date)+')':'this week'} with that day's mat chats. Nothing goes out until you click Send. Goes to ${T.length} famil${T.length===1?'y':'ies'} (${L.length} leader${L.length!==1?'s':''}): ${L.map(s=>grEsc(s.first)).join(', ')||'—'}.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;">
+      <div class="form-group" style="margin:0;"><label class="form-label">Video link (optional)</label><input id="ld-video" class="form-input" placeholder="YouTube / Google Drive link" value="${grEsc(v.video)}" oninput="ldSaveDraftSoon()"></div>
+      <div class="form-group" style="margin:0;"><label class="form-label">Skill to model</label><input id="ld-skill" class="form-input" value="${grEsc(v.skill)}" oninput="ldSaveDraftSoon()"></div>
+      <div class="form-group" style="margin:0;"><label class="form-label">Jobs this week</label><textarea id="ld-jobs" class="form-input" rows="3" oninput="ldSaveDraftSoon()">${grEsc(v.jobs)}</textarea></div>
+      <div class="form-group" style="margin:0;"><label class="form-label">Shout-out</label><textarea id="ld-shout" class="form-input" rows="3" placeholder="e.g. Shout-out to Eli for helping the Little Dragons with their blocks!" oninput="ldSaveDraftSoon()">${grEsc(v.shout)}</textarea></div>
+    </div>
+    <details style="margin-top:10px;" open><summary style="cursor:pointer;font-size:13px;font-weight:600;">Preview</summary>
+      <div id="ld-preview" class="email-card" style="margin-top:6px;"><div style="padding:8px 14px;font-size:13px;"><strong>Subject:</strong> ${grEsc(d.subject)}</div><pre style="padding:12px 14px;font-size:12px;font-family:Georgia,serif;line-height:1.6;white-space:pre-wrap;margin:0;border-top:1px solid var(--border);">${grEsc(d.body)}</pre></div></details>
+    <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap;"><button class="btn primary" onclick="ldSend()" ${T.length?'':'disabled'}>✉ Send to ${T.length} famil${T.length===1?'y':'ies'}</button><span id="ld-status" style="font-size:12px;color:var(--ink-muted);"></span></div>
+  </div>`;
+}
+let _ldT=null;
+function ldSaveDraftSoon(){clearTimeout(_ldT);_ldT=setTimeout(()=>{ldSaveDraft();const d=ldBuild();const p=$('ld-preview');if(p)p.innerHTML=`<div style="padding:8px 14px;font-size:13px;"><strong>Subject:</strong> ${grEsc(d.subject)}</div><pre style="padding:12px 14px;font-size:12px;font-family:Georgia,serif;line-height:1.6;white-space:pre-wrap;margin:0;border-top:1px solid var(--border);">${grEsc(d.body)}</pre>`;},500);}
+async function ldSend(){
+  ldSaveDraft();
+  const d=ldBuild();const T=ldTargets();if(!T.length)return;
+  if(!gmailToken&&typeof gmailRefresh==='function')await gmailRefresh(true);
+  if(!gmailToken){alert('Connect Gmail first on the Emails tab.');return;}
+  if(!confirm('Send "'+d.subject+'" to '+T.length+' leader famil'+(T.length===1?'y':'ies')+'?'))return;
+  let ok=0;const st=$('ld-status');
+  for(const t of T){if(st)st.textContent='Sending '+(ok+1)+' of '+T.length+'…';if(await sendGmailMessage(t.email,d.subject,d.body)){ok++;t.students.forEach(s=>addHistory(s,'note','Weekly leader message: '+d.subject));}}
+  if(!DB.leaderMsgs)DB.leaderMsgs=[];
+  DB.leaderMsgs.unshift({date:localToday(),subject:d.subject,sent:ok});
+  DB.leaderDraft=Object.assign({},DB.leaderDraft,{shout:''}); // shout-outs are per week
+  save();toast('Leader message sent to '+ok+' famil'+(ok===1?'y':'ies')+'.');initLeaders();
+}
+(function(){
+  if(typeof initLeaders!=='function'||initLeaders._ld)return;
+  const o=initLeaders;
+  initLeaders=function(){const r=o.apply(this,arguments);try{const el=$('leaders-content');if(el)el.insertAdjacentHTML('afterbegin',ldCardHTML());}catch(e){console.warn(e);}return r;};
+  initLeaders._ld=true;
+  // Dashboard nudge (never sends): leaders exist, a class is coming up, nothing sent in the last 6 days.
+  if(typeof renderGrowthDash==='function'&&!renderGrowthDash._ld){
+    const g=renderGrowthDash;
+    renderGrowthDash=function(){const r=g.apply(this,arguments);try{
+      const el=$('growth-dash');const next=ldNextClass();const last=(DB.leaderMsgs||[])[0];
+      if(el&&ldLeaders().length&&next&&next<=localDateOffset(6)&&(!last||last.date<localDateOffset(-6)))
+        el.insertAdjacentHTML('beforeend',`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 18px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;"><span style="flex:1;">📣 <strong>Weekly leader message</strong> — not sent yet for ${fmtDate(next)}'s class.</span><button class="btn small primary" onclick="nav('leaders')">Write it</button></div>`);
+    }catch(e){}return r;};
+    renderGrowthDash._ld=true;
+  }
+})();
+
+</script>
 </html>
