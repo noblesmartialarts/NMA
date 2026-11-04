@@ -45,6 +45,13 @@ function build(steps) {
       case 'range': q.range = [parseInt(a[0], 10), parseInt(a[1], 10)]; break;
       case 'single': q.single = 'single'; break;
       case 'maybeSingle': q.single = 'maybe'; break;
+      case 'or': {
+        // supabase-js .or('col.op.val,col.op.val') — validate each condition's column and operator
+        const cond = String(a[0] || '');
+        if (cond.length > 500 || !cond.split(',').every(c => /^[\w.\->]+\.(eq|neq|gt|gte|lt|lte|like|ilike|is)\./.test(c))) throw new Error('Bad or() filter');
+        q.filters.push(['or', '(' + cond + ')']);
+        break;
+      }
       default:
         if (FILTERS[st.m]) {
           const col = String(a[0]);

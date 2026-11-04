@@ -369,6 +369,7 @@ tbody td{font-size:11px!important;}
     <div class="nav-item" data-page="testing" onclick="nav('testing')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>Belt Testing</span></div>
     <div class="nav-section-label" onclick="toggleNavSection(this)">Operations<span class="chevron">▾</span></div>
     <div class="nav-item" data-page="revenue" onclick="nav('revenue')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span>Revenue</span></div>
+    <div class="nav-item" data-page="business" onclick="nav('business')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg><span>Business</span></div>
     <div class="nav-item" data-page="workshops" onclick="nav('workshops')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 4.86L20 8l-4 3.9.94 5.5L12 15.9l-4.94 2.6L8 13l-4-3.9 5.6-1.14z"/></svg><span>Workshops</span></div>
     <div class="nav-item" data-page="apparel" onclick="nav('apparel')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.57a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.57a2 2 0 0 0-1.34-2.23z"/></svg><span>Apparel Orders</span></div>
     <div class="nav-item" data-page="gearorders" onclick="nav('gearorders')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><circle cx="12" cy="13" r="3"/></svg><span>Gear Orders</span></div>
@@ -844,6 +845,11 @@ tbody td{font-size:11px!important;}
 </div>
 
 <!-- REVENUE -->
+<div id="page-business" class="page">
+  <div class="page-header"><div><div class="page-title">Business</div><div class="page-subtitle">Enrollment, attendance, revenue, spending and growth — at a glance</div></div></div>
+  <div id="biz-body"></div>
+</div>
+
 <div id="page-revenue" class="page">
   <div id="rev-chart-area" style="margin-bottom:20px;"></div>
   <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
@@ -2620,6 +2626,7 @@ class CrmQuery{
   gte(){return this._add('gte',arguments);} lt(){return this._add('lt',arguments);}
   lte(){return this._add('lte',arguments);} like(){return this._add('like',arguments);}
   ilike(){return this._add('ilike',arguments);} is(){return this._add('is',arguments);}
+  or(){return this._add('or',arguments);}
   in(){return this._add('in',arguments);} order(){return this._add('order',arguments);}
   limit(){return this._add('limit',arguments);} range(){return this._add('range',arguments);}
   single(){return this._add('single',arguments);} maybeSingle(){return this._add('maybeSingle',arguments);}
@@ -3129,7 +3136,7 @@ function nav(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+page).classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,prospects:initProspects,goodjob:initGoodJob,ai:initAI,families:initFamilies,parentfeedback:initParentFeedback,events:initEvents,privatelessons:initPrivateLessons,workshops:renderWorkshops};
+  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,prospects:initProspects,goodjob:initGoodJob,ai:initAI,families:initFamilies,business:initBusiness,parentfeedback:initParentFeedback,events:initEvents,privatelessons:initPrivateLessons,workshops:renderWorkshops};
   fns[page]?.();
 }
 
@@ -3582,7 +3589,7 @@ function openProfile(id){
         <div class="pf"><label>Current belt</label><p><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></p></div>
         <div class="pf"><label>Stripes</label><p>${stripeDots(s.stripes,maxStripes(s))} ${s.stripes}/${maxStripes(s)}</p></div>
         <div class="pf"><label>Next belt</label><p>${promo?('<span class="belt-pill" style="'+beltStyle(promo.belt)+';font-size:11px;">'+promo.belt+'</span>'+(promo.group!==s.group?' <span style="font-size:11px;color:var(--ink-muted);">(→ '+promo.group+')</span>':'')):'Max rank'}</p></div>
-        <div class="pf"><label>Belt test eligible</label><p><span class="badge ${stripeEligible(s)?'badge-green':'badge-gray'}">${stripeEligible(s)?'Yes — ready':s.testEligibleOverride===false?'Blocked':'No'}</span><span style="font-size:11px;color:var(--ink-muted);margin-left:8px;">${stripeCount(s)}/${maxStripes(s)} stripes · ${totalClassesAttended(s.id)} classes attended</span> <button class="btn small" style="margin-left:6px;font-size:11px;" onclick="toggleEligibilityOverride(${s.id})">${s.testEligibleOverride===true?'✓ Forced':''}${s.testEligibleOverride===false?'✗ Blocked':''}${s.testEligibleOverride===undefined||s.testEligibleOverride===null?'Override':'Clear override'}</button></p></div>
+        <div class="pf"><label>Belt test eligible</label><p><span class="badge ${stripeEligible(s)?'badge-green':'badge-gray'}">${stripeEligible(s)?'Yes — ready':s.testEligibleOverride===false?'Blocked':'No'}</span><span style="font-size:11px;color:var(--ink-muted);margin-left:8px;">${stripeCount(s)}/${maxStripes(s)} stripes · ${(()=>{const c=classesThisCycle(s);return c.present+(c.held?' of '+c.held:'')+' classes this cycle';})()}</span> <button class="btn small" style="margin-left:6px;font-size:11px;" onclick="toggleEligibilityOverride(${s.id})">${s.testEligibleOverride===true?'✓ Forced':''}${s.testEligibleOverride===false?'✗ Blocked':''}${s.testEligibleOverride===undefined||s.testEligibleOverride===null?'Override':'Clear override'}</button></p></div>
         <div class="pf"><label>Belt size</label><p>${s.beltSize||'—'}</p></div>
         <div class="pf"><label>Uniform size</label><p>${s.uniformSize||'—'}</p></div>
         <div class="pf"><label>Registered</label><p><span class="badge ${s.registered==='Yes'?'badge-green':'badge-gray'}">${s.registered==='Yes'?(s.paidVenmo?'Yes (Venmo)':'Yes'):(s.omitFromReg?'Omitted':'No')}</span></p></div>
@@ -16320,5 +16327,264 @@ async function crmReloadNow(btn){
 setTimeout(crmVersionCheck,1500);
 setInterval(crmVersionCheck,5*60000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')crmVersionCheck();});
+</script>
+<script>
+// ══════════════════════════════════════════════════════
+// GROWTH — classes this cycle, at-risk check-ins, new-student plan,
+// review requests, and the Business page
+// ══════════════════════════════════════════════════════
+function grEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// The cycle runs from the last belt test (or the student's own last promotion) to the next.
+function cycleStartFor(s){
+  const today=localToday();
+  const ev=(DB.testEvents||[]).filter(e=>isPromotionEvent(e)&&e.date<=today).map(e=>e.date).sort().pop()||'';
+  const promo=((s&&s.history)||[]).filter(h=>h.type==='promo').map(h=>h.date).sort().pop()||'';
+  return promo>ev?promo:ev;
+}
+function classesThisCycle(s){
+  const start=cycleStartFor(s);let n=0,held=0;
+  Object.entries(DB.attendance||{}).forEach(([d,rec])=>{if(d>start&&d<=localToday()&&rec&&Object.keys(rec).length){if(rec[s.id]!=null)held++;if(rec[s.id]==='present')n++;}});
+  return {present:n,held,since:start};
+}
+// ── Quick email with a chosen template, and a hook after it sends ──
+let _qeAfterSend=null;
+function openQuickEmailWith(key,tmplId,after){
+  openQuickEmail(key);
+  const sel=$('qe-template');if(sel&&[...sel.options].some(o=>o.value===tmplId)){sel.value=tmplId;renderQuickEmailPreview(key);}
+  _qeAfterSend=after||null;
+}
+(function(){
+  if(typeof sendQuickEmail!=='function'||sendQuickEmail._hook)return;
+  const o=sendQuickEmail;
+  sendQuickEmail=async function(key){
+    const before=$('modal-quick-email')&&$('modal-quick-email').classList.contains('open');
+    await o.apply(this,arguments);
+    const closed=!($('modal-quick-email')&&$('modal-quick-email').classList.contains('open'));
+    if(before&&closed&&_qeAfterSend){try{_qeAfterSend();}catch(e){}_qeAfterSend=null;save();renderGrowthDash();}
+  };
+  sendQuickEmail._hook=true;
+})();
+// Extra built-in templates (no parent names — imported names aren't always the primary parent).
+(function(){
+  if(typeof BUILTIN_TEMPLATES==='undefined'||BUILTIN_TEMPLATES.some(t=>t.id==='new_week2'))return;
+  BUILTIN_TEMPLATES.push(
+    {id:'new_week2',name:'New student — 2-week check-in',subject:s=>`How are ${s.first}'s first few classes going?`,body:s=>`Hi there,\n\n${s.first} has a couple of classes under their belt now, and I wanted to check in. How is ${s.first} feeling about class so far? Anything they're excited about, nervous about, or that would help them settle in?\n\nA little practice at home goes a long way at this stage — the practice videos in your family portal (noblesmartialarts.com/family) are a great place to start.\n\nJust reply here anytime.\n\nSensei Brandon\nNoble's Martial Arts`},
+    {id:'new_day30',name:'New student — 30-day check-in',subject:s=>`${s.first}'s first month at NMA`,body:s=>`Hi there,\n\n${s.first} just wrapped up their first month with us — thank you for trusting us with them!\n\nI'd love to hear how it's going at home: what ${s.first} talks about after class, anything you've noticed, and anything we could do better. Your feedback really shapes our classes.\n\nNext up: stripes and their first belt test. You can follow their progress anytime in your family portal.\n\nSensei Brandon\nNoble's Martial Arts`},
+    {id:'checkin_care',name:'Check-in — we miss you',subject:s=>`Checking in on ${s.first}`,body:s=>`Hi there,\n\nWe've missed ${s.first} in class lately and I just wanted to check in — is everything okay? If something's making it hard to get to class (schedule, motivation, anything at all), let me know and we'll figure it out together.\n\nWe'd love to see ${s.first} back on the mat.\n\nSensei Brandon\nNoble's Martial Arts`},
+    {id:'review_ask',name:'Review request (after a belt test)',subject:s=>`Congratulations to ${s.first}! A small favor?`,body:s=>`Hi there,\n\nCongratulations again to ${s.first} on their promotion — it was a joy to watch!\n\nIf NMA has been a good experience for your family, would you take a minute to leave us a Google review? It's the #1 way other families in Wake Forest find us:\n${(DB.reviewLink||'(review link)')}\n\nThank you so much for your support!\n\nSensei Brandon\nNoble's Martial Arts`}
+  );
+})();
+
+// ── 1. Early warning: students drifting away ──
+function riskReasons(s){
+  if(!s||s.status!=='Active'||s.omitFromReg)return [];
+  const out=[];
+  const days=Object.keys(DB.attendance||{}).filter(d=>d<=localToday()&&DB.attendance[d]&&Object.keys(DB.attendance[d]).length).sort();
+  const mine=days.filter(d=>DB.attendance[d][s.id]!=null).slice(-3);
+  const missed=mine.filter(d=>DB.attendance[d][s.id]!=='present').length;
+  if(mine.length>=3&&missed>=2)out.push('Missed '+missed+' of the last 3 classes');
+  const c=classesThisCycle(s);
+  if(c.held>=4&&c.present/c.held<0.5&&!out.length)out.push('Only '+c.present+' of '+c.held+' classes this cycle');
+  if(typeof missingFromRoster==='function'&&missingFromRoster(s))out.push('Not on this month\'s roster');
+  return out;
+}
+function atRiskList(){
+  const today=localToday();
+  return DB.students.filter(s=>{if(s.checkinSnooze&&s.checkinSnooze>=today)return false;return riskReasons(s).length;});
+}
+function grCheckedIn(id,how){
+  const s=DB.students.find(x=>x.id===id);if(!s)return;
+  s.checkinSnooze=localDateOffset(21);
+  if(how){if(!DB.commLog)DB.commLog=[];DB.commLog.push({id:DB.nextId++,studentId:s.id,date:localToday(),type:how,notes:'At-risk check-in ('+riskReasons(s).join('; ')+')',followup:false});addHistory(s,'note','At-risk check-in: '+how);}
+  save();renderGrowthDash();toast(how?'Logged — '+s.first+' is hidden for 3 weeks.':s.first+' snoozed for 3 weeks.');
+}
+function grEmailCheckin(id){
+  const s=DB.students.find(x=>x.id===id);if(!s)return;
+  if(!s.email){alert(s.first+' has no email on file.');return;}
+  openQuickEmailWith(emailKey('s',id),'checkin_care',()=>{s.checkinSnooze=localDateOffset(21);if(!DB.commLog)DB.commLog=[];DB.commLog.push({id:DB.nextId++,studentId:s.id,date:localToday(),type:'Email',notes:'At-risk check-in email',followup:true});});
+}
+
+// ── 2. First 30 days ──
+const ONBOARD_STEPS=[
+  {k:'welcome',label:'Welcome email',due:0,until:14,done:s=>!!s._welcomeSent,act:'email',tmpl:'welcome'},
+  {k:'week2',label:'2-week check-in',due:10,until:27,act:'email',tmpl:'new_week2'},
+  {k:'stripe',label:'First stripe → Good Job note',due:null,ready:s=>stripeCount(s)>=1,done:s=>(DB.goodJobNotes||[]).some(n=>n.toId===s.id&&n.date>=(s.firstDate||'')),act:'goodjob'},
+  {k:'day30',label:'30-day parent check-in',due:28,until:60,act:'email',tmpl:'new_day30'}
+];
+function onboardDue(){
+  const today=localToday();const out=[];
+  DB.students.filter(s=>s.status==='Active'&&s.firstDate&&s.firstDate>=localDateOffset(-60)).forEach(s=>{
+    const age=Math.round((new Date(today+'T12:00:00')-new Date(s.firstDate+'T12:00:00'))/86400000);
+    const ob=s.onboard||{};
+    const steps=ONBOARD_STEPS.map(st=>{
+      const done=st.done?st.done(s)||!!ob[st.k]:!!ob[st.k];
+      // Email steps only make sense in their window; a missed window just drops off.
+      const ready=st.ready?st.ready(s):(age>=st.due&&age<=(st.until||999));
+      return {st,done,ready,missed:!done&&!st.ready&&age>(st.until||999)};
+    });
+    const next=steps.find(x=>!x.done&&x.ready);
+    if(next)out.push({s,age,steps,next});
+  });
+  return out.sort((a,b)=>b.age-a.age);
+}
+function grOnboard(id,k){
+  const s=DB.students.find(x=>x.id===id);if(!s)return;
+  const st=ONBOARD_STEPS.find(x=>x.k===k);if(!st)return;
+  const mark=()=>{s.onboard=Object.assign({},s.onboard,{[k]:localToday()});if(k==='welcome')s._welcomeSent=true;};
+  if(st.act==='email'){
+    if(!s.email){if(confirm(s.first+' has no email on file. Mark this step done anyway?')){mark();save();renderGrowthDash();}return;}
+    openQuickEmailWith(emailKey('s',id),st.tmpl,mark);
+  }else if(st.act==='goodjob'){
+    nav('goodjob');setTimeout(()=>{const t=$('gj-to');if(t){t.value=String(id);t.dispatchEvent(new Event('change'));}const f=$('gj-from');if(f){f.value='sensei';}const m=$('gj-message');if(m&&!m.value)m.value='Congratulations on earning your first stripe! I can see how hard you\'ve been working.';},250);
+  }
+}
+function grOnboardSkip(id,k){const s=DB.students.find(x=>x.id===id);if(!s)return;s.onboard=Object.assign({},s.onboard,{[k]:'skipped'});save();renderGrowthDash();}
+
+// ── 5. Review requests after a belt test ──
+function reviewCandidates(){
+  if(!DB.reviewLink)return [];
+  const since=localDateOffset(-10);
+  const promoted=new Set((DB.promotions||[]).filter(p=>p.date>=since&&p.date<=localToday()).map(p=>p.studentId));
+  const fams={};
+  DB.students.filter(s=>promoted.has(s.id)&&s.status==='Active'&&s.email&&!(s.reviewAsked)).forEach(s=>{
+    const k=String(s.email).toLowerCase();(fams[k]=fams[k]||[]).push(s);
+  });
+  return Object.values(fams);
+}
+function grAskReview(email){
+  const list=reviewCandidates().find(g=>String(g[0].email).toLowerCase()===email);if(!list)return;
+  const s=list[0];
+  openQuickEmailWith(emailKey('s',s.id),'review_ask',()=>{list.forEach(x=>{x.reviewAsked=localToday();addHistory(x,'note','Asked for a Google review');});});
+  if(list.length>1)setTimeout(()=>{const names=list.length>1?list.slice(0,-1).map(x=>x.first).join(', ')+' & '+list[list.length-1].first:s.first;const b=$('qe-body'),su=$('qe-subject');if(b)b.value=b.value.split(s.first).join(names);if(su)su.value=su.value.split(s.first).join(names);},120);
+}
+function grReviewSkip(email){reviewCandidates().filter(g=>String(g[0].email).toLowerCase()===email).forEach(g=>g.forEach(x=>{x.reviewAsked='skipped';}));save();renderGrowthDash();}
+function grSetReviewLink(){
+  const v=prompt('Paste your Google review link (from Google Business Profile → "Ask for reviews"):',DB.reviewLink||'');if(v===null)return;
+  DB.reviewLink=v.trim();save();renderGrowthDash();if($('page-business')?.classList.contains('active'))renderBusiness();
+}
+
+// ── Dashboard cards ──
+function renderGrowthDash(){
+  const el=$('growth-dash');if(!el)return;
+  const risk=atRiskList();const ob=onboardDue();const rv=reviewCandidates();
+  const card=(title,body)=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:14px;"><div style="font-family:var(--font-display);font-size:15px;font-weight:700;margin-bottom:6px;">${title}</div>${body}</div>`;
+  let h='';
+  if(risk.length)h+=card(`⚠️ Check in with these families <span style="font-weight:400;font-size:12px;color:var(--ink-muted);">(${risk.length})</span>`,risk.slice(0,12).map(s=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13px;">
+      <span style="flex:1;min-width:180px;"><strong style="cursor:pointer;" onclick="nav('roster');openProfile(${s.id})">${grEsc(s.first+' '+s.last)}</strong> <span style="color:var(--ink-muted);font-size:11px;">${grEsc(s.group)}</span><br><span style="font-size:12px;color:var(--amber);">${riskReasons(s).map(grEsc).join(' · ')}</span></span>
+      <button class="btn small primary" onclick="grEmailCheckin(${s.id})">✉ Check-in email</button>
+      <button class="btn small" onclick="grCheckedIn(${s.id},'Phone call')">📞 Called</button>
+      <button class="btn small" onclick="grCheckedIn(${s.id},'In person')">🗣 Talked</button>
+      <button class="btn small" title="Hide for 3 weeks" onclick="grCheckedIn(${s.id},'')">Snooze</button></div>`).join('')+(risk.length>12?`<div style="font-size:12px;color:var(--ink-muted);padding-top:6px;">+${risk.length-12} more on the Business page.</div>`:''));
+  if(ob.length)h+=card(`🌱 New students — first 30 days <span style="font-weight:400;font-size:12px;color:var(--ink-muted);">(${ob.length})</span>`,ob.map(o=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13px;">
+      <span style="flex:1;min-width:180px;"><strong>${grEsc(o.s.first+' '+o.s.last)}</strong> <span style="color:var(--ink-muted);font-size:11px;">day ${o.age} · ${grEsc(o.s.group)}</span><br>
+      <span style="font-size:11px;">${o.steps.map(x=>`<span style="color:${x.done?'var(--green)':x===o.next?'var(--amber)':'var(--ink-faint)'};${x.missed?'text-decoration:line-through;':''}">${x.done?'✓':x===o.next?'●':'○'} ${grEsc(x.st.label)}</span>`).join(' &nbsp; ')}</span></span>
+      <button class="btn small primary" onclick="grOnboard(${o.s.id},'${o.next.st.k}')">${o.next.st.act==='goodjob'?'⭐ Write Good Job note':'✉ '+grEsc(o.next.st.label)}</button>
+      <button class="btn small" onclick="grOnboardSkip(${o.s.id},'${o.next.st.k}')">Skip</button></div>`).join(''));
+  if(rv.length)h+=card(`⭐ Ask for Google reviews <span style="font-weight:400;font-size:12px;color:var(--ink-muted);">— families promoted in the last 10 days</span>`,rv.map(g=>{const em=String(g[0].email).toLowerCase();return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13px;">
+      <span style="flex:1;min-width:180px;"><strong>${grEsc(g.map(x=>x.first).join(' & ')+' '+g[0].last)}</strong> <span style="color:var(--ink-muted);font-size:11px;">→ ${grEsc(g.map(x=>x.belt).join(', '))}</span></span>
+      <button class="btn small primary" onclick="grAskReview('${grEsc(em)}')">✉ Ask for a review</button><button class="btn small" onclick="grReviewSkip('${grEsc(em)}')">Skip</button></div>`;}).join(''));
+  el.innerHTML=h;
+}
+(function(){
+  const host=$('page-dashboard');if(host&&!$('growth-dash')){const d=document.createElement('div');d.id='growth-dash';const ref=$('matchat-dash');if(ref)ref.insertAdjacentElement('afterend',d);else host.appendChild(d);}
+  if(typeof renderDashboard==='function'&&!renderDashboard._growth){const o=renderDashboard;renderDashboard=function(){const r=o.apply(this,arguments);try{renderGrowthDash();}catch(e){console.warn(e);}return r;};renderDashboard._growth=true;}
+})();
+
+// ══════════════════════════════════════════════════════
+// BUSINESS PAGE
+// ══════════════════════════════════════════════════════
+let _bizLeads=null,_bizRange=12;
+function bizMonths(n){const out=[];const d=new Date(localToday()+'T12:00:00');d.setDate(1);for(let i=n-1;i>=0;i--){const x=new Date(d);x.setMonth(d.getMonth()-i);out.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'));}return out;}
+function bizLabel(m){return new Date(m+'-15T12:00:00').toLocaleDateString('en-US',{month:'short',year:'2-digit'});}
+// Vertical stacked columns. series: [{name,color,values:[...]}]
+function bizColumns(labels,series,fmt){
+  const totals=labels.map((_,i)=>series.reduce((a,s)=>a+(+s.values[i]||0),0));
+  const max=Math.max(1,...totals);
+  return `<div style="display:flex;align-items:flex-end;gap:6px;height:170px;padding-top:16px;">${labels.map((l,i)=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0;" title="${grEsc(l)}: ${series.map(s=>s.name+' '+(fmt?fmt(s.values[i]):s.values[i])).join(', ')}">
+      <div style="font-size:10px;color:var(--ink-muted);margin-bottom:2px;white-space:nowrap;">${totals[i]?(fmt?fmt(totals[i]):totals[i]):''}</div>
+      <div style="width:100%;max-width:38px;display:flex;flex-direction:column-reverse;height:${Math.round(totals[i]/max*130)}px;border-radius:4px 4px 0 0;overflow:hidden;">${series.map(s=>`<div style="background:${s.color};height:${totals[i]?((+s.values[i]||0)/totals[i]*100):0}%;"></div>`).join('')}</div>
+      <div style="font-size:10px;color:var(--ink-muted);margin-top:4px;white-space:nowrap;">${grEsc(l)}</div></div>`).join('')}</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;margin-top:6px;">${series.map(s=>`<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${s.color};vertical-align:middle;"></span> ${grEsc(s.name)}</span>`).join('')}</div>`;
+}
+function bizBars(rows,fmt){
+  const max=Math.max(1,...rows.map(r=>+r[1]||0));
+  return rows.map(([k,v,sub])=>`<div style="display:flex;align-items:center;gap:10px;padding:4px 0;font-size:12px;"><span style="min-width:130px;">${grEsc(k)}</span><div style="flex:1;background:var(--paper);border-radius:4px;height:10px;overflow:hidden;"><div style="width:${Math.round((+v||0)/max*100)}%;height:100%;background:var(--blue);"></div></div><span style="min-width:70px;text-align:right;font-weight:600;">${fmt?fmt(v):v}${sub?` <span style="font-weight:400;color:var(--ink-muted);">${grEsc(sub)}</span>`:''}</span></div>`).join('')||'<div style="font-size:12px;color:var(--ink-muted);">No data yet.</div>';
+}
+async function initBusiness(){
+  renderBusiness();
+  if(_bizLeads===null){try{const{data}=await supa.from('workshop_leads').select('status,type,amount_charged,assistant_pay,session_date,date_contacted,created_at');_bizLeads=data||[];}catch(e){_bizLeads=[];}renderBusiness();}
+}
+function renderBusiness(){
+  const el=$('biz-body');if(!el)return;
+  const months=bizMonths(_bizRange),M=new Set(months),today=localToday();
+  const ym=d=>String(d||'').slice(0,7);
+  const active=DB.students.filter(s=>s.status==='Active');
+  const tile=(label,value,sub,cls)=>`<div class="stat-card ${cls||''}"><div class="stat-label">${label}</div><div class="stat-value">${value}</div>${sub?`<div class="stat-sub">${sub}</div>`:''}</div>`;
+  const sec=(title,body,note)=>`<div class="pf-card" style="margin-bottom:14px;"><div style="font-family:var(--font-display);font-size:15px;font-weight:700;margin-bottom:4px;">${title}</div>${note?`<div style="font-size:11px;color:var(--ink-muted);margin-bottom:6px;">${note}</div>`:''}${body}</div>`;
+  // Enrollment
+  const hist=(DB.monthHistory||[]).slice(-_bizRange);
+  const reg=active.filter(s=>s.registered==='Yes').length;
+  const new90=DB.students.filter(s=>s.firstDate&&s.firstDate>=localDateOffset(-90)).length;
+  const byGroup={};active.forEach(s=>{byGroup[s.group]=(byGroup[s.group]||0)+1;});
+  const newByM=months.map(m=>DB.students.filter(s=>ym(s.firstDate)===m).length);
+  // Attendance
+  const att={};Object.entries(DB.attendance||{}).forEach(([d,rec])=>{const m=ym(d);if(!M.has(m)||!rec)return;Object.values(rec).forEach(v=>{att[m]=att[m]||{p:0,t:0};att[m].t++;if(v==='present')att[m].p++;});});
+  const att60={};Object.entries(DB.attendance||{}).forEach(([d,rec])=>{if(d<localDateOffset(-60)||!rec)return;Object.entries(rec).forEach(([sid,v])=>{const s=DB.students.find(x=>x.id===+sid);const g=s?s.group:'?';att60[g]=att60[g]||{p:0,t:0};att60[g].t++;if(v==='present')att60[g].p++;});});
+  const lastAtt=months.slice(-2).map(m=>att[m]).filter(Boolean).reduce((a,x)=>({p:a.p+x.p,t:a.t+x.t}),{p:0,t:0});
+  // Revenue (cash basis) & spend
+  const src={tuition:'Town registration (est.)',direct:'Direct registration',tests:'Belt test fees',gear:'Gear orders',apparel:'Apparel',sales:'Walk-in sales',workshops:'Workshops'};
+  const colors={tuition:'#1e3a8a',direct:'#5160ff',tests:'#d97706',gear:'#16a34a',apparel:'#0891b2',sales:'#db2777',workshops:'#7c3aed'};
+  const rev={};Object.keys(src).forEach(k=>rev[k]=months.map(()=>0));
+  const add=(k,d,v)=>{const i=months.indexOf(ym(d));if(i>=0)rev[k][i]+=(+v||0);};
+  (DB.monthHistory||[]).forEach(h=>add('tuition',h.date,(h.students||[]).filter(x=>x.registered==='Yes'&&!x.paidVenmo&&!x.omit).length*(+h.fee||0)));
+  DB.students.forEach(s=>{if(s.regPayment)add('direct',s.regPayment.date,s.regPayment.amount);});
+  (DB.testFees||[]).forEach(f=>{if(!f.paid)return;const e=DB.testEvents.find(x=>x.id===f.eventId);add('tests',f.datePaid||(e&&e.date),e?e.fee:0);});
+  (DB.gearOrders||[]).forEach(o=>{if(o.paid)add('gear',o.paidDate||o.date,o.amount);});
+  (DB.apparelOrders||[]).forEach(o=>{if(o.paid)add('apparel',o.paidDate||o.date,o.total);});
+  (DB.merchSales||[]).forEach(x=>add('sales',x.date,x.amount));
+  (_bizLeads||[]).forEach(l=>{if(l.amount_charged&&l.session_date)add('workshops',l.session_date,l.amount_charged);});
+  const revTotal=months.map((_,i)=>Object.keys(src).reduce((a,k)=>a+rev[k][i],0));
+  const spend=months.map(m=>(DB.invoices||[]).filter(i=>ym(i.date)===m).reduce((a,i)=>a+(+i.total||0),0)+(_bizLeads||[]).filter(l=>ym(l.session_date)===m).reduce((a,l)=>a+(+l.assistant_pay||0),0));
+  const byVendor={};(DB.invoices||[]).filter(i=>M.has(ym(i.date))).forEach(i=>{byVendor[i.vendor||'Other']=(byVendor[i.vendor||'Other']||0)+(+i.total||0);});
+  const sum=a=>a.reduce((x,y)=>x+y,0);
+  const owedGear=(DB.gearOrders||[]).filter(o=>!o.paid&&(+o.amount||0)>0).reduce((a,o)=>a+(+o.amount),0);
+  const owedApp=(DB.apparelOrders||[]).filter(o=>!o.paid&&(+o.total||0)>0).reduce((a,o)=>a+(+o.total),0);
+  // Testing
+  const tests=(DB.testEvents||[]).filter(e=>isPromotionEvent(e)&&e.date<=today).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4).map(e=>{const p=(DB.promotions||[]).filter(x=>x.eventId===e.id).length;const paid=(DB.testFees||[]).filter(f=>f.eventId===e.id&&f.paid).length;const mk=(DB.makeupTests||[]).filter(m=>m.eventId===e.id);return [e.name+' ('+fmtDate(e.date)+')',p,paid+' paid · '+mk.filter(m=>!m.resolved).length+' make-ups open'];});
+  // Feedback themes (latest test with letters)
+  const fbEv=(DB.testEvents||[]).filter(e=>(DB.parentFeedback||[]).some(f=>f.eventId===e.id)).sort((a,b)=>b.date.localeCompare(a.date))[0];
+  const themes={};if(fbEv)(DB.parentFeedback||[]).filter(f=>f.eventId===fbEv.id).forEach(f=>Object.keys(pfFocusFor(f)).forEach(t=>{themes[t]=(themes[t]||0)+1;}));
+  // Pipeline
+  const pros={};(DB.prospects||[]).forEach(p=>{pros[p.status||'new']=(pros[p.status||'new']||0)+1;});
+  const leads={};(_bizLeads||[]).forEach(l=>{leads[l.status||'Unknown']=(leads[l.status||'Unknown']||0)+1;});
+  const risk=atRiskList();
+  const retention=hist.length>=2?Math.round(hist[hist.length-1].students.filter(x=>hist[0].students.some(y=>y.id===x.id)).length/Math.max(1,hist[0].students.length)*100):null;
+  el.innerHTML=`
+    <div class="stats-row" style="margin-bottom:14px;">
+      ${tile('Active students',active.length,Object.keys(byGroup).length+' classes')}
+      ${tile('Registered this month',reg+' / '+active.length,(DB.scoreboard&&DB.scoreboard.label)||'',reg/Math.max(1,active.length)>=0.9?'good':'warn')}
+      ${tile('New (90 days)',new90,'first class in the last 90 days')}
+      ${tile('Attendance',lastAtt.t?Math.round(lastAtt.p/lastAtt.t*100)+'%':'—','last 2 months')}
+      ${tile('Still enrolled',retention!=null?retention+'%':'—',hist.length>=2?'of '+grEsc(hist[0].month)+' students, as of '+grEsc(hist[hist.length-1].month):'needs 2 monthly snapshots')}
+      ${tile('Need a check-in',risk.length,'see Dashboard',risk.length?'warn':'good')}
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;font-size:12px;align-items:center;"><span style="color:var(--ink-muted);">Range:</span>${[6,12,24].map(n=>`<button class="btn small ${_bizRange===n?'primary':''}" onclick="_bizRange=${n};renderBusiness()">${n} months</button>`).join('')}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px;">
+      ${sec('Enrollment by month',hist.length?bizColumns(hist.map(h=>h.month.replace(/ (\d{2})(\d{2})$/,' ’$2')),[{name:'Registered',color:'#16a34a',values:hist.map(h=>(h.students||[]).filter(x=>x.registered==='Yes').length)},{name:'Active, not registered',color:'#f59e0b',values:hist.map(h=>(h.students||[]).length-(h.students||[]).filter(x=>x.registered==='Yes').length)}]):'<div style="font-size:12px;color:var(--ink-muted);">Builds up each time you Advance Month.</div>','From each Advance Month snapshot.')}
+      ${sec('New students by month',bizColumns(months.map(bizLabel),[{name:'New students',color:'#5160ff',values:newByM}]))}
+      ${sec('Revenue by month',bizColumns(months.map(bizLabel),Object.keys(src).map(k=>({name:src[k],color:colors[k],values:rev[k].map(v=>Math.round(v))})),v=>'$'+Math.round(v)),'Cash basis, by month paid. Town registration = Town-registered students × your per-student amount. Total for the range: <strong>'+fmt$(sum(revTotal))+'</strong>.')}
+      ${sec('Spending by month',bizColumns(months.map(bizLabel),[{name:'Vendor invoices + workshop assistants',color:'#dc2626',values:spend.map(v=>Math.round(v))}],v=>'$'+Math.round(v))+bizBars(Object.entries(byVendor).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v]),v=>fmt$(v)),'Range total: <strong>'+fmt$(sum(spend))+'</strong> · Revenue − spending: <strong>'+fmt$(sum(revTotal)-sum(spend))+'</strong>')}
+      ${sec('Attendance rate by month',bizColumns(months.map(bizLabel),[{name:'Present %',color:'#0891b2',values:months.map(m=>att[m]&&att[m].t?Math.round(att[m].p/att[m].t*100):0)}],v=>v+'%'))}
+      ${sec('Attendance by class (last 60 days)',bizBars(Object.entries(att60).sort((a,b)=>a[0].localeCompare(b[0])).map(([g,x])=>[g,Math.round(x.p/Math.max(1,x.t)*100),x.p+'/'+x.t]),v=>v+'%'))}
+      ${sec('Active students by class',bizBars(Object.entries(byGroup).sort((a,b)=>b[1]-a[1])))}
+      ${sec('Belt tests',bizBars(tests.map(([k,v,sub])=>[k,v,sub])),'Promotions per test, with fees paid and open make-ups.')}
+      ${sec('What parents want worked on',fbEv?bizBars(Object.entries(themes).sort((a,b)=>b[1]-a[1]).slice(0,8)):'<div style="font-size:12px;color:var(--ink-muted);">No returned Intent letters yet.</div>',fbEv?'From '+grEsc(fbEv.name)+' Intent letters.':'')}
+      ${sec('Money owed to you',bizBars([['Gear orders',owedGear],['Apparel',owedApp]].filter(x=>x[1]>0),v=>fmt$(v))+`<div style="font-size:12px;margin-top:6px;"><a href="#" onclick="nav('gearorders');setTimeout(gearToggleOwing,200);return false;">See who owes →</a></div>`)}
+      ${sec('Pipeline',`<div style="font-size:12px;font-weight:600;margin:4px 0;">Prospects (${(DB.prospects||[]).length})</div>${bizBars(Object.entries(pros))}<div style="font-size:12px;font-weight:600;margin:10px 0 4px;">Workshop leads (${(_bizLeads||[]).length})</div>${_bizLeads===null?'<div style="font-size:12px;color:var(--ink-muted);">Loading…</div>':bizBars(Object.entries(leads))}<div style="font-size:12px;margin-top:6px;">Former students to win back: <strong>${DB.students.filter(s=>s.status!=='Active').length}</strong> — <a href="#" onclick="nav('emails');setTimeout(()=>{if(typeof bulkSelectInactive==='function')bulkSelectInactive();},200);return false;">email them</a></div>`)}
+      ${sec('Google reviews',DB.reviewLink?`<div style="font-size:13px;">Review link set ✓ — families promoted in the last 10 days show on the Dashboard with an "Ask for a review" button.</div><div style="font-size:12px;margin-top:6px;"><a href="#" onclick="grSetReviewLink();return false;">Change link</a> · <a href="${grEsc(DB.reviewLink)}" target="_blank" rel="noopener">Open it</a></div>`:`<div style="font-size:13px;">Add your Google review link to get "Ask for a review" prompts after each belt test.</div><button class="btn small primary" style="margin-top:8px;" onclick="grSetReviewLink()">Add review link</button>`)}
+    </div>
+    ${risk.length?sec('Students who may need a check-in ('+risk.length+')',risk.map(s=>`<div style="font-size:12px;padding:4px 0;border-top:1px solid var(--border);"><strong>${grEsc(s.first+' '+s.last)}</strong> <span style="color:var(--ink-muted);">${grEsc(s.group)}</span> — ${riskReasons(s).map(grEsc).join(' · ')} <a href="#" onclick="grEmailCheckin(${s.id});return false;">email</a></div>`).join('')):''}`;
+}
+
 </script>
 </html>
