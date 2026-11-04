@@ -14748,19 +14748,104 @@ function renderFamilies(){
   const banner=$('fam-banner');
   if(banner)banner.innerHTML=unassigned.length&&!famSetupState?`<div style="background:var(--amber-light);border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><span style="flex:1;">${unassigned.length} student${unassigned.length!==1?'s aren’t':' isn’t'} in a family yet.</span><button class="btn small primary" onclick="famOpenSetup()">${DB.families.length?'Group them':'Set up families'}</button></div>`:'';
   if(famOpenId&&famById(famOpenId)){renderFamilyEditor(famById(famOpenId));return;}
-  const q=famSearch.toLowerCase();
-  let fams=(DB.families||[]).slice();
-  if(q)fams=fams.filter(f=>f.name.toLowerCase().includes(q)||famMembers(f).some(s=>(s.first+' '+s.last).toLowerCase().includes(q))||(f.contacts||[]).some(c=>(c.name+' '+c.email+' '+c.phone).toLowerCase().includes(q)));
+  el.innerHTML=famListHTML();
+  famLoadPortalStat();
+}
+// ── Families list: filters, sorting, portal status ──
+let famFilter={group:'',portal:'',owing:false,inactive:true},famSort='name';
+let _famPortalStat=null,_famPortalStatAt=0,_famPortalStatBusy=false;
+function famLoadPortalStat(force){
+  if(_famPortalStatBusy||typeof portalCall!=='function')return;
+  if(!force&&_famPortalStat&&Date.now()-_famPortalStatAt<60000)return;
+  if(!(DB.families||[]).some(f=>(f.contacts||[]).some(c=>c.portal)))return;
+  _famPortalStatBusy=true;
+  portalCall('staff-activity',{}).then(r=>{
+    const m={};(r.guardians||[]).forEach(g=>{m[g.id]=g;});
+    _famPortalStat=m;_famPortalStatAt=Date.now();
+    if(currentPageIs('families')&&!famOpenId){const el=$('fam-list');if(el)el.innerHTML=famListHTML();}
+  }).catch(()=>{}).finally(()=>{_famPortalStatBusy=false;});
+}
+function currentPageIs(id){const p=$('page-'+id);return !!(p&&p.classList.contains('active'));}
+function famShortDate(ts){if(!ts)return'';const d=new Date(ts);return isNaN(d)?'':d.toLocaleDateString('en-US',{month:'short',day:'numeric'});}
+// none | access | invited | active
+function famContactPortal(f,c){
+  const g=_famPortalStat&&_famPortalStat[f.id+':'+c.id];
+  if(!c.portal)return {key:'none',rank:0};
+  const invited=(g&&g.invited_at)||c.invitedAt||null;
+  const seen=g&&g.last_seen;
+  if(seen)return {key:'active',rank:3,seen,invited,devices:(g.devices||[]).length};
+  if(invited)return {key:'invited',rank:2,invited};
+  return {key:'access',rank:1};
+}
+function famPortalChip(st){
+  const b=(bg,fg,t)=>`<span style="display:inline-block;background:${bg};color:${fg};border-radius:20px;padding:1px 8px;font-size:11px;font-weight:600;white-space:nowrap;">${t}</span>`;
+  if(st.key==='active')return b('var(--green-light,#e3f4e8)','var(--green,#2e7d4f)','✓ Signed in · last seen '+famShortDate(st.seen));
+  if(st.key==='invited')return b('var(--blue-light,#e4eefb)','var(--blue,#2563eb)','✉ Invited '+famShortDate(st.invited)+' · not signed in yet');
+  if(st.key==='access')return b('var(--amber-light,#fdf3dc)','#9a6700','🔑 Access on · invite not sent');
+  return b('var(--surface-2,#f1f1ee)','var(--ink-faint,#999)','No portal');
+}
+function famPortalBest(f){return Math.max(0,...(f.contacts||[]).map(c=>famContactPortal(f,c).rank));}
+function famLastSeen(f){return (f.contacts||[]).map(c=>famContactPortal(f,c).seen||'').sort().pop()||'';}
+function famGroups(f){return [...new Set(famMembers(f).filter(s=>s.status==='Active').map(s=>s.group).filter(Boolean))];}
+function famSetFilter(k,v){famFilter[k]=v;renderFamilies();}
+function famListHTML(){
+  const all=DB.families||[];
   const act=f=>famMembers(f).some(s=>s.status==='Active');
-  fams.sort((a,b)=>(act(b)-act(a))||a.name.localeCompare(b.name));
-  el.innerHTML=fams.length?`<div class="table-wrap"><table><thead><tr><th>Family</th><th>Students</th><th>Guardians</th><th>Open balance</th></tr></thead><tbody>${fams.map(f=>{
-    const kids=famMembers(f);const open=famOpenItems(f);
+  const info=new Map(all.map(f=>[f,{open:famOpenItems(f),best:famPortalBest(f)}]));
+  // Summary (active families)
+  const live=all.filter(act);
+  const cnt=k=>live.filter(f=>info.get(f).best===k).length;
+  const owingFams=live.filter(f=>info.get(f).open.total>0);
+  const owingTotal=owingFams.reduce((a,f)=>a+info.get(f).open.total,0);
+  const chip=(label,n,key,color)=>`<button class="btn small${famFilter.portal===key?' primary':''}" onclick="famSetFilter('portal',famFilter.portal==='${key}'?'':'${key}')" style="display:flex;flex-direction:column;align-items:flex-start;gap:0;padding:6px 12px;min-width:110px;"><span style="font-size:18px;font-weight:700;${famFilter.portal===key?'':'color:'+color+';'}">${n}</span><span style="font-size:11px;">${label}</span></button>`;
+  const stats=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+    ${chip('Active families',live.length,'all','var(--ink)')}
+    ${chip('Signed in',cnt(3),'active','var(--green,#2e7d4f)')}
+    ${chip('Invited, not signed in',cnt(2),'invited','var(--blue,#2563eb)')}
+    ${chip('Access on, not invited',cnt(1),'access','#9a6700')}
+    ${chip('No portal access',cnt(0),'none','var(--ink-muted)')}
+    <button class="btn small${famFilter.owing?' primary':''}" onclick="famSetFilter('owing',!famFilter.owing)" style="display:flex;flex-direction:column;align-items:flex-start;padding:6px 12px;min-width:110px;"><span style="font-size:18px;font-weight:700;${famFilter.owing?'':'color:var(--red);'}">${fmt$(owingTotal)}</span><span style="font-size:11px;">Owed · ${owingFams.length} famil${owingFams.length===1?'y':'ies'}</span></button>
+  </div>`;
+  const groups=[...new Set(DB.students.filter(s=>s.status==='Active').map(s=>s.group).filter(Boolean))].sort();
+  const controls=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:12px;">
+    <select class="form-input" style="width:auto;" onchange="famSetFilter('group',this.value)"><option value="">All classes</option>${groups.map(g=>`<option ${famFilter.group===g?'selected':''}>${famEsc(g)}</option>`).join('')}</select>
+    <select class="form-input" style="width:auto;" onchange="famSetFilter('portal',this.value)">
+      ${[['','Any portal status'],['active','Signed in'],['invited','Invited, not signed in'],['access','Access on, not invited'],['none','No portal access']].map(([v,t])=>`<option value="${v}" ${famFilter.portal===v?'selected':''}>${t}</option>`).join('')}</select>
+    <select class="form-input" style="width:auto;" onchange="famSort=this.value;renderFamilies()">
+      ${[['name','Sort: Family A–Z'],['class','Sort: Class'],['portal','Sort: Portal status'],['seen','Sort: Last portal visit'],['balance','Sort: Balance owed']].map(([v,t])=>`<option value="${v}" ${famSort===v?'selected':''}>${t}</option>`).join('')}</select>
+    <label><input type="checkbox" ${famFilter.inactive?'checked':''} onchange="famSetFilter('inactive',this.checked)"> Show inactive families</label>
+    ${(famFilter.group||famFilter.portal||famFilter.owing||famSearch)?`<a href="#" onclick="famFilter={group:'',portal:'',owing:false,inactive:famFilter.inactive};renderFamilies();return false;">Clear filters</a>`:''}
+  </div>`;
+  const q=famSearch.toLowerCase();
+  const pKey={active:3,invited:2,access:1,none:0};
+  let fams=all.filter(f=>{
+    if(!famFilter.inactive&&!act(f))return false;
+    if(famFilter.group&&!famGroups(f).includes(famFilter.group))return false;
+    if(famFilter.portal&&famFilter.portal!=='all'&&(info.get(f).best!==pKey[famFilter.portal]||!act(f)))return false;
+    if(famFilter.portal==='all'&&!act(f))return false;
+    if(famFilter.owing&&!(info.get(f).open.total>0))return false;
+    if(q&&!(f.name.toLowerCase().includes(q)||famMembers(f).some(s=>(s.first+' '+s.last).toLowerCase().includes(q))||(f.contacts||[]).some(c=>((c.name||'')+' '+(c.email||'')+' '+(c.phone||'')).toLowerCase().includes(q))))return false;
+    return true;
+  });
+  const byName=(a,b)=>a.name.localeCompare(b.name);
+  const sorters={
+    name:byName,
+    class:(a,b)=>(famGroups(a)[0]||'~').localeCompare(famGroups(b)[0]||'~')||byName(a,b),
+    portal:(a,b)=>info.get(b).best-info.get(a).best||byName(a,b),
+    seen:(a,b)=>famLastSeen(b).localeCompare(famLastSeen(a))||byName(a,b),
+    balance:(a,b)=>info.get(b).open.total-info.get(a).open.total||byName(a,b)
+  };
+  fams.sort((a,b)=>(act(b)-act(a))||(sorters[famSort]||byName)(a,b));
+  const note=_famPortalStat?'':(live.some(f=>(f.contacts||[]).some(c=>c.portal))?`<div style="font-size:11px;color:var(--ink-muted);margin-bottom:6px;">Loading sign-in status…</div>`:'');
+  const table=fams.length?`<div style="font-size:12px;color:var(--ink-muted);margin-bottom:6px;">Showing ${fams.length} of ${all.length} families</div><div class="table-wrap"><table><thead><tr><th>Family</th><th>Students · class · belt</th><th>Guardians &amp; portal</th><th>Open balance</th></tr></thead><tbody>${fams.map(f=>{
+    const kids=famMembers(f).slice().sort((a,b)=>(a.status==='Active'?0:1)-(b.status==='Active'?0:1));const open=info.get(f).open;
     return `<tr style="cursor:pointer;${act(f)?'':'opacity:.6;'}" onclick="famOpenId='${f.id}';renderFamilies()">
-      <td><strong>${famEsc(f.name)}</strong>${kids.length>1?` <span class="badge badge-blue" style="font-size:10px;">${kids.length} kids</span>`:''}</td>
-      <td style="font-size:12px;">${kids.map(s=>famEsc(s.first)+(s.status!=='Active'?' <span style="color:var(--ink-faint);">(inactive)</span>':'')).join(', ')||'<span style="color:var(--ink-faint);">none</span>'}</td>
-      <td style="font-size:12px;">${(f.contacts||[]).map(c=>famEsc(c.name||c.email||c.phone)).join('<br>')||'—'}</td>
-      <td style="font-size:12px;">${open.total>0?`<span style="color:var(--red);font-weight:600;">${fmt$(open.total)}</span>`:'<span style="color:var(--ink-faint);">—</span>'}</td></tr>`;}).join('')}</tbody></table></div>`
-    :`<div style="color:var(--ink-muted);font-size:13px;padding:20px;text-align:center;">${DB.families.length?'No families match.':'No families yet — click Set up families above.'}</div>`;
+      <td style="vertical-align:top;"><strong>${famEsc(f.name)}</strong>${kids.length>1?` <span class="badge badge-blue" style="font-size:10px;">${kids.length} kids</span>`:''}</td>
+      <td style="font-size:12px;vertical-align:top;">${kids.map(s=>`<div style="margin-bottom:3px;"><strong>${famEsc(s.first)}</strong>${s.status!=='Active'?' <span style="color:var(--ink-faint);">(inactive)</span>':` <span style="color:var(--ink-muted);">· ${famEsc(s.group||'')}${s.belt?' · '+famEsc(s.belt):''}${typeof missingFromRoster==='function'&&missingFromRoster(s)?' · <span style="color:var(--red);">not registered</span>':''}</span>`}</div>`).join('')||'<span style="color:var(--ink-faint);">none</span>'}</td>
+      <td style="font-size:12px;vertical-align:top;">${(f.contacts||[]).map(c=>`<div style="margin-bottom:5px;"><div>${famEsc(c.name||c.email||c.phone||'—')}${c.name&&c.email?` <span style="color:var(--ink-faint);">${famEsc(c.email)}</span>`:''}${!c.email?' <span style="color:var(--red);">no email</span>':''}</div>${famPortalChip(famContactPortal(f,c))}</div>`).join('')||'—'}</td>
+      <td style="font-size:12px;vertical-align:top;">${open.total>0?`<span style="color:var(--red);font-weight:600;">${fmt$(open.total)}</span>`:'<span style="color:var(--ink-faint);">—</span>'}</td></tr>`;}).join('')}</tbody></table></div>`
+    :`<div style="color:var(--ink-muted);font-size:13px;padding:20px;text-align:center;">${all.length?'No families match.':'No families yet — click Set up families above.'}</div>`;
+  return (all.length?stats+controls+note:'')+table;
 }
 function famEdit(fid,fn){const f=famById(fid);if(!f)return;fn(f);famSyncFamily(f);save();renderFamilies();}
 function famSetName(fid,v){const f=famById(fid);if(f){f.name=v;save();}}
@@ -15935,6 +16020,7 @@ async function portalInvite(fid,cid,mode){
   const kids=famMembers(f).filter(s=>s.status==='Active'&&(!c.students||!c.students.length||c.students.includes(s.id))).map(s=>s.first);
   let link;
   try{toast('Creating sign-in link…');link=await portalInviteLink(fid,cid);}catch(e){alert('Couldn\'t create the invite: '+e.message);return;}
+  c.invitedAt=new Date().toISOString();save();_famPortalStatAt=0;
   if(mode==='copy'){
     try{await navigator.clipboard.writeText(link.url);toast('Sign-in link copied — it works once, within 3 days.');}catch(e){prompt('Copy this sign-in link (works once, within 3 days):',link.url);}
     return;
