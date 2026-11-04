@@ -16419,9 +16419,13 @@ function riskReasons(s){
   const days=Object.keys(DB.attendance||{}).filter(d=>d<=localToday()&&DB.attendance[d]&&Object.keys(DB.attendance[d]).length).sort();
   const mine=days.filter(d=>DB.attendance[d][s.id]!=null).slice(-3);
   const missed=mine.filter(d=>DB.attendance[d][s.id]!=='present').length;
-  if(mine.length>=3&&missed>=2)out.push('Missed '+missed+' of the last 3 classes');
-  const c=classesThisCycle(s);
-  if(c.held>=4&&c.present/c.held<0.5&&!out.length)out.push('Only '+c.present+' of '+c.held+' classes this cycle');
+  // Showing up to the most recent class clears the attendance warnings.
+  const backInClass=mine.length&&DB.attendance[mine[mine.length-1]][s.id]==='present';
+  if(!backInClass){
+    if(mine.length>=3&&missed>=2)out.push('Missed '+missed+' of the last 3 classes');
+    const c=classesThisCycle(s);
+    if(c.held>=4&&c.present/c.held<0.5&&!out.length)out.push('Only '+c.present+' of '+c.held+' classes this cycle');
+  }
   if(typeof missingFromRoster==='function'&&missingFromRoster(s))out.push('Not on this month\'s roster');
   return out;
 }
