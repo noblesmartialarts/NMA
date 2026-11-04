@@ -15940,18 +15940,55 @@ async function portalInvite(fid,cid,mode){
     return;
   }
   const names=kids.length>1?kids.slice(0,-1).join(', ')+' & '+kids[kids.length-1]:(kids[0]||'your student');
-  const body='Hi there,\n\n'+
-    'You now have access to the Noble\'s Martial Arts family portal. You can see '+names+'\'s belt progress, upcoming tests, attendance, what they\'re working on this cycle (with practice videos), and any open balance. You can also return Intent to Promote letters right from your phone.\n\n'+
-    'Open your portal (this link signs you in once and expires in 3 days):\n'+link.url+'\n\n'+
-    'After that, visit noblesmartialarts.com/family any time and sign in with this email address — we\'ll email you a code. To add another phone or computer, open the portal and tap "Sign in on another device".\n\n'+
-    'Sensei Brandon\nNoble\'s Martial Arts';
+  const body=[
+    "Hi there,",
+    "",
+    "Welcome to the NMA Family Portal! It's one private place to see how "+names+(kids.length>1?" are":" is")+" doing, stay on top of what's coming up, and reach me — no more digging through emails or wondering where things stand.",
+    "",
+    "GET STARTED",
+    "Tap this link to open your portal (it signs you in once and expires in 3 days):",
+    link.url,
+    "",
+    "After that, go to noblesmartialarts.com/family any time and enter this email address. We'll email you a 6-digit code — no password to remember. Tip: add the page to your phone's home screen so it's one tap away.",
+    "",
+    "WHAT YOU'LL FIND",
+    "• Belt progress — current rank, stripes earned, and what's needed before the next test.",
+    "• Notes from Sensei — the Good Job notes I write when your student earns a stripe or shows great effort.",
+    "• Classes — upcoming class dates and times, plus any days with no class.",
+    "• Attendance — the classes your student has attended.",
+    "• Practice videos — what they're working on this cycle, so they can practice at home.",
+    "• Balance — anything owed for gear, apparel or test fees, with Venmo, Zelle and PayPal buttons to pay in a couple of taps.",
+    "• Gear orders — the link for your student's next gear package or weapon, shown when it's time to order.",
+    "• Registration — a reminder and the Town's registration link when next month's sign-up is open, so you don't miss the deadline.",
+    "",
+    "WHAT YOU CAN DO",
+    "• Return Intent to Promote letters — when a letter is ready, you'll get an email. Fill it out on your phone and pay the $10 test fee right there.",
+    "• Mark an upcoming absence — let me know ahead of time if your student will miss a class.",
+    "• Message Sensei Brandon — questions, concerns or updates come straight to me, and I'll reply by email.",
+    "• Share feedback — tell me what's working and what could be better (you can choose to stay anonymous).",
+    "• Update your contact info — new phone number or email? Send it and I'll update our records.",
+    "• Add another guardian — request portal access for a spouse, grandparent or caregiver.",
+    "• Use more than one device — open the portal and tap \"Sign in on another device\" to add a tablet or computer.",
+    "",
+    "WHEN YOU'LL HEAR FROM THE PORTAL",
+    "You'll get an email when an Intent to Promote letter is ready for you, a reminder a few days before the registration deadline, and a heads-up if your account is signed in on a new device. Nothing else — no spam.",
+    "",
+    "PRIVACY",
+    "Only the guardians I've approved can see your family's information. You'll only see your own students, and no other families can see anything about yours.",
+    "",
+    "Questions or trouble signing in? Just reply to this email.",
+    "",
+    "See you on the mat,",
+    "Sensei Brandon",
+    "Noble's Martial Arts"
+  ].join('\n');
   if(!gmailToken&&typeof gmailRefresh==='function')await gmailRefresh(true);
   if(!gmailToken){
     try{await navigator.clipboard.writeText(body);}catch(e){}
     alert('Gmail isn\'t connected, so the invite wasn\'t emailed. The full invite message (with the link) is copied — paste it into an email or text to '+(c.email||'them')+'.');
     return;
   }
-  const ok=await sendGmailMessage(c.email,'Your Noble\'s Martial Arts family portal',body);
+  const ok=await sendGmailMessage(c.email,'Welcome to the NMA Family Portal',body);
   if(ok){
     if(!DB.commLog)DB.commLog=[];
     kids.forEach(n=>{const s=famMembers(f).find(x=>x.first===n);if(s&&typeof addHistory==='function')addHistory(s,'note','Family portal invite emailed to '+c.email);});
