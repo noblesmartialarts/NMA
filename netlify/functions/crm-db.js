@@ -6,7 +6,7 @@
 const S = require('../lib/session');
 
 const TABLES = new Set([
-  'crm_data', 'workshop_leads', 'nma_sale_items', 'nma_sale_orders',
+  'crm_data', 'workshop_leads', 'workshop_participants', 'nma_sale_items', 'nma_sale_orders',
   'private_lesson_bookings', 'private_lesson_packages', 'private_lesson_clients',
   'private_lesson_participants', 'private_lesson_services', 'private_lesson_availability',
 ]);

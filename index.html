@@ -1287,7 +1287,7 @@ tbody td{font-size:11px!important;}
 <!-- WORKSHOPS PAGE -->
 <div id="page-workshops" class="page">
   <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-    <div><div class="page-title">Workshops</div><div class="page-subtitle">Corporate &amp; Community Safety Workshops — direct-pay revenue, tracked separately from tuition</div></div>
+    <div><div class="page-title">Workshops</div><div class="page-subtitle">Group, community &amp; corporate self-defense workshops — direct-pay revenue, tracked separately from tuition</div></div>
     <button class="btn primary" onclick="openAddWorkshop()">+ Add Workshop Lead</button>
   </div>
 
@@ -1302,7 +1302,7 @@ tbody td{font-size:11px!important;}
       <thead><tr>
         <th>Organization</th><th>Contact</th><th>Status</th>
         <th style="cursor:pointer;" onclick="sortWorkshops('session_date')">Dates ⇅</th>
-        <th>Tier / Amount</th><th>Assistant</th><th>Net Revenue</th><th>Source</th><th>✓</th><th>Actions</th>
+        <th>Tier / Amount</th><th>Assistant</th><th>Net Revenue</th><th>Found us via</th><th>Roster</th><th>Actions</th>
       </tr></thead>
       <tbody id="workshop-tbody"></tbody>
     </table>
@@ -1314,47 +1314,43 @@ tbody td{font-size:11px!important;}
 
 <!-- WORKSHOP MODAL -->
 <div class="modal-backdrop" id="modal-workshop">
-  <div class="modal" style="max-width:560px;">
+  <div class="modal" style="max-width:640px;">
     <div class="modal-header"><div class="modal-title" id="workshop-modal-title">Add Workshop Lead</div><button class="btn ghost" onclick="closeModal('modal-workshop')">✕</button></div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="form-group full"><label class="form-label">Organization name</label><input class="form-input" id="wk-org" placeholder="e.g. Grace Community Church"></div>
+        <div class="form-group full" style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em;">Organizer</div>
+        <div class="form-group"><label class="form-label">Organization / group name <span style="color:var(--ink-faint);font-weight:400;">(optional)</span></label><input class="form-input" id="wk-org" placeholder="e.g. Grace Community Church"></div>
         <div class="form-group"><label class="form-label">Contact name</label><input class="form-input" id="wk-contact-name" placeholder="Jane Smith"></div>
-        <div class="form-group"><label class="form-label">Type</label>
-          <select class="form-select" id="wk-type">
-            <option>Church</option><option>Corporate</option><option>Community/Neighborhood</option>
-            <option>Healthcare</option><option>Real Estate</option><option>School</option>
-            <option>Friend Group/Celebration</option><option>Other</option>
-          </select>
-        </div>
         <div class="form-group"><label class="form-label">Contact email</label><input class="form-input" id="wk-contact-email" type="email" placeholder="jane@email.com"></div>
         <div class="form-group"><label class="form-label">Contact phone</label><input class="form-input" id="wk-contact-phone" type="tel" placeholder="(919) 555-0100"></div>
-        <div class="form-group"><label class="form-label">Status</label>
-          <select class="form-select" id="wk-status">
-            <option>Not Contacted</option><option>Contacted</option><option>Scheduled</option>
-            <option>Completed</option><option>Recurring/Follow-up</option><option>Declined</option>
-          </select>
-        </div>
-        <div class="form-group"><label class="form-label">Source</label>
-          <select class="form-select" id="wk-source">
-            <option>Referral</option><option>Cold Email</option><option>Facebook Post</option>
-            <option>Networking Event</option><option>Website Inquiry</option><option>Other</option>
-          </select>
-        </div>
+        <div class="form-group"><label class="form-label">Type</label><select class="form-select" id="wk-type"></select></div>
+        <div class="form-group"><label class="form-label">How they found NMA</label><select class="form-select" id="wk-source"></select></div>
+
+        <div class="form-group full" style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em;margin-top:6px;">Pipeline</div>
+        <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="wk-status"></select></div>
         <div class="form-group"><label class="form-label">Date contacted</label><input class="form-input" id="wk-date-contacted" type="date"></div>
-        <div class="form-group"><label class="form-label">Session date <span style="color:var(--ink-faint);font-weight:400;">(once scheduled)</span></label><input class="form-input" id="wk-session-date" type="date"></div>
-        <div class="form-group"><label class="form-label">Tier</label>
-          <select class="form-select" id="wk-tier" onchange="applyWorkshopTierDefault()">
-            <option>Starter $300</option><option>Standard $450</option><option>Expanded $600</option>
-            <option>Custom $700+</option><option>Free/Comp</option>
-          </select>
-        </div>
+        <div class="form-group"><label class="form-label">Follow-up date</label><input class="form-input" id="wk-follow-up" type="date"></div>
+        <div class="form-group"><label class="form-label">Payment</label><select class="form-select" id="wk-payment"></select></div>
+
+        <div class="form-group full" style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em;margin-top:6px;">Session</div>
+        <div class="form-group"><label class="form-label">Session date</label><input class="form-input" id="wk-session-date" type="date"></div>
+        <div class="form-group"><label class="form-label">Start time</label><input class="form-input" id="wk-session-time" type="time"></div>
+        <div class="form-group full"><label class="form-label">Location / venue</label><input class="form-input" id="wk-location" placeholder="Venue name and address"></div>
+        <div class="form-group"><label class="form-label">Series name <span style="color:var(--ink-faint);font-weight:400;">(if part of a series)</span></label><input class="form-input" id="wk-series" placeholder="e.g. Mother-Daughter Series"></div>
+        <div class="form-group"><label class="form-label">Session #</label><input class="form-input" id="wk-session-number" type="number" min="1" placeholder="1"></div>
+        <div class="form-group"><label class="form-label">Expected headcount</label><input class="form-input" id="wk-expected" type="number" min="0" placeholder="20" oninput="wkCapacityHint()"></div>
+        <div class="form-group"><label class="form-label">Actual headcount</label><input class="form-input" id="wk-actual" type="number" min="0" placeholder="(after the session)"></div>
+
+        <div class="form-group full" style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em;margin-top:6px;">Pricing &amp; staffing</div>
+        <div class="form-group"><label class="form-label">Tier</label><select class="form-select" id="wk-tier" onchange="applyWorkshopTierDefault();wkCapacityHint();"></select></div>
         <div class="form-group"><label class="form-label">Amount charged ($)</label><input class="form-input" id="wk-amount" type="number" step="0.01" min="0" placeholder="450.00"></div>
+        <div class="form-group full" id="wk-capacity-hint" style="display:none;font-size:12px;color:var(--amber);"></div>
         <div class="form-group"><label class="form-label">Assistant instructor</label><input class="form-input" id="wk-assistant-name" placeholder="e.g. Luther — leave blank if solo"></div>
         <div class="form-group"><label class="form-label">Assistant pay ($)</label><input class="form-input" id="wk-assistant-pay" type="number" step="0.01" min="0" placeholder="0.00"></div>
-        <div class="form-group full" style="display:flex;gap:20px;padding-top:4px;">
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wk-testimonial"> Testimonial obtained</label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wk-photo"> Photo/Video obtained</label>
+
+        <div class="form-group full" style="display:flex;gap:20px;flex-wrap:wrap;padding-top:4px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wk-testimonial"> Testimonial received</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wk-photo"> Photos/reels received</label>
         </div>
         <div class="form-group full"><label class="form-label">Notes</label><textarea class="form-input" id="wk-notes" rows="3" placeholder="Booking details, special requests, follow-up plans…"></textarea></div>
       </div>
@@ -1362,6 +1358,54 @@ tbody td{font-size:11px!important;}
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-workshop')">Cancel</button>
       <button class="btn primary" onclick="saveWorkshop()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- WORKSHOP PARTICIPANTS MODAL -->
+<div class="modal-backdrop" id="modal-wk-participants">
+  <div class="modal" style="max-width:920px;">
+    <div class="modal-header"><div><div class="modal-title" id="wkp-title">Participants</div><div id="wkp-subtitle" style="font-size:12px;color:var(--ink-muted);"></div></div><button class="btn ghost" onclick="closeModal('modal-wk-participants')">✕</button></div>
+    <div class="modal-body">
+      <div id="wkp-summary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        <button class="btn small" onclick="wkpCopyOptOuts()">📵 Copy no-filming list</button>
+        <button class="btn small" onclick="wkpCopyEmails()">✉️ Copy emails</button>
+        <button class="btn small" onclick="wkpPrintSheet()">🖨️ Print check-in sheet</button>
+      </div>
+
+      <div style="background:var(--paper);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;" id="wkp-form-title">Add participant</div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">Full name</label><input class="form-input" id="wkp-name" placeholder="First Last"></div>
+          <div class="form-group"><label class="form-label">Role</label><select class="form-select" id="wkp-role"><option>Teen</option><option>Parent/Guardian</option><option>Adult</option></select></div>
+          <div class="form-group"><label class="form-label">Age</label><input class="form-input" id="wkp-age" type="number" min="1" max="120"></div>
+          <div class="form-group"><label class="form-label">Paired with <span style="color:var(--ink-faint);font-weight:400;">(mom / daughter)</span></label><input class="form-input" id="wkp-paired" placeholder="Partner's name"></div>
+          <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="wkp-email" type="email"></div>
+          <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="wkp-phone" type="tel"></div>
+          <div class="form-group full"><label class="form-label">Emergency contact</label><input class="form-input" id="wkp-emergency" placeholder="Name and phone"></div>
+          <div class="form-group"><label class="form-label">Photo/video consent</label><select class="form-select" id="wkp-media"><option>Unknown</option><option>Yes</option><option>No</option></select></div>
+          <div class="form-group" style="display:flex;flex-direction:column;gap:6px;justify-content:flex-end;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wkp-waiver"> Waiver signed</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wkp-interest"> Interested in adult class</label>
+          </div>
+          <div class="form-group full"><label class="form-label">Notes</label><input class="form-input" id="wkp-notes" placeholder="Injuries, accommodations, anything to know"></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
+          <button class="btn small" id="wkp-cancel-edit" style="display:none;" onclick="wkpResetForm()">Cancel edit</button>
+          <button class="btn primary small" id="wkp-save-btn" onclick="wkpSave()">+ Add participant</button>
+        </div>
+      </div>
+
+      <div class="table-wrap" style="border-radius:12px;">
+        <table>
+          <thead><tr><th>Name</th><th>Role</th><th>Paired with</th><th>Contact</th><th>Waiver</th><th>Photo/video</th><th>Attended</th><th>Adult class</th><th></th></tr></thead>
+          <tbody id="wkp-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-wk-participants')">Done</button>
     </div>
   </div>
 </div>
@@ -9579,12 +9623,39 @@ function enrollProspect() {
 const WORKSHOP_STATUS_LABELS={
   'Not Contacted':{color:'var(--ink-muted)',bg:'var(--paper)'},
   'Contacted':{color:'var(--blue)',bg:'var(--blue-light)'},
+  'Proposal Sent':{color:'var(--blue)',bg:'var(--blue-light)'},
   'Scheduled':{color:'var(--amber)',bg:'var(--amber-light)'},
   'Completed':{color:'var(--green)',bg:'var(--green-light)'},
   'Recurring/Follow-up':{color:'var(--purple)',bg:'var(--purple-light)'},
   'Declined':{color:'var(--red)',bg:'var(--red-light)'}
 };
 const WORKSHOP_TIER_DEFAULTS={'Starter $300':300,'Standard $450':450,'Expanded $600':600,'Custom $700+':700,'Free/Comp':0};
+// Group-size caps from the published workshop tiers (Custom / Comp have no fixed cap)
+const WORKSHOP_TIER_CAPS={'Starter $300':12,'Standard $450':20,'Expanded $600':25};
+const WORKSHOP_TYPES=['Parent Group',"Mother-Daughter / Women's",'School','Church','Corporate','Community/Neighborhood','Healthcare','Real Estate','Friend Group/Celebration','Other'];
+const WORKSHOP_SOURCES=['ChatGPT / AI Assistant','Google Search','Google Maps / Business Profile','Instagram','Facebook','Referral','Previous NMA Family','Website Inquiry','Cold Email','Networking Event','Other'];
+const WORKSHOP_PAYMENT=['Unpaid','Deposit Paid','Paid in Full','Comp'];
+// Fills a <select> from a list. A stored value that isn't in the list (older data,
+// or something Luther's tool wrote) is added as its own option so saving never blanks it.
+function wkFillSelect(id,list,value){
+  const el=$(id);if(!el)return;
+  const opts=list.slice();
+  if(value&&!opts.includes(value))opts.push(value);
+  el.innerHTML=opts.map(o=>`<option value="${famEsc(o)}">${famEsc(o)}</option>`).join('');
+  el.value=value&&opts.includes(value)?value:opts[0];
+}
+function wkCapacityHint(){
+  const el=$('wk-capacity-hint');if(!el)return;
+  const cap=WORKSHOP_TIER_CAPS[$('wk-tier').value];
+  const n=parseInt($('wk-expected').value,10);
+  if(cap&&n>cap){el.style.display='';el.textContent=`⚠️ ${n} expected is over this tier's ${cap}-person cap — consider a larger tier or splitting into two sessions.`;}
+  else{el.style.display='none';el.textContent='';}
+}
+function wkFollowUpDue(w){
+  if(!w.follow_up_date||w.status==='Declined')return false;
+  return w.follow_up_date<=localToday();
+}
+function wkDisplayName(w){return w.organization||w.contact_name||'—';}
 let _editingWorkshopId=null;
 let _workshopFilter=null;
 let _workshopSort={field:'session_date',dir:'desc'};
@@ -9649,7 +9720,7 @@ async function refreshWorkshopLeads(){
 }
 
 async function renderWorkshops(){
-  await refreshWorkshopLeads();
+  await Promise.all([refreshWorkshopLeads(),refreshWorkshopParticipantSummary()]);
   renderWorkshopPipeline();
   renderWorkshopRevenueStats();
   renderWorkshopTable();
@@ -9687,10 +9758,14 @@ function renderWorkshopRevenueStats(){
   const thisQuarter=completed.filter(w=>{const d=w.session_date?new Date(w.session_date):null;return d&&d.getFullYear()===today.getFullYear()&&d.getMonth()>=qStart&&d.getMonth()<qStart+3;});
   const sum=arr=>arr.reduce((a,w)=>a+workshopNetRevenue(w),0);
   const allTimeNet=sum(completed);
+  const booked=(_workshopLeads||[]).filter(w=>w.status==='Scheduled');
+  const due=(_workshopLeads||[]).filter(wkFollowUpDue);
   el.innerHTML=`
+    <div class="stat-card"><div class="stat-label">Booked — upcoming</div><div class="stat-value" style="font-size:20px;">${fmt$(sum(booked))}</div><div class="stat-sub">${booked.length} scheduled (net)</div></div>
     <div class="stat-card good"><div class="stat-label">Net revenue — this month</div><div class="stat-value" style="font-size:20px;">${fmt$(sum(thisMonth))}</div><div class="stat-sub">${thisMonth.length} completed</div></div>
     <div class="stat-card good"><div class="stat-label">Net revenue — this quarter</div><div class="stat-value" style="font-size:20px;">${fmt$(sum(thisQuarter))}</div><div class="stat-sub">${thisQuarter.length} completed</div></div>
-    <div class="stat-card good"><div class="stat-label">Net revenue — all time</div><div class="stat-value" style="font-size:20px;">${fmt$(allTimeNet)}</div><div class="stat-sub">${completed.length} completed total</div></div>`;
+    <div class="stat-card good"><div class="stat-label">Net revenue — all time</div><div class="stat-value" style="font-size:20px;">${fmt$(allTimeNet)}</div><div class="stat-sub">${completed.length} completed total</div></div>
+    <div class="stat-card${due.length?' warn':''}"><div class="stat-label">Follow-ups due</div><div class="stat-value" style="font-size:20px;">${due.length}</div><div class="stat-sub">${due.length?due.map(w=>famEsc(wkDisplayName(w))).slice(0,2).join(', '):'Nothing due'}</div></div>`;
 }
 
 function sortWorkshops(field){
@@ -9715,78 +9790,103 @@ function renderWorkshopTable(){
     tbody.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--ink-muted);">${(_workshopLeads||[]).length?'No workshops match this filter.':'No workshop leads yet — click "+ Add Workshop Lead" to start tracking.'}</td></tr>`;
     return;
   }
+  const E=famEsc;
   tbody.innerHTML=rows.map(w=>{
     const st=WORKSHOP_STATUS_LABELS[w.status]||WORKSHOP_STATUS_LABELS['Not Contacted'];
     const net=workshopNetRevenue(w);
-    const assistant=w.assistant_name?`${w.assistant_name}${w.assistant_pay?' ('+fmt$(w.assistant_pay)+')':''}`:'<span style="color:var(--ink-faint);">Solo</span>';
+    const assistant=w.assistant_name?`${E(w.assistant_name)}${w.assistant_pay?' ('+fmt$(w.assistant_pay)+')':''}`:'<span style="color:var(--ink-faint);">Solo</span>';
     const marks=(w.testimonial_obtained?'💬':'')+(w.photo_obtained?'📷':'');
+    const cap=WORKSHOP_TIER_CAPS[w.tier];
+    const head=w.actual_count||w.expected_count;
+    const over=cap&&head>cap;
+    const ps=_wkPartSummary[w.id]||{n:0,waivers:0,optOut:0,unknown:0};
+    const rosterBtn=`<button class="btn small" onclick="openWorkshopParticipants('${E(w.id)}')" title="Participants, waivers and photo consent">👥 ${ps.n}${ps.n?` · ${ps.waivers}/${ps.n} waivers`:''}</button>${ps.optOut?`<div style="font-size:11px;color:var(--red);margin-top:3px;">📵 ${ps.optOut} no filming</div>`:''}${ps.unknown?`<div style="font-size:11px;color:var(--amber);margin-top:3px;">${ps.unknown} consent unknown</div>`:''}`;
+    const series=w.series_name?`<div style="font-size:11px;color:var(--purple);">${E(w.series_name)}${w.session_number?' · #'+E(w.session_number):''}</div>`:'';
+    const due=wkFollowUpDue(w)?`<div style="font-size:11px;color:var(--red);font-weight:600;margin-top:3px;">⏰ Follow-up due ${fmtDate(w.follow_up_date)}</div>`:(w.follow_up_date&&w.status!=='Declined'?`<div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">Follow up ${fmtDate(w.follow_up_date)}</div>`:'');
+    const payColor=w.payment_status==='Paid in Full'?'var(--green)':w.payment_status==='Deposit Paid'?'var(--amber)':'var(--ink-muted)';
     return `<tr>
-      <td><strong>${w.organization||'—'}</strong><div style="font-size:11px;color:var(--ink-muted);">${w.type||''}</div></td>
-      <td style="font-size:12px;">${w.contact_name||''}${w.contact_email?'<div style="font-size:11px;color:var(--ink-faint);">'+w.contact_email+'</div>':''}${w.contact_phone?'<div style="font-size:11px;color:var(--ink-faint);">'+w.contact_phone+'</div>':''}</td>
-      <td><span class="badge" style="background:${st.bg};color:${st.color};">${w.status}</span></td>
-      <td style="font-size:12px;">${w.date_contacted?'Contacted: '+fmtDate(w.date_contacted):''}${w.session_date?'<div>Session: '+fmtDate(w.session_date)+'</div>':''}</td>
-      <td style="font-size:12px;">${w.tier||''}${w.amount_charged?'<div><strong>'+fmt$(w.amount_charged)+'</strong></div>':''}</td>
+      <td><strong>${E(wkDisplayName(w))}</strong><div style="font-size:11px;color:var(--ink-muted);">${E(w.type||'')}</div>${series}</td>
+      <td style="font-size:12px;">${w.organization?E(w.contact_name||''):''}${w.contact_email?'<div style="font-size:11px;color:var(--ink-faint);">'+E(w.contact_email)+'</div>':''}${w.contact_phone?'<div style="font-size:11px;color:var(--ink-faint);">'+E(w.contact_phone)+'</div>':''}</td>
+      <td><span class="badge" style="background:${st.bg};color:${st.color};">${E(w.status||'')}</span>${due}</td>
+      <td style="font-size:12px;">${w.date_contacted?'Contacted: '+fmtDate(w.date_contacted):''}${w.session_date?'<div>Session: <strong>'+fmtDate(w.session_date)+'</strong>'+(w.session_time?' '+E(fmtWkTime(w.session_time)):'')+'</div>':''}${w.location?'<div style="font-size:11px;color:var(--ink-muted);">📍 '+E(w.location)+'</div>':''}</td>
+      <td style="font-size:12px;">${E(w.tier||'')}${w.amount_charged?'<div><strong>'+fmt$(w.amount_charged)+'</strong></div>':''}${w.payment_status?'<div style="font-size:11px;color:'+payColor+';">'+E(w.payment_status)+'</div>':''}${head?'<div style="font-size:11px;color:'+(over?'var(--red)':'var(--ink-muted)')+';">'+(over?'⚠️ ':'')+E(head)+(cap?' / '+cap:'')+' people</div>':''}</td>
       <td style="font-size:12px;">${assistant}</td>
       <td><strong style="color:${net>=0?'var(--green)':'var(--red)'};">${fmt$(net)}</strong></td>
-      <td style="font-size:12px;color:var(--ink-muted);">${w.source||''}</td>
-      <td style="font-size:14px;">${marks}</td>
-      <td style="white-space:nowrap;"><button class="btn small" onclick="editWorkshop('${w.id}')">Edit</button> <button class="btn small danger" onclick="deleteWorkshop('${w.id}')">✕</button></td>
+      <td style="font-size:12px;color:var(--ink-muted);">${E(w.source||'')}</td>
+      <td style="font-size:12px;">${rosterBtn}${marks?'<div style="font-size:14px;margin-top:3px;">'+marks+'</div>':''}</td>
+      <td style="white-space:nowrap;"><button class="btn small" onclick="editWorkshop('${E(w.id)}')">Edit</button> <button class="btn small danger" onclick="deleteWorkshop('${E(w.id)}')">✕</button></td>
     </tr>`;
   }).join('');
 }
-
-function openAddWorkshop(){
-  _editingWorkshopId=null;
-  $('workshop-modal-title').textContent='Add Workshop Lead';
-  ['wk-org','wk-contact-name','wk-contact-email','wk-contact-phone','wk-assistant-name','wk-assistant-pay','wk-notes'].forEach(id=>{if($(id))$(id).value='';});
-  $('wk-type').value='Church';
-  $('wk-status').value='Not Contacted';
-  $('wk-source').value='Referral';
-  $('wk-tier').value='Starter $300';
-  $('wk-amount').value='';$('wk-amount').dataset.autoFilled='';
-  $('wk-date-contacted').value=localToday();
-  $('wk-session-date').value='';
-  $('wk-testimonial').checked=false;
-  $('wk-photo').checked=false;
-  $('modal-workshop').classList.add('open');
+function fmtWkTime(t){
+  const m=/^(\d{1,2}):(\d{2})/.exec(t||'');if(!m)return t||'';
+  let h=+m[1];const ap=h>=12?'PM':'AM';h=h%12||12;return h+':'+m[2]+' '+ap;
 }
 
-function editWorkshop(id){
-  const w=(_workshopLeads||[]).find(x=>x.id===id);if(!w)return;
-  _editingWorkshopId=id;
-  $('workshop-modal-title').textContent='Edit Workshop Lead';
+function wkFillForm(w){
+  w=w||{};
   $('wk-org').value=w.organization||'';
   $('wk-contact-name').value=w.contact_name||'';
   $('wk-contact-email').value=w.contact_email||'';
   $('wk-contact-phone').value=w.contact_phone||'';
-  $('wk-type').value=w.type||'Church';
-  $('wk-status').value=w.status||'Not Contacted';
-  $('wk-source').value=w.source||'Referral';
-  $('wk-date-contacted').value=w.date_contacted||'';
+  wkFillSelect('wk-type',WORKSHOP_TYPES,w.type||'Other');
+  wkFillSelect('wk-source',WORKSHOP_SOURCES,w.source||'Other');
+  wkFillSelect('wk-status',Object.keys(WORKSHOP_STATUS_LABELS),w.status||'Not Contacted');
+  wkFillSelect('wk-payment',WORKSHOP_PAYMENT,w.payment_status||'Unpaid');
+  wkFillSelect('wk-tier',Object.keys(WORKSHOP_TIER_DEFAULTS),w.tier||'Starter $300');
+  $('wk-date-contacted').value=w.id?(w.date_contacted||''):localToday();
+  $('wk-follow-up').value=w.follow_up_date||'';
   $('wk-session-date').value=w.session_date||'';
-  $('wk-tier').value=w.tier||'Starter $300';
-  $('wk-amount').value=w.amount_charged!=null?w.amount_charged:'';
+  $('wk-session-time').value=(w.session_time||'').slice(0,5);
+  $('wk-location').value=w.location||'';
+  $('wk-series').value=w.series_name||'';
+  $('wk-session-number').value=w.session_number!=null?w.session_number:'';
+  $('wk-expected').value=w.expected_count!=null?w.expected_count:'';
+  $('wk-actual').value=w.actual_count!=null?w.actual_count:'';
+  $('wk-amount').value=w.amount_charged!=null&&w.id?w.amount_charged:'';
   $('wk-amount').dataset.autoFilled='';
   $('wk-assistant-name').value=w.assistant_name||'';
-  $('wk-assistant-pay').value=w.assistant_pay!=null?w.assistant_pay:'';
+  $('wk-assistant-pay').value=w.assistant_pay!=null&&w.id?w.assistant_pay:'';
   $('wk-notes').value=w.notes||'';
   $('wk-testimonial').checked=!!w.testimonial_obtained;
   $('wk-photo').checked=!!w.photo_obtained;
+  wkCapacityHint();
+}
+function openAddWorkshop(){
+  _editingWorkshopId=null;
+  $('workshop-modal-title').textContent='Add Workshop Lead';
+  wkFillForm(null);
   $('modal-workshop').classList.add('open');
 }
-
+function editWorkshop(id){
+  const w=(_workshopLeads||[]).find(x=>x.id===id);if(!w)return;
+  _editingWorkshopId=id;
+  $('workshop-modal-title').textContent='Edit Workshop Lead';
+  wkFillForm(w);
+  $('modal-workshop').classList.add('open');
+}
 async function saveWorkshop(){
   const org=$('wk-org').value.trim();
-  if(!org){alert('Organization name is required.');return;}
+  const contact=$('wk-contact-name').value.trim();
+  if(!org&&!contact){alert('Add an organization or a contact name.');return;}
+  const int=id=>{const v=parseInt($(id).value,10);return isNaN(v)?null:v;};
   const payload={
     organization:org,
-    contact_name:$('wk-contact-name').value.trim(),
+    contact_name:contact,
     contact_email:$('wk-contact-email').value.trim(),
     contact_phone:$('wk-contact-phone').value.trim(),
     type:$('wk-type').value,
     status:$('wk-status').value,
     date_contacted:$('wk-date-contacted').value||null,
+    follow_up_date:$('wk-follow-up').value||null,
+    payment_status:$('wk-payment').value,
     session_date:$('wk-session-date').value||null,
+    session_time:$('wk-session-time').value||null,
+    location:$('wk-location').value.trim(),
+    series_name:$('wk-series').value.trim(),
+    session_number:int('wk-session-number'),
+    expected_count:int('wk-expected'),
+    actual_count:int('wk-actual'),
     tier:$('wk-tier').value,
     amount_charged:parseFloat($('wk-amount').value)||0,
     assistant_name:$('wk-assistant-name').value.trim(),
@@ -9813,9 +9913,9 @@ async function saveWorkshop(){
     alert('Connection error — check your internet and try again.');
   }
 }
-
 async function deleteWorkshop(id){
-  if(!confirm('Remove this workshop lead? This cannot be undone.'))return;
+  const ps=_wkPartSummary[id];
+  if(!confirm('Remove this workshop lead'+(ps&&ps.n?` and its ${ps.n} participant record${ps.n!==1?'s':''}`:'')+'? This cannot be undone.'))return;
   try{
     const res=await supa.from('workshop_leads').delete().eq('id',id);
     if(res.error){ alert('Delete failed: '+res.error.message); return; }
@@ -9824,6 +9924,194 @@ async function deleteWorkshop(id){
   }catch(e){
     alert('Connection error — check your internet and try again.');
   }
+}
+
+// ── Workshop participants: roster, waivers, photo/video consent ──
+let _wkPartSummary={};      // workshop id → {n, waivers, optOut, unknown}
+let _wkpWorkshopId=null;    // workshop whose roster is open
+let _wkpRows=[];            // that workshop's participants
+let _wkpEditingId=null;
+async function refreshWorkshopParticipantSummary(){
+  try{
+    const res=await supa.from('workshop_participants').select('workshop_id,waiver_signed,media_consent');
+    if(res.error){console.error('Failed to load workshop participants:',res.error);return;}
+    const m={};
+    (res.data||[]).forEach(p=>{
+      const s=m[p.workshop_id]||(m[p.workshop_id]={n:0,waivers:0,optOut:0,unknown:0});
+      s.n++;if(p.waiver_signed)s.waivers++;
+      if(p.media_consent==='No')s.optOut++;else if(p.media_consent!=='Yes')s.unknown++;
+    });
+    _wkPartSummary=m;
+  }catch(e){console.error('Connection error loading workshop participants:',e);}
+}
+async function openWorkshopParticipants(id){
+  const w=(_workshopLeads||[]).find(x=>x.id===id);if(!w)return;
+  _wkpWorkshopId=id;
+  $('wkp-title').textContent='Participants — '+wkDisplayName(w);
+  $('wkp-subtitle').textContent=[w.session_date?fmtDate(w.session_date)+(w.session_time?' '+fmtWkTime(w.session_time):''):'',w.location||'',w.expected_count?w.expected_count+' expected':''].filter(Boolean).join(' · ');
+  wkpResetForm();
+  $('wkp-tbody').innerHTML='<tr><td colspan="9" style="text-align:center;padding:18px;color:var(--ink-muted);">Loading…</td></tr>';
+  $('modal-wk-participants').classList.add('open');
+  await wkpLoad();
+}
+async function wkpLoad(){
+  try{
+    const res=await supa.from('workshop_participants').select('*').eq('workshop_id',_wkpWorkshopId).order('created_at',{ascending:true});
+    if(res.error){$('wkp-tbody').innerHTML=`<tr><td colspan="9" style="color:var(--red);padding:14px;">Couldn't load participants: ${famEsc(res.error.message)}</td></tr>`;return;}
+    _wkpRows=res.data||[];
+  }catch(e){$('wkp-tbody').innerHTML='<tr><td colspan="9" style="color:var(--red);padding:14px;">Connection error — try again.</td></tr>';return;}
+  wkpRender();
+}
+function wkpRender(){
+  const E=famEsc,rows=_wkpRows;
+  const w=(_workshopLeads||[]).find(x=>x.id===_wkpWorkshopId)||{};
+  const n=rows.length,waivers=rows.filter(p=>p.waiver_signed).length,
+        yes=rows.filter(p=>p.media_consent==='Yes').length,no=rows.filter(p=>p.media_consent==='No').length,
+        attended=rows.filter(p=>p.attended).length,interest=rows.filter(p=>p.adult_class_interest).length;
+  const cap=WORKSHOP_TIER_CAPS[w.tier];
+  const chip=(label,val,color)=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px 12px;font-size:12px;"><strong style="color:${color||'var(--ink)'};">${val}</strong> ${label}</div>`;
+  $('wkp-summary').innerHTML=
+    chip('registered',n+(cap?' / '+cap:''),cap&&n>cap?'var(--red)':null)+
+    chip('waivers signed',waivers+' / '+n,waivers<n?'var(--amber)':'var(--green)')+
+    chip('photo OK',yes,'var(--green)')+
+    chip('no filming',no,no?'var(--red)':null)+
+    chip('consent unknown',n-yes-no,n-yes-no?'var(--amber)':null)+
+    chip('attended',attended)+
+    chip('adult-class interest',interest,'var(--purple)');
+  if(!n){$('wkp-tbody').innerHTML='<tr><td colspan="9" style="text-align:center;padding:18px;color:var(--ink-muted);">No participants yet — add them above as registrations come in.</td></tr>';return;}
+  $('wkp-tbody').innerHTML=rows.map(p=>{
+    const id=E(p.id);
+    const mediaColor=p.media_consent==='Yes'?'var(--green)':p.media_consent==='No'?'var(--red)':'var(--amber)';
+    return `<tr>
+      <td><strong>${E(p.full_name)}</strong>${p.age?'<span style="font-size:11px;color:var(--ink-muted);"> · '+E(p.age)+'</span>':''}${p.notes?'<div style="font-size:11px;color:var(--ink-muted);">'+E(p.notes)+'</div>':''}</td>
+      <td style="font-size:12px;">${E(p.role)}</td>
+      <td style="font-size:12px;">${E(p.paired_with||'')}</td>
+      <td style="font-size:11px;color:var(--ink-muted);">${E(p.email||'')}${p.phone?'<div>'+E(p.phone)+'</div>':''}${p.emergency_contact?'<div title="Emergency contact">🚑 '+E(p.emergency_contact)+'</div>':''}</td>
+      <td style="text-align:center;"><input type="checkbox" ${p.waiver_signed?'checked':''} onchange="wkpToggle('${id}','waiver_signed',this.checked)"></td>
+      <td><select class="form-select" style="padding:4px 6px;font-size:12px;color:${mediaColor};" onchange="wkpToggle('${id}','media_consent',this.value)">${['Unknown','Yes','No'].map(o=>`<option ${p.media_consent===o?'selected':''}>${o}</option>`).join('')}</select></td>
+      <td style="text-align:center;"><input type="checkbox" ${p.attended?'checked':''} onchange="wkpToggle('${id}','attended',this.checked)"></td>
+      <td style="text-align:center;"><input type="checkbox" ${p.adult_class_interest?'checked':''} onchange="wkpToggle('${id}','adult_class_interest',this.checked)"></td>
+      <td style="white-space:nowrap;"><button class="btn small" onclick="wkpEdit('${id}')">Edit</button> <button class="btn small danger" onclick="wkpDelete('${id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+function wkpResetForm(){
+  _wkpEditingId=null;
+  ['wkp-name','wkp-age','wkp-paired','wkp-email','wkp-phone','wkp-emergency','wkp-notes'].forEach(id=>{$(id).value='';});
+  $('wkp-role').value='Teen';$('wkp-media').value='Unknown';
+  $('wkp-waiver').checked=false;$('wkp-interest').checked=false;
+  $('wkp-form-title').textContent='Add participant';
+  $('wkp-save-btn').textContent='+ Add participant';
+  $('wkp-cancel-edit').style.display='none';
+}
+function wkpEdit(id){
+  const p=_wkpRows.find(x=>x.id===id);if(!p)return;
+  _wkpEditingId=id;
+  $('wkp-name').value=p.full_name||'';
+  $('wkp-role').value=['Teen','Parent/Guardian','Adult'].includes(p.role)?p.role:'Adult';
+  $('wkp-age').value=p.age!=null?p.age:'';
+  $('wkp-paired').value=p.paired_with||'';
+  $('wkp-email').value=p.email||'';
+  $('wkp-phone').value=p.phone||'';
+  $('wkp-emergency').value=p.emergency_contact||'';
+  $('wkp-media').value=p.media_consent||'Unknown';
+  $('wkp-waiver').checked=!!p.waiver_signed;
+  $('wkp-interest').checked=!!p.adult_class_interest;
+  $('wkp-notes').value=p.notes||'';
+  $('wkp-form-title').textContent='Edit '+p.full_name;
+  $('wkp-save-btn').textContent='Save changes';
+  $('wkp-cancel-edit').style.display='';
+  $('wkp-name').focus();
+}
+async function wkpSave(){
+  const name=$('wkp-name').value.trim();
+  if(!name){alert('Participant name is required.');return;}
+  const age=parseInt($('wkp-age').value,10);
+  const payload={
+    full_name:name,
+    role:$('wkp-role').value,
+    age:isNaN(age)?null:age,
+    paired_with:$('wkp-paired').value.trim(),
+    email:$('wkp-email').value.trim(),
+    phone:$('wkp-phone').value.trim(),
+    emergency_contact:$('wkp-emergency').value.trim(),
+    media_consent:$('wkp-media').value,
+    waiver_signed:$('wkp-waiver').checked,
+    adult_class_interest:$('wkp-interest').checked,
+    notes:$('wkp-notes').value.trim(),
+    updated_at:new Date().toISOString()
+  };
+  try{
+    let res;
+    if(_wkpEditingId)res=await supa.from('workshop_participants').update(payload).eq('id',_wkpEditingId);
+    else res=await supa.from('workshop_participants').insert(Object.assign({workshop_id:_wkpWorkshopId},payload));
+    if(res.error){alert('Save failed: '+res.error.message);return;}
+    const wasEdit=!!_wkpEditingId;
+    wkpResetForm();
+    await wkpLoad();
+    await wkpAfterChange();
+    toast(wasEdit?'Participant updated.':'Participant added.');
+    $('wkp-name').focus();
+  }catch(e){alert('Connection error — check your internet and try again.');}
+}
+async function wkpToggle(id,field,value){
+  const p=_wkpRows.find(x=>x.id===id);if(!p)return;
+  const prev=p[field];p[field]=value;wkpRender();
+  try{
+    const res=await supa.from('workshop_participants').update({[field]:value,updated_at:new Date().toISOString()}).eq('id',id);
+    if(res.error){p[field]=prev;wkpRender();alert('Save failed: '+res.error.message);return;}
+    await wkpAfterChange();
+  }catch(e){p[field]=prev;wkpRender();alert('Connection error — change not saved.');}
+}
+async function wkpDelete(id){
+  const p=_wkpRows.find(x=>x.id===id);if(!p)return;
+  if(!confirm('Remove '+p.full_name+' from this workshop?'))return;
+  try{
+    const res=await supa.from('workshop_participants').delete().eq('id',id);
+    if(res.error){alert('Delete failed: '+res.error.message);return;}
+    if(_wkpEditingId===id)wkpResetForm();
+    await wkpLoad();
+    await wkpAfterChange();
+  }catch(e){alert('Connection error — try again.');}
+}
+// Keeps the roster column on the Workshops table in step with the open roster.
+async function wkpAfterChange(){
+  await refreshWorkshopParticipantSummary();
+  renderWorkshopTable();
+}
+function wkpCopy(text,what){
+  if(!text){toast('Nothing to copy — no '+what+' yet.');return;}
+  const done=()=>toast('Copied '+what+'.');
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done,()=>prompt('Copy this:',text));
+  else prompt('Copy this:',text);
+}
+function wkpCopyOptOuts(){
+  const list=_wkpRows.filter(p=>p.media_consent!=='Yes');
+  const no=list.filter(p=>p.media_consent==='No').map(p=>p.full_name);
+  const unk=list.filter(p=>p.media_consent!=='No').map(p=>p.full_name);
+  const text=(no.length?'Do NOT film or photograph: '+no.join(', '):'')+(unk.length?(no.length?'\n':'')+'Consent not yet confirmed (do not feature): '+unk.join(', '):'');
+  wkpCopy(text,'no-filming list');
+}
+function wkpCopyEmails(){
+  const emails=[...new Set(_wkpRows.map(p=>(p.email||'').trim()).filter(Boolean))];
+  wkpCopy(emails.join(', '),'emails');
+}
+function wkpPrintSheet(){
+  const w=(_workshopLeads||[]).find(x=>x.id===_wkpWorkshopId)||{};
+  const E=famEsc;
+  const rows=_wkpRows.slice().sort((a,b)=>(a.paired_with||a.full_name).localeCompare(b.paired_with||b.full_name));
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Check-in — ${E(wkDisplayName(w))}</title>
+  <style>body{font-family:system-ui,sans-serif;margin:24px;color:#111}h1{font-size:20px;margin:0}p{margin:4px 0 16px;color:#555;font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #bbb;padding:7px 8px;text-align:left}th{background:#f2f2f2}
+  .no{color:#b00020;font-weight:700}.unk{color:#a15c00}td.box{width:60px}</style></head><body>
+  <h1>${E(wkDisplayName(w))} — Check-in</h1>
+  <p>${E([w.session_date?fmtDate(w.session_date)+(w.session_time?' '+fmtWkTime(w.session_time):''):'',w.location||''].filter(Boolean).join(' · '))} · Noble's Martial Arts</p>
+  <table><thead><tr><th>Here</th><th>Name</th><th>Role</th><th>Paired with</th><th>Waiver</th><th>Photo/video</th><th>Emergency contact</th></tr></thead><tbody>
+  ${rows.map(p=>`<tr><td class="box"></td><td>${E(p.full_name)}</td><td>${E(p.role)}</td><td>${E(p.paired_with||'')}</td><td>${p.waiver_signed?'✓':'<span class="unk">NEEDED</span>'}</td><td>${p.media_consent==='No'?'<span class="no">NO FILMING</span>':p.media_consent==='Yes'?'OK':'<span class="unk">Unknown</span>'}</td><td>${E(p.emergency_contact||'')}</td></tr>`).join('')}
+  </tbody></table></body></html>`;
+  const win=window.open('','_blank');
+  if(!win){alert('Pop-up blocked — allow pop-ups for this site to print.');return;}
+  win.document.write(html);win.document.close();win.focus();setTimeout(()=>win.print(),300);
 }
 
 function renderTotalBizRevenue(){
