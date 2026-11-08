@@ -18,7 +18,23 @@ const { sendEmail, validEmail } = require('../lib/mailer');
 const BUCKET = 'workshop-waivers';
 const TZ = 'America/New_York';
 
+// The signing page is also served at noblesmartialarts.com/waiver and calls this
+// function directly (not through a proxy) so each signer's real IP is recorded.
+const PUBLIC_ORIGINS = ['https://noblesmartialarts.com', 'https://www.noblesmartialarts.com'];
+function corsFor(event) {
+  const h = event.headers || {};
+  const origin = h.origin || h.Origin || '';
+  if (!PUBLIC_ORIGINS.includes(origin)) return {};
+  return { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '600', Vary: 'Origin' };
+}
 exports.handler = async (event) => {
+  const res = await route(event);
+  // Cross-site callers may only use the public signing operations.
+  const cors = corsFor(event);
+  if (Object.keys(cors).length) res.headers = Object.assign({}, res.headers, cors);
+  return res;
+};
+async function route(event) {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: { 'Cache-Control': 'no-store' }, body: '' };
   if (event.httpMethod !== 'POST') return S.json(405, { error: 'method_not_allowed' });
   if (!S.configured()) return S.json(503, { error: 'not_configured', message: 'Waivers are not set up on the server yet.' });
@@ -28,6 +44,7 @@ exports.handler = async (event) => {
   try {
     if (op === 'info') return await opInfo(body, event);
     if (op === 'sign') return await opSign(body, event);
+    if (Object.keys(corsFor(event)).length) return S.json(403, { error: 'forbidden' });
     const auth = await S.requireUser(event);
     if (auth.error) return auth.error;
     const actor = auth.email, owner = actor === S.OWNER_EMAIL;
@@ -46,7 +63,7 @@ exports.handler = async (event) => {
     console.error('waiver.js', op, e && e.stack || e);
     return S.json(500, { error: 'server_error', message: 'Something went wrong on our end. Please try again.' });
   }
-};
+}
 
 // ── helpers ──
 const clip = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim().slice(0, n);

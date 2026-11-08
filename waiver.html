@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <title>Workshop Waiver · Noble's Martial Arts</title>
-<link rel="icon" href="assets/favicon-32.png">
+<link rel="icon" href="https://crm.noblesmartialarts.com/assets/favicon-32.png">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
 <style>
 :root{--ink:#1a1a1a;--ink-muted:#5f5f5f;--ink-faint:#9a9a9a;--paper:#f6f5f1;--surface:#fff;--border:#e3e0d8;--border-strong:#c8c4bc;
@@ -199,7 +199,9 @@ textarea{min-height:84px;resize:vertical}
 <script>
 (function(){
   'use strict';
-  const API='/.netlify/functions/waiver';
+  // On noblesmartialarts.com this page is shown from the CRM site; it talks to the CRM directly.
+  const API=/(^|\.)noblesmartialarts\.com$/.test(location.hostname)&&location.hostname!=='crm.noblesmartialarts.com'
+    ?'https://crm.noblesmartialarts.com/.netlify/functions/waiver':'/.netlify/functions/waiver';
   const $=id=>document.getElementById(id);
   const token=new URLSearchParams(location.search).get('t')||'';
   let INFO=null, LAST=null, CARRY=null, readDone=false;
