@@ -288,3 +288,21 @@ Electronic Signature: [Signature]
 Date: [Timestamp]
 $LEGAL$,'55439ba4446e9cf38c7256112a386a3ff39bf0dc9afa5f6a53c155768c651d33','draft-pending-review',true)
 on conflict (id) do nothing;
+
+-- Follow-up: guardian acknowledgment, and allow health notes to be cleared (never rewritten)
+alter table public.workshop_waivers add column if not exists ack_guardian boolean;
+create or replace function public.workshop_waivers_guard() returns trigger language plpgsql as $$
+begin
+  if tg_op = 'DELETE' then raise exception 'Signed waivers cannot be deleted (see WAIVERS.md retention policy)'; end if;
+  if new.medical_notes is not null and new.medical_notes is distinct from old.medical_notes then
+    raise exception 'Health notes can only be cleared, not changed';
+  end if;
+  if (to_jsonb(new) - array['emailed_copy_at','superseded_by','pdf_path','pdf_sha256','medical_notes'])
+     is distinct from (to_jsonb(old) - array['emailed_copy_at','superseded_by','pdf_path','pdf_sha256','medical_notes']) then
+    raise exception 'Signed waiver records are immutable';
+  end if;
+  if old.pdf_path is not null and new.pdf_path is distinct from old.pdf_path then raise exception 'PDF already attached'; end if;
+  if old.pdf_sha256 is not null and new.pdf_sha256 is distinct from old.pdf_sha256 then raise exception 'PDF already attached'; end if;
+  if old.superseded_by is not null and new.superseded_by is distinct from old.superseded_by then raise exception 'Already superseded'; end if;
+  return new;
+end $$;

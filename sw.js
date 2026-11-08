@@ -19,6 +19,8 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // Waiver signing links carry a private token — never cache them.
+  try { if (new URL(e.request.url).pathname.startsWith('/waiver')) return; } catch (err) {}
   // Network first, fall back to cache for the app shell
   if (e.request.mode === 'navigate') {
     e.respondWith(
