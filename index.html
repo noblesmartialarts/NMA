@@ -9952,7 +9952,7 @@ async function waiverApi(payload){
   if(!r.ok)throw new Error(j.message||j.error||('HTTP '+r.status));
   return j;
 }
-function wkWaiverUrl(token){return location.origin+'/waiver?t='+encodeURIComponent(token);}
+function wkWaiverUrl(token){return (location.hostname==='crm.noblesmartialarts.com'?'https://noblesmartialarts.com':location.origin)+'/waiver?t='+encodeURIComponent(token);}
 
 async function refreshWorkshopParticipantSummary(){
   try{
