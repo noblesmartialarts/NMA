@@ -1364,42 +1364,40 @@ tbody td{font-size:11px!important;}
 
 <!-- WORKSHOP PARTICIPANTS MODAL -->
 <div class="modal-backdrop" id="modal-wk-participants">
-  <div class="modal" style="max-width:920px;">
+  <div class="modal" style="max-width:1000px;">
     <div class="modal-header"><div><div class="modal-title" id="wkp-title">Participants</div><div id="wkp-subtitle" style="font-size:12px;color:var(--ink-muted);"></div></div><button class="btn ghost" onclick="closeModal('modal-wk-participants')">✕</button></div>
     <div class="modal-body">
+      <div id="wkp-link-panel" style="background:var(--blue-light);border:1px solid #cfe0f5;border-radius:12px;padding:12px 14px;margin-bottom:14px;"></div>
       <div id="wkp-summary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
-        <button class="btn small" onclick="wkpCopyOptOuts()">📵 Copy no-filming list</button>
+        <button class="btn small" onclick="wkpCopyOptOuts()">📵 Copy no-media list</button>
+        <button class="btn small" onclick="wkpCopyNotCleared()">⏳ Copy not-cleared list</button>
         <button class="btn small" onclick="wkpCopyEmails()">✉️ Copy emails</button>
         <button class="btn small" onclick="wkpPrintSheet()">🖨️ Print check-in sheet</button>
+        <button class="btn small" id="wkp-purge-btn" style="display:none;" onclick="wkpPurgeNotes()">🧹 Delete health notes</button>
       </div>
 
-      <div style="background:var(--paper);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:14px;">
-        <div style="font-size:12px;font-weight:700;margin-bottom:8px;" id="wkp-form-title">Add participant</div>
+      <details id="wkp-add-wrap" style="background:var(--paper);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:14px;">
+        <summary style="cursor:pointer;font-size:12px;font-weight:700;" id="wkp-form-title">+ Add someone manually</summary>
+        <div style="font-size:12px;color:var(--ink-muted);margin:8px 0 10px;">People who sign the e-waiver are added automatically. Add someone here to track them before they sign.</div>
         <div class="form-grid">
           <div class="form-group"><label class="form-label">Full name</label><input class="form-input" id="wkp-name" placeholder="First Last"></div>
           <div class="form-group"><label class="form-label">Role</label><select class="form-select" id="wkp-role"><option>Teen</option><option>Parent/Guardian</option><option>Adult</option></select></div>
-          <div class="form-group"><label class="form-label">Age</label><input class="form-input" id="wkp-age" type="number" min="1" max="120"></div>
           <div class="form-group"><label class="form-label">Paired with <span style="color:var(--ink-faint);font-weight:400;">(mom / daughter)</span></label><input class="form-input" id="wkp-paired" placeholder="Partner's name"></div>
           <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="wkp-email" type="email"></div>
           <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="wkp-phone" type="tel"></div>
-          <div class="form-group full"><label class="form-label">Emergency contact</label><input class="form-input" id="wkp-emergency" placeholder="Name and phone"></div>
-          <div class="form-group"><label class="form-label">Photo/video consent</label><select class="form-select" id="wkp-media"><option>Unknown</option><option>Yes</option><option>No</option></select></div>
-          <div class="form-group" style="display:flex;flex-direction:column;gap:6px;justify-content:flex-end;">
-            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wkp-waiver"> Waiver signed</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wkp-interest"> Interested in adult class</label>
-          </div>
-          <div class="form-group full"><label class="form-label">Notes</label><input class="form-input" id="wkp-notes" placeholder="Injuries, accommodations, anything to know"></div>
+          <div class="form-group" style="display:flex;align-items:flex-end;"><label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;"><input type="checkbox" id="wkp-interest"> Interested in adult class</label></div>
+          <div class="form-group full"><label class="form-label">Notes</label><input class="form-input" id="wkp-notes" placeholder="Anything to know (keep health details to the waiver)"></div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
           <button class="btn small" id="wkp-cancel-edit" style="display:none;" onclick="wkpResetForm()">Cancel edit</button>
           <button class="btn primary small" id="wkp-save-btn" onclick="wkpSave()">+ Add participant</button>
         </div>
-      </div>
+      </details>
 
       <div class="table-wrap" style="border-radius:12px;">
         <table>
-          <thead><tr><th>Name</th><th>Role</th><th>Paired with</th><th>Contact</th><th>Waiver</th><th>Photo/video</th><th>Attended</th><th>Adult class</th><th></th></tr></thead>
+          <thead><tr><th>Participant</th><th>Waiver</th><th>Photo/video</th><th>Emergency contact</th><th>Here</th><th>Adult class</th><th></th></tr></thead>
           <tbody id="wkp-tbody"></tbody>
         </table>
       </div>
@@ -9799,8 +9797,8 @@ function renderWorkshopTable(){
     const cap=WORKSHOP_TIER_CAPS[w.tier];
     const head=w.actual_count||w.expected_count;
     const over=cap&&head>cap;
-    const ps=_wkPartSummary[w.id]||{n:0,waivers:0,optOut:0,unknown:0};
-    const rosterBtn=`<button class="btn small" onclick="openWorkshopParticipants('${E(w.id)}')" title="Participants, waivers and photo consent">👥 ${ps.n}${ps.n?` · ${ps.waivers}/${ps.n} waivers`:''}</button>${ps.optOut?`<div style="font-size:11px;color:var(--red);margin-top:3px;">📵 ${ps.optOut} no filming</div>`:''}${ps.unknown?`<div style="font-size:11px;color:var(--amber);margin-top:3px;">${ps.unknown} consent unknown</div>`:''}`;
+    const ps=_wkPartSummary[w.id]||{n:0,cleared:0,pending:0,attention:0,noMedia:0};
+    const rosterBtn=`<button class="btn small" onclick="openWorkshopParticipants('${E(w.id)}')" title="Roster, e-waivers and photo consent">👥 ${ps.n}${ps.n?` · ${ps.cleared}/${ps.n} cleared`:''}</button>${w.waiver_token?'':'<div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">no waiver link yet</div>'}${ps.attention?`<div style="font-size:11px;color:var(--red);margin-top:3px;">⚠ ${ps.attention} need attention</div>`:''}${ps.noMedia?`<div style="font-size:11px;color:var(--red);margin-top:3px;">📵 ${ps.noMedia} no media</div>`:''}`;
     const series=w.series_name?`<div style="font-size:11px;color:var(--purple);">${E(w.series_name)}${w.session_number?' · #'+E(w.session_number):''}</div>`:'';
     const due=wkFollowUpDue(w)?`<div style="font-size:11px;color:var(--red);font-weight:600;margin-top:3px;">⏰ Follow-up due ${fmtDate(w.follow_up_date)}</div>`:(w.follow_up_date&&w.status!=='Declined'?`<div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">Follow up ${fmtDate(w.follow_up_date)}</div>`:'');
     const payColor=w.payment_status==='Paid in Full'?'var(--green)':w.payment_status==='Deposit Paid'?'var(--amber)':'var(--ink-muted)';
@@ -9918,7 +9916,7 @@ async function deleteWorkshop(id){
   if(!confirm('Remove this workshop lead'+(ps&&ps.n?` and its ${ps.n} participant record${ps.n!==1?'s':''}`:'')+'? This cannot be undone.'))return;
   try{
     const res=await supa.from('workshop_leads').delete().eq('id',id);
-    if(res.error){ alert('Delete failed: '+res.error.message); return; }
+    if(res.error){ alert(/foreign key|violates|workshop_waivers/i.test(res.error.message)?'This workshop has signed waivers on file, so it can\u2019t be deleted. Set its status to Completed or Declined instead.':'Delete failed: '+res.error.message); return; }
     await refreshWorkshopLeads();
     renderWorkshops();renderDashboard();
   }catch(e){
@@ -9926,81 +9924,254 @@ async function deleteWorkshop(id){
   }
 }
 
-// ── Workshop participants: roster, waivers, photo/video consent ──
-let _wkPartSummary={};      // workshop id → {n, waivers, optOut, unknown}
+// ── Workshop participants: roster, e-waivers, photo/video consent ──
+// Waiver status lives on each participant (Not Sent / Pending / Signed / Needs Attention).
+// Signed agreements, health notes, birth dates and PDFs stay on the server and are
+// fetched through /.netlify/functions/waiver — health notes, DOB and PDFs are owner-only.
+let _wkPartSummary={};      // workshop id → {n, cleared, pending, attention, noMedia}
 let _wkpWorkshopId=null;    // workshop whose roster is open
 let _wkpRows=[];            // that workshop's participants
 let _wkpEditingId=null;
+let _wkpWaivers={};         // participant id → signed-waiver summary
+let _wkpDocInfo={};         // {current_version, doc_status}
+let _wkpLink=null;          // {token,title_shown,public_title}
+let _wkpOpenDetail=null;    // participant id whose owner detail is expanded
+let _wkpDetailCache={};
+const WK_STATUS_STYLE={
+  'Not Sent':{c:'var(--ink-muted)',b:'var(--paper)',i:'○'},
+  'Pending':{c:'var(--amber)',b:'var(--amber-light)',i:'⏳'},
+  'Signed':{c:'var(--green)',b:'var(--green-light)',i:'✓'},
+  'Needs Attention':{c:'var(--red)',b:'var(--red-light)',i:'⚠'}
+};
+const wkIsOwner=()=>((currentUser&&currentUser.email)||'').toLowerCase()===OWNER_EMAIL.toLowerCase();
+const wkCleared=p=>p.waiver_status==='Signed';
+async function waiverApi(payload){
+  const r=await fetch('/.netlify/functions/waiver',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},crmAuthHeaders()),body:JSON.stringify(payload)});
+  let j={};try{j=await r.json();}catch(e){}
+  if(r.status===401&&typeof crmSessionExpired==='function')crmSessionExpired();
+  if(!r.ok)throw new Error(j.message||j.error||('HTTP '+r.status));
+  return j;
+}
+function wkWaiverUrl(token){return location.origin+'/waiver?t='+encodeURIComponent(token);}
+
 async function refreshWorkshopParticipantSummary(){
   try{
-    const res=await supa.from('workshop_participants').select('workshop_id,waiver_signed,media_consent');
+    const res=await supa.from('workshop_participants').select('workshop_id,waiver_status,media_consent');
     if(res.error){console.error('Failed to load workshop participants:',res.error);return;}
     const m={};
     (res.data||[]).forEach(p=>{
-      const s=m[p.workshop_id]||(m[p.workshop_id]={n:0,waivers:0,optOut:0,unknown:0});
-      s.n++;if(p.waiver_signed)s.waivers++;
-      if(p.media_consent==='No')s.optOut++;else if(p.media_consent!=='Yes')s.unknown++;
+      const s=m[p.workshop_id]||(m[p.workshop_id]={n:0,cleared:0,pending:0,attention:0,noMedia:0});
+      s.n++;
+      if(p.waiver_status==='Signed')s.cleared++;else if(p.waiver_status==='Needs Attention')s.attention++;else s.pending++;
+      if(p.media_consent!=='Yes')s.noMedia++;
     });
     _wkPartSummary=m;
   }catch(e){console.error('Connection error loading workshop participants:',e);}
 }
 async function openWorkshopParticipants(id){
   const w=(_workshopLeads||[]).find(x=>x.id===id);if(!w)return;
-  _wkpWorkshopId=id;
+  _wkpWorkshopId=id;_wkpOpenDetail=null;_wkpDetailCache={};
+  _wkpLink=w.waiver_token?{token:w.waiver_token,public_title:w.public_title||'',title_shown:w.public_title||''}:null;
   $('wkp-title').textContent='Participants — '+wkDisplayName(w);
   $('wkp-subtitle').textContent=[w.session_date?fmtDate(w.session_date)+(w.session_time?' '+fmtWkTime(w.session_time):''):'',w.location||'',w.expected_count?w.expected_count+' expected':''].filter(Boolean).join(' · ');
+  $('wkp-purge-btn').style.display=wkIsOwner()?'':'none';
   wkpResetForm();
-  $('wkp-tbody').innerHTML='<tr><td colspan="9" style="text-align:center;padding:18px;color:var(--ink-muted);">Loading…</td></tr>';
+  $('wkp-tbody').innerHTML='<tr><td colspan="7" style="text-align:center;padding:18px;color:var(--ink-muted);">Loading…</td></tr>';
+  wkpRenderLink();
   $('modal-wk-participants').classList.add('open');
   await wkpLoad();
 }
 async function wkpLoad(){
   try{
-    const res=await supa.from('workshop_participants').select('*').eq('workshop_id',_wkpWorkshopId).order('created_at',{ascending:true});
-    if(res.error){$('wkp-tbody').innerHTML=`<tr><td colspan="9" style="color:var(--red);padding:14px;">Couldn't load participants: ${famEsc(res.error.message)}</td></tr>`;return;}
+    const [res,sum]=await Promise.all([
+      supa.from('workshop_participants').select('*').eq('workshop_id',_wkpWorkshopId).order('created_at',{ascending:true}),
+      waiverApi({op:'summary',workshop_id:_wkpWorkshopId}).catch(e=>({error:e.message}))
+    ]);
+    if(res.error){$('wkp-tbody').innerHTML=`<tr><td colspan="7" style="color:var(--red);padding:14px;">Couldn't load participants: ${famEsc(res.error.message)}</td></tr>`;return;}
     _wkpRows=res.data||[];
-  }catch(e){$('wkp-tbody').innerHTML='<tr><td colspan="9" style="color:var(--red);padding:14px;">Connection error — try again.</td></tr>';return;}
+    if(sum&&!sum.error){_wkpWaivers=sum.waivers||{};_wkpDocInfo={current_version:sum.current_version,doc_status:sum.doc_status};}
+    else{_wkpWaivers={};_wkpDocInfo={error:sum&&sum.error};}
+  }catch(e){$('wkp-tbody').innerHTML='<tr><td colspan="7" style="color:var(--red);padding:14px;">Connection error — try again.</td></tr>';return;}
+  wkpRenderLink();
   wkpRender();
+}
+function wkpRenderLink(){
+  const el=$('wkp-link-panel');if(!el)return;
+  const E=famEsc;
+  const draft=_wkpDocInfo.doc_status==='draft-pending-review'
+    ?`<div style="font-size:12px;color:var(--amber);margin-top:8px;">⚠️ Agreement <strong>${E(_wkpDocInfo.current_version||'')}</strong> is still marked <em>draft pending legal &amp; insurance review</em>.</div>`:'';
+  const err=_wkpDocInfo.error?`<div style="font-size:12px;color:var(--red);margin-top:6px;">Waiver service unavailable: ${E(_wkpDocInfo.error)}</div>`:'';
+  if(!_wkpLink||!_wkpLink.token){
+    el.innerHTML=`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div style="flex:1;min-width:220px;"><div style="font-weight:700;font-size:13px;">✍️ E-waiver link</div>
+      <div style="font-size:12px;color:var(--ink-muted);">One link for the whole group. Each person (or a parent, for under-18s) signs on their phone and is added to this roster automatically.</div></div>
+      <input class="form-input" id="wkp-public-title" style="max-width:280px;" placeholder="Title families see, e.g. Mother-Daughter Self-Defense Clinic">
+      <button class="btn primary small" onclick="wkpMakeLink(false)">Create waiver link</button></div>${draft}${err}`;
+    return;
+  }
+  const url=wkWaiverUrl(_wkpLink.token);
+  el.innerHTML=`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <div style="flex:1;min-width:240px;"><div style="font-weight:700;font-size:13px;">✍️ E-waiver link${_wkpLink.title_shown?` — <span style="font-weight:500;">“${E(_wkpLink.title_shown)}”</span>`:''}</div>
+    <input class="form-input" readonly value="${E(url)}" onclick="this.select()" style="margin-top:6px;font-size:12px;"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button class="btn primary small" onclick="wkpCopy('${E(url)}','waiver link')">Copy link</button>
+      <button class="btn small" onclick="wkpCopyOrganizerMsg()">Copy message for organizer</button>
+      <a class="btn small" href="${E(url)}" target="_blank" rel="noopener">Preview</a>
+      <button class="btn small" onclick="wkpRetitle()">Rename</button>
+      <button class="btn small danger" onclick="wkpMakeLink(true)" title="Old link stops working">New link</button>
+    </div></div>${draft}${err}`;
+}
+async function wkpMakeLink(rotate){
+  if(rotate&&!confirm('Create a new link? The current link will stop working — anyone who hasn’t signed yet will need the new one. Signed waivers are not affected.'))return;
+  const titleEl=$('wkp-public-title');
+  const payload={op:rotate?'rotate':'link',workshop_id:_wkpWorkshopId};
+  if(titleEl&&titleEl.value.trim())payload.public_title=titleEl.value.trim();
+  try{
+    const j=await waiverApi(payload);
+    _wkpLink=j;
+    const w=(_workshopLeads||[]).find(x=>x.id===_wkpWorkshopId);if(w){w.waiver_token=j.token;w.public_title=j.public_title;}
+    toast(rotate?'New waiver link created.':'Waiver link ready.');
+    await wkpLoad();await wkpAfterChange();
+  }catch(e){alert('Could not create the link: '+e.message);}
+}
+async function wkpRetitle(){
+  const t=prompt('Title families see on the waiver page:',(_wkpLink&&(_wkpLink.public_title||_wkpLink.title_shown))||'');
+  if(t==null)return;
+  try{const j=await waiverApi({op:'link',workshop_id:_wkpWorkshopId,public_title:t});_wkpLink=j;wkpRenderLink();toast('Title updated.');}
+  catch(e){alert('Could not update: '+e.message);}
+}
+function wkpCopyOrganizerMsg(){
+  const w=(_workshopLeads||[]).find(x=>x.id===_wkpWorkshopId)||{};
+  const url=wkWaiverUrl(_wkpLink.token);
+  const when=w.session_date?fmtDate(w.session_date)+(w.session_time?' at '+fmtWkTime(w.session_time):''):'the workshop';
+  const msg=`Hi${w.contact_name?' '+w.contact_name.split(' ')[0]:''}! Here's the waiver link for ${_wkpLink.title_shown||'the workshop'} on ${when}:\n\n${url}\n\nEveryone participating needs their own agreement — moms sign their own, and a parent signs for each daughter under 18. It takes about 3 minutes on a phone, and after one is done there's a button to sign for the next person. Photo/video permission is a separate yes/no and is completely optional.\n\nPlease have everyone complete it before we start so we can jump right in. Thank you!\n\n— Brandon, Noble's Martial Arts`;
+  wkpCopy(msg,'message');
+}
+function wkpStatusBadge(p){
+  const st=WK_STATUS_STYLE[p.waiver_status]||WK_STATUS_STYLE['Not Sent'];
+  const sw=_wkpWaivers[p.id];
+  let sub='';
+  if(p.waiver_status==='Signed'){
+    if(sw)sub=`e-signed ${fmtDate((p.waiver_signed_at||sw.signed_at||'').slice(0,10))}${sw.signer_role==='Parent/Legal Guardian'?' by '+famEsc(sw.signer):''}${sw.outdated_version?' · <span style="color:var(--amber);">older version</span>':''}`;
+    else if(p.paper_waiver)sub='paper waiver on file';
+  }
+  if(p.attention_reason)sub+=(sub?'<br>':'')+`<span style="color:var(--red);">${famEsc(p.attention_reason)}</span>`;
+  return `<span class="badge" style="background:${st.b};color:${st.c};">${st.i} ${famEsc(p.waiver_status||'Not Sent')}</span>${sub?`<div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">${sub}</div>`:''}`;
+}
+function wkpMediaCell(p){
+  const sw=_wkpWaivers[p.id],id=famEsc(p.id);
+  if(p.media_consent==='Yes')return `<span class="badge" style="background:var(--green-light);color:var(--green);">📷 Yes</span><div><button class="btn small" style="margin-top:4px;font-size:11px;padding:2px 8px;" onclick="wkpWithdrawMedia('${id}')">Withdraw</button></div>`;
+  if(p.media_consent==='No')return `<span class="badge" style="background:var(--red-light);color:var(--red);font-weight:700;">📵 NO MEDIA</span>`;
+  return `<span class="badge" style="background:var(--amber-light);color:var(--amber);">📵 Not given yet</span>${sw?'':'<div style="font-size:11px;color:var(--ink-muted);margin-top:3px;">treat as no media</div>'}`;
 }
 function wkpRender(){
   const E=famEsc,rows=_wkpRows;
   const w=(_workshopLeads||[]).find(x=>x.id===_wkpWorkshopId)||{};
-  const n=rows.length,waivers=rows.filter(p=>p.waiver_signed).length,
-        yes=rows.filter(p=>p.media_consent==='Yes').length,no=rows.filter(p=>p.media_consent==='No').length,
-        attended=rows.filter(p=>p.attended).length,interest=rows.filter(p=>p.adult_class_interest).length;
+  const n=rows.length,cleared=rows.filter(wkCleared).length,attention=rows.filter(p=>p.waiver_status==='Needs Attention').length,
+        noMedia=rows.filter(p=>p.media_consent!=='Yes').length,attended=rows.filter(p=>p.attended).length,interest=rows.filter(p=>p.adult_class_interest).length,
+        minors=rows.filter(p=>p.age_category==='Minor').length;
   const cap=WORKSHOP_TIER_CAPS[w.tier];
   const chip=(label,val,color)=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px 12px;font-size:12px;"><strong style="color:${color||'var(--ink)'};">${val}</strong> ${label}</div>`;
   $('wkp-summary').innerHTML=
-    chip('registered',n+(cap?' / '+cap:''),cap&&n>cap?'var(--red)':null)+
-    chip('waivers signed',waivers+' / '+n,waivers<n?'var(--amber)':'var(--green)')+
-    chip('photo OK',yes,'var(--green)')+
-    chip('no filming',no,no?'var(--red)':null)+
-    chip('consent unknown',n-yes-no,n-yes-no?'var(--amber)':null)+
-    chip('attended',attended)+
+    chip('on roster',n+(cap?' / '+cap:''),cap&&n>cap?'var(--red)':null)+
+    chip('cleared to participate',cleared+' / '+n,cleared<n?'var(--amber)':'var(--green)')+
+    (attention?chip('need attention',attention,'var(--red)'):'')+
+    chip('no media',noMedia,noMedia?'var(--red)':null)+
+    (minors?chip('under 18',minors):'')+
+    chip('checked in',attended)+
     chip('adult-class interest',interest,'var(--purple)');
-  if(!n){$('wkp-tbody').innerHTML='<tr><td colspan="9" style="text-align:center;padding:18px;color:var(--ink-muted);">No participants yet — add them above as registrations come in.</td></tr>';return;}
+  if(!n){$('wkp-tbody').innerHTML='<tr><td colspan="7" style="text-align:center;padding:18px;color:var(--ink-muted);">No participants yet. Share the waiver link — people appear here as they sign.</td></tr>';return;}
+  const owner=wkIsOwner();
   $('wkp-tbody').innerHTML=rows.map(p=>{
-    const id=E(p.id);
-    const mediaColor=p.media_consent==='Yes'?'var(--green)':p.media_consent==='No'?'var(--red)':'var(--amber)';
-    return `<tr>
-      <td><strong>${E(p.full_name)}</strong>${p.age?'<span style="font-size:11px;color:var(--ink-muted);"> · '+E(p.age)+'</span>':''}${p.notes?'<div style="font-size:11px;color:var(--ink-muted);">'+E(p.notes)+'</div>':''}</td>
-      <td style="font-size:12px;">${E(p.role)}</td>
-      <td style="font-size:12px;">${E(p.paired_with||'')}</td>
-      <td style="font-size:11px;color:var(--ink-muted);">${E(p.email||'')}${p.phone?'<div>'+E(p.phone)+'</div>':''}${p.emergency_contact?'<div title="Emergency contact">🚑 '+E(p.emergency_contact)+'</div>':''}</td>
-      <td style="text-align:center;"><input type="checkbox" ${p.waiver_signed?'checked':''} onchange="wkpToggle('${id}','waiver_signed',this.checked)"></td>
-      <td><select class="form-select" style="padding:4px 6px;font-size:12px;color:${mediaColor};" onchange="wkpToggle('${id}','media_consent',this.value)">${['Unknown','Yes','No'].map(o=>`<option ${p.media_consent===o?'selected':''}>${o}</option>`).join('')}</select></td>
-      <td style="text-align:center;"><input type="checkbox" ${p.attended?'checked':''} onchange="wkpToggle('${id}','attended',this.checked)"></td>
+    const id=E(p.id),sw=_wkpWaivers[p.id];
+    const ageTag=p.age_category?`<span style="font-size:11px;color:${p.age_category==='Minor'?'var(--amber)':'var(--ink-muted)'};"> · ${p.age_category==='Minor'?'Under 18':'Adult'}</span>`:`<span style="font-size:11px;color:var(--ink-muted);"> · ${E(p.role)}</span>`;
+    const actions=[];
+    if(owner&&(sw||p.paper_waiver||p.attention_reason))actions.push(`<button class="btn small" onclick="wkpToggleDetail('${id}')">${_wkpOpenDetail===p.id?'Hide':'View'}</button>`);
+    if(p.waiver_status!=='Signed'&&!sw)actions.push(`<button class="btn small" onclick="wkpPaper('${id}')" title="A signed paper waiver is on file">Paper</button>`);
+    if(p.waiver_status==='Needs Attention'||(p.attention_reason&&p.waiver_status==='Signed'))actions.push(`<button class="btn small" onclick="wkpResolve('${id}')">Mark reviewed</button>`);
+    actions.push(`<button class="btn small" onclick="wkpEdit('${id}')">Edit</button>`);
+    if(!sw)actions.push(`<button class="btn small danger" onclick="wkpDelete('${id}')">✕</button>`);
+    const main=`<tr${wkCleared(p)?'':' style="background:#fffdf7;"'}>
+      <td><strong>${E(p.full_name)}</strong>${ageTag}${p.paired_with?'<div style="font-size:11px;color:var(--ink-muted);">with '+E(p.paired_with)+'</div>':''}${sw&&sw.has_notes?'<div style="font-size:11px;color:var(--purple);">🩺 health note on file</div>':''}${p.notes?'<div style="font-size:11px;color:var(--ink-muted);">'+E(p.notes)+'</div>':''}</td>
+      <td style="min-width:150px;">${wkpStatusBadge(p)}</td>
+      <td>${wkpMediaCell(p)}</td>
+      <td style="font-size:12px;">${p.emergency_contact?E(p.emergency_contact):'<span style="color:var(--ink-faint);">—</span>'}${p.phone||p.email?'<div style="font-size:11px;color:var(--ink-faint);">'+E(p.phone||p.email)+'</div>':''}</td>
+      <td style="text-align:center;"><input type="checkbox" ${p.attended?'checked':''} onchange="wkpToggle('${id}','attended',this.checked)" title="${wkCleared(p)?'Checked in':'Not cleared — waiver not complete'}"></td>
       <td style="text-align:center;"><input type="checkbox" ${p.adult_class_interest?'checked':''} onchange="wkpToggle('${id}','adult_class_interest',this.checked)"></td>
-      <td style="white-space:nowrap;"><button class="btn small" onclick="wkpEdit('${id}')">Edit</button> <button class="btn small danger" onclick="wkpDelete('${id}')">✕</button></td>
+      <td style="white-space:nowrap;">${actions.join(' ')}</td>
     </tr>`;
+    const detail=_wkpOpenDetail===p.id?`<tr><td colspan="7" style="background:var(--paper);padding:12px 14px;" id="wkp-detail-${id}">${_wkpDetailCache[p.id]?wkpDetailHtml(p,_wkpDetailCache[p.id]):'Loading…'}</td></tr>`:'';
+    return main+detail;
   }).join('');
+}
+async function wkpToggleDetail(id){
+  if(_wkpOpenDetail===id){_wkpOpenDetail=null;wkpRender();return;}
+  _wkpOpenDetail=id;wkpRender();
+  try{_wkpDetailCache[id]=await waiverApi({op:'detail',participant_id:id});}
+  catch(e){_wkpDetailCache[id]={error:e.message};}
+  if(_wkpOpenDetail===id)wkpRender();
+}
+function wkpDetailHtml(p,d){
+  const E=famEsc;
+  if(d.error)return `<span style="color:var(--red);">${E(d.error)}</span>`;
+  const cur=(d.waivers||[]).find(x=>!x.superseded_by),older=(d.waivers||[]).filter(x=>x.superseded_by);
+  const kv=(k,v)=>`<div style="display:flex;gap:10px;font-size:12px;padding:2px 0;"><div style="width:150px;color:var(--ink-muted);flex:none;">${k}</div><div>${v}</div></div>`;
+  let h='<div style="font-size:11px;color:var(--ink-muted);margin-bottom:6px;">🔒 Owner-only details. Viewing is logged.</div>';
+  if(!cur)h+=p.paper_waiver?'<div style="font-size:12px;">Paper waiver recorded in the CRM — no e-signed copy.</div>':'<div style="font-size:12px;">No e-signed waiver yet.</div>';
+  else{
+    h+=kv('Participant',E(cur.participant_legal_name)+' — '+E(cur.participant_type)+', age '+E(cur.age_at_workshop)+' at workshop');
+    h+=kv('Date of birth',E(cur.participant_dob));
+    h+=kv('Signed by',E(cur.signer_legal_name)+' ('+E(cur.signer_role)+(cur.signer_relationship?' — '+E(cur.signer_relationship):'')+')');
+    h+=kv('Signed',E(new Date(cur.signed_at).toLocaleString())+' <span style="color:var(--ink-faint);">('+E(cur.signed_at)+' UTC)</span>');
+    h+=kv('Contact',E([cur.signer_email,cur.signer_phone].filter(Boolean).join(' · ')));
+    h+=kv('Emergency contact',E(cur.emergency_contact_name+' — '+cur.emergency_contact_phone));
+    h+=kv('Health / accommodations',cur.medical_notes?'<strong>'+E(cur.medical_notes)+'</strong>':'<span style="color:var(--ink-faint);">None provided'+(cur.medical_notes===null?' (or deleted)':'')+'</span>');
+    h+=kv('Photo/video consent',E(cur.media_consent)+(cur.media_signature_text?' — signed “'+E(cur.media_signature_text)+'”':''));
+    h+=kv('Agreement version',E(cur.waiver_doc_id)+' · media '+E(cur.media_doc_id));
+    h+=kv('Copy emailed',cur.emailed_copy_at?E(new Date(cur.emailed_copy_at).toLocaleString()):'No');
+    h+=kv('Signing device',E((cur.signer_ip||'')+' · '+(cur.signer_user_agent||'').slice(0,90)));
+    h+=kv('Keep record until',E(cur.retain_until));
+    h+=`<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">${cur.pdf_path?`<button class="btn small primary" onclick="wkpOpenPdf('${E(cur.id)}')">📄 Open signed PDF</button>`:'<span style="font-size:12px;color:var(--red);">No PDF stored for this signing.</span>'}</div>`;
+  }
+  if(older.length)h+=`<div style="margin-top:10px;font-size:12px;font-weight:700;">Earlier signed versions (kept)</div>`+older.map(o=>`<div style="font-size:12px;">${E(new Date(o.signed_at).toLocaleString())} — ${E(o.waiver_doc_id)} ${o.pdf_path?`<a href="#" onclick="wkpOpenPdf('${E(o.id)}');return false;">PDF</a>`:''}</div>`).join('');
+  if((d.audit||[]).length)h+=`<details style="margin-top:10px;"><summary style="font-size:12px;cursor:pointer;">Activity log (${d.audit.length})</summary>${d.audit.map(a=>`<div style="font-size:11px;color:var(--ink-muted);">${E(new Date(a.at).toLocaleString())} · ${E(a.event)}${a.actor?' · '+E(a.actor):''}</div>`).join('')}</details>`;
+  return h;
+}
+async function wkpOpenPdf(waiverId){
+  const win=window.open('','_blank');
+  try{const j=await waiverApi({op:'pdf',waiver_id:waiverId});if(win)win.location=j.url;else location.href=j.url;}
+  catch(e){if(win)win.close();alert('Could not open the PDF: '+e.message);}
+}
+async function wkpPaper(id){
+  const p=_wkpRows.find(x=>x.id===id);if(!p)return;
+  if(!confirm('Record that a signed PAPER waiver for '+p.full_name+' is on file?\n\nOnly do this if you have the signed paper copy in hand.'))return;
+  const media=confirm('Did the paper form give PHOTO/VIDEO permission?\n\nOK = Yes, permission given\nCancel = No permission')?'Yes':'No';
+  try{await waiverApi({op:'paper',participant_id:id,media});await wkpLoad();await wkpAfterChange();toast('Paper waiver recorded.');}
+  catch(e){alert('Could not save: '+e.message);}
+}
+async function wkpResolve(id){
+  const p=_wkpRows.find(x=>x.id===id);if(!p)return;
+  if(!confirm('Mark this as reviewed?\n\n'+(p.attention_reason||'')))return;
+  try{await waiverApi({op:'resolve',participant_id:id});await wkpLoad();await wkpAfterChange();}
+  catch(e){alert('Could not save: '+e.message);}
+}
+async function wkpWithdrawMedia(id){
+  const p=_wkpRows.find(x=>x.id===id);if(!p)return;
+  const note=prompt('Withdraw photo/video permission for '+p.full_name+'?\n\nOptional note (e.g. "parent emailed 1/12"):','');
+  if(note==null)return;
+  try{await waiverApi({op:'media_withdraw',participant_id:id,note});await wkpLoad();await wkpAfterChange();toast('Photo/video permission withdrawn.');}
+  catch(e){alert('Could not save: '+e.message);}
+}
+async function wkpPurgeNotes(){
+  if(!confirm('Permanently delete all health/accommodation notes for this workshop?\n\nDo this once the workshop is over. Signed agreements are kept.'))return;
+  try{const j=await waiverApi({op:'purge_notes',workshop_id:_wkpWorkshopId});_wkpDetailCache={};await wkpLoad();toast(j.purged+' note'+(j.purged===1?'':'s')+' deleted.');}
+  catch(e){alert('Could not delete: '+e.message);}
 }
 function wkpResetForm(){
   _wkpEditingId=null;
-  ['wkp-name','wkp-age','wkp-paired','wkp-email','wkp-phone','wkp-emergency','wkp-notes'].forEach(id=>{$(id).value='';});
-  $('wkp-role').value='Teen';$('wkp-media').value='Unknown';
-  $('wkp-waiver').checked=false;$('wkp-interest').checked=false;
-  $('wkp-form-title').textContent='Add participant';
+  ['wkp-name','wkp-paired','wkp-email','wkp-phone','wkp-notes'].forEach(id=>{$(id).value='';});
+  $('wkp-role').value='Teen';$('wkp-interest').checked=false;
+  $('wkp-form-title').textContent='+ Add someone manually';
   $('wkp-save-btn').textContent='+ Add participant';
   $('wkp-cancel-edit').style.display='none';
 }
@@ -10009,34 +10180,26 @@ function wkpEdit(id){
   _wkpEditingId=id;
   $('wkp-name').value=p.full_name||'';
   $('wkp-role').value=['Teen','Parent/Guardian','Adult'].includes(p.role)?p.role:'Adult';
-  $('wkp-age').value=p.age!=null?p.age:'';
   $('wkp-paired').value=p.paired_with||'';
   $('wkp-email').value=p.email||'';
   $('wkp-phone').value=p.phone||'';
-  $('wkp-emergency').value=p.emergency_contact||'';
-  $('wkp-media').value=p.media_consent||'Unknown';
-  $('wkp-waiver').checked=!!p.waiver_signed;
   $('wkp-interest').checked=!!p.adult_class_interest;
   $('wkp-notes').value=p.notes||'';
   $('wkp-form-title').textContent='Edit '+p.full_name;
   $('wkp-save-btn').textContent='Save changes';
   $('wkp-cancel-edit').style.display='';
+  $('wkp-add-wrap').open=true;
   $('wkp-name').focus();
 }
 async function wkpSave(){
   const name=$('wkp-name').value.trim();
   if(!name){alert('Participant name is required.');return;}
-  const age=parseInt($('wkp-age').value,10);
   const payload={
     full_name:name,
     role:$('wkp-role').value,
-    age:isNaN(age)?null:age,
     paired_with:$('wkp-paired').value.trim(),
     email:$('wkp-email').value.trim(),
     phone:$('wkp-phone').value.trim(),
-    emergency_contact:$('wkp-emergency').value.trim(),
-    media_consent:$('wkp-media').value,
-    waiver_signed:$('wkp-waiver').checked,
     adult_class_interest:$('wkp-interest').checked,
     notes:$('wkp-notes').value.trim(),
     updated_at:new Date().toISOString()
@@ -10044,7 +10207,7 @@ async function wkpSave(){
   try{
     let res;
     if(_wkpEditingId)res=await supa.from('workshop_participants').update(payload).eq('id',_wkpEditingId);
-    else res=await supa.from('workshop_participants').insert(Object.assign({workshop_id:_wkpWorkshopId},payload));
+    else res=await supa.from('workshop_participants').insert(Object.assign({workshop_id:_wkpWorkshopId,waiver_status:_wkpLink&&_wkpLink.token?'Pending':'Not Sent'},payload));
     if(res.error){alert('Save failed: '+res.error.message);return;}
     const wasEdit=!!_wkpEditingId;
     wkpResetForm();
@@ -10054,8 +10217,12 @@ async function wkpSave(){
     $('wkp-name').focus();
   }catch(e){alert('Connection error — check your internet and try again.');}
 }
+// Only check-in and adult-class interest are quick toggles; waiver and media status
+// change only through signing, paper records, or audited withdrawals.
 async function wkpToggle(id,field,value){
+  if(!['attended','adult_class_interest'].includes(field))return;
   const p=_wkpRows.find(x=>x.id===id);if(!p)return;
+  if(field==='attended'&&value&&!wkCleared(p)&&!confirm(p.full_name+' is NOT cleared — their waiver isn’t complete.\n\nCheck them in anyway?')){wkpRender();return;}
   const prev=p[field];p[field]=value;wkpRender();
   try{
     const res=await supa.from('workshop_participants').update({[field]:value,updated_at:new Date().toISOString()}).eq('id',id);
@@ -10065,6 +10232,7 @@ async function wkpToggle(id,field,value){
 }
 async function wkpDelete(id){
   const p=_wkpRows.find(x=>x.id===id);if(!p)return;
+  if(_wkpWaivers[id]){alert('This person has a signed waiver on file, so they can’t be removed from the roster.');return;}
   if(!confirm('Remove '+p.full_name+' from this workshop?'))return;
   try{
     const res=await supa.from('workshop_participants').delete().eq('id',id);
@@ -10086,11 +10254,14 @@ function wkpCopy(text,what){
   else prompt('Copy this:',text);
 }
 function wkpCopyOptOuts(){
-  const list=_wkpRows.filter(p=>p.media_consent!=='Yes');
-  const no=list.filter(p=>p.media_consent==='No').map(p=>p.full_name);
-  const unk=list.filter(p=>p.media_consent!=='No').map(p=>p.full_name);
-  const text=(no.length?'Do NOT film or photograph: '+no.join(', '):'')+(unk.length?(no.length?'\n':'')+'Consent not yet confirmed (do not feature): '+unk.join(', '):'');
-  wkpCopy(text,'no-filming list');
+  const no=_wkpRows.filter(p=>p.media_consent==='No').map(p=>p.full_name);
+  const unk=_wkpRows.filter(p=>p.media_consent!=='No'&&p.media_consent!=='Yes').map(p=>p.full_name);
+  const text=(no.length?'Do NOT film or photograph: '+no.join(', '):'')+(unk.length?(no.length?'\n':'')+'No permission yet (do not feature): '+unk.join(', '):'');
+  wkpCopy(text,'no-media list');
+}
+function wkpCopyNotCleared(){
+  const list=_wkpRows.filter(p=>!wkCleared(p)).map(p=>p.full_name+' ('+(p.waiver_status||'Not Sent')+')');
+  wkpCopy(list.length?'Waiver still needed: '+list.join(', '):'','not-cleared list');
 }
 function wkpCopyEmails(){
   const emails=[...new Set(_wkpRows.map(p=>(p.email||'').trim()).filter(Boolean))];
@@ -10100,14 +10271,15 @@ function wkpPrintSheet(){
   const w=(_workshopLeads||[]).find(x=>x.id===_wkpWorkshopId)||{};
   const E=famEsc;
   const rows=_wkpRows.slice().sort((a,b)=>(a.paired_with||a.full_name).localeCompare(b.paired_with||b.full_name));
+  const nc=rows.filter(p=>!wkCleared(p)).length,nm=rows.filter(p=>p.media_consent!=='Yes').length;
   const html=`<!doctype html><html><head><meta charset="utf-8"><title>Check-in — ${E(wkDisplayName(w))}</title>
   <style>body{font-family:system-ui,sans-serif;margin:24px;color:#111}h1{font-size:20px;margin:0}p{margin:4px 0 16px;color:#555;font-size:13px}
-  table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #bbb;padding:7px 8px;text-align:left}th{background:#f2f2f2}
-  .no{color:#b00020;font-weight:700}.unk{color:#a15c00}td.box{width:60px}</style></head><body>
+  table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #bbb;padding:7px 8px;text-align:left;vertical-align:top}th{background:#f2f2f2}
+  .no{color:#b00020;font-weight:700}.need{color:#b00020;font-weight:700}.ok{color:#1b6b3a;font-weight:600}td.box{width:44px}tr.stop td{background:#fff3f1}</style></head><body>
   <h1>${E(wkDisplayName(w))} — Check-in</h1>
-  <p>${E([w.session_date?fmtDate(w.session_date)+(w.session_time?' '+fmtWkTime(w.session_time):''):'',w.location||''].filter(Boolean).join(' · '))} · Noble's Martial Arts</p>
-  <table><thead><tr><th>Here</th><th>Name</th><th>Role</th><th>Paired with</th><th>Waiver</th><th>Photo/video</th><th>Emergency contact</th></tr></thead><tbody>
-  ${rows.map(p=>`<tr><td class="box"></td><td>${E(p.full_name)}</td><td>${E(p.role)}</td><td>${E(p.paired_with||'')}</td><td>${p.waiver_signed?'✓':'<span class="unk">NEEDED</span>'}</td><td>${p.media_consent==='No'?'<span class="no">NO FILMING</span>':p.media_consent==='Yes'?'OK':'<span class="unk">Unknown</span>'}</td><td>${E(p.emergency_contact||'')}</td></tr>`).join('')}
+  <p>${E([w.session_date?fmtDate(w.session_date)+(w.session_time?' '+fmtWkTime(w.session_time):''):'',w.location||''].filter(Boolean).join(' · '))} · Noble's Martial Arts · ${rows.length} on roster · <strong>${nc} not cleared</strong> · ${nm} no media</p>
+  <table><thead><tr><th>Here</th><th>Name</th><th>Age</th><th>Waiver</th><th>Photo/video</th><th>Emergency contact</th></tr></thead><tbody>
+  ${rows.map(p=>`<tr class="${wkCleared(p)?'':'stop'}"><td class="box"></td><td>${E(p.full_name)}${p.paired_with?'<br><small>with '+E(p.paired_with)+'</small>':''}</td><td>${p.age_category==='Minor'?'Under 18':p.age_category==='Adult'?'Adult':E(p.role)}</td><td>${wkCleared(p)?'<span class="ok">CLEARED</span>'+(p.paper_waiver?' (paper)':''):'<span class="need">NOT CLEARED — '+E(p.waiver_status||'Not Sent')+'</span>'}</td><td>${p.media_consent==='Yes'?'OK':'<span class="no">NO MEDIA</span>'}</td><td>${E(p.emergency_contact||'')}</td></tr>`).join('')}
   </tbody></table></body></html>`;
   const win=window.open('','_blank');
   if(!win){alert('Pop-up blocked — allow pop-ups for this site to print.');return;}

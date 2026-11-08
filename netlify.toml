@@ -8,6 +8,14 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
+# E-waiver signing page: the link carries a private token, so never cache it or leak it in referrers.
+[[headers]]
+  for = "/waiver*"
+  [headers.values]
+    Cache-Control = "no-store"
+    Referrer-Policy = "no-referrer"
+    X-Robots-Tag = "noindex, nofollow"
+
 [[headers]]
   for = "/nobles-crm-v4.html"
   [headers.values]
