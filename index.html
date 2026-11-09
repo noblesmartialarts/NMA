@@ -1770,10 +1770,42 @@ tbody td{font-size:11px!important;}
           <div style="font-size:12px;color:var(--ink-muted);">Subject:</div>
           <input type="text" id="bc-subject" class="form-input" style="flex:1;" placeholder="e.g. NMA — May Announcement">
         </div>
-        <textarea id="bc-body" style="width:100%;min-height:280px;padding:16px;font-family:Georgia,serif;font-size:13px;line-height:1.8;border:none;outline:none;resize:vertical;background:#fff;" placeholder="Type your announcement here…"></textarea>
+        <div class="bc-toolbar" id="bc-toolbar" onmousedown="if(event.target.closest('button'))event.preventDefault();">
+          <button type="button" class="bc-tb" title="Bold (Ctrl+B)" onclick="bcCmd('bold')"><b>B</b></button>
+          <button type="button" class="bc-tb" title="Italic (Ctrl+I)" onclick="bcCmd('italic')"><i>I</i></button>
+          <button type="button" class="bc-tb" title="Underline (Ctrl+U)" onclick="bcCmd('underline')"><u>U</u></button>
+          <button type="button" class="bc-tb" title="Strikethrough" onclick="bcCmd('strikeThrough')"><s>S</s></button>
+          <span class="bc-sep"></span>
+          <select class="bc-size" title="Text size" onmousedown="bcSaveSel()" onchange="bcSize(this.value);this.selectedIndex=0;">
+            <option value="">Size</option><option value="13">Small</option><option value="15">Normal</option><option value="19">Large</option><option value="24">Big</option><option value="32">Huge</option>
+          </select>
+          <span class="bc-pop-wrap">
+            <button type="button" class="bc-tb" title="Text color" onclick="bcTogglePop('bc-color-pop')"><span style="border-bottom:3px solid #c62828;padding:0 2px;font-weight:700;">A</span></button>
+            <div class="bc-pop" id="bc-color-pop"></div>
+          </span>
+          <span class="bc-pop-wrap">
+            <button type="button" class="bc-tb" title="Highlight" onclick="bcTogglePop('bc-hl-pop')"><span style="background:#fff59d;padding:0 4px;color:#222;">H</span></button>
+            <div class="bc-pop" id="bc-hl-pop"></div>
+          </span>
+          <span class="bc-sep"></span>
+          <button type="button" class="bc-tb" title="Bulleted list" onclick="bcCmd('insertUnorderedList')">• List</button>
+          <button type="button" class="bc-tb" title="Numbered list" onclick="bcCmd('insertOrderedList')">1. List</button>
+          <button type="button" class="bc-tb" title="Center" onclick="bcAlign()">≡ Center</button>
+          <button type="button" class="bc-tb" title="Add a link" onclick="bcLink()">🔗</button>
+          <button type="button" class="bc-tb" title="Divider line" onclick="bcCmd('insertHorizontalRule')">―</button>
+          <span class="bc-pop-wrap">
+            <button type="button" class="bc-tb" title="Emoji (also works in the subject)" onclick="bcTogglePop('bc-emoji-pop')">😀</button>
+            <div class="bc-pop bc-emoji-pop" id="bc-emoji-pop"></div>
+          </span>
+          <span class="bc-sep"></span>
+          <button type="button" class="bc-tb" title="Clear formatting on selected text" onclick="bcCmd('removeFormat')">⌫ Clear</button>
+        </div>
+        <div id="bc-editor" class="bc-editor" contenteditable="true" data-placeholder="Type your announcement here…"></div>
+        <textarea id="bc-body" style="display:none;"></textarea>
       </div>
       <div id="bc-preview-additions" style="background:var(--amber-light);border:1px solid var(--amber);border-radius:8px;padding:11px 14px;margin-top:10px;font-size:12px;color:var(--amber);display:none;"></div>
       <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+        <button class="btn" onclick="bcSendTest()" id="bc-test-btn" title="Sends this email to the NMA inbox so you can see it exactly as parents will">🧪 Send test to me</button>
         <button class="btn" onclick="previewBroadcast()">Preview</button>
         <button class="btn primary" onclick="sendBroadcast()" id="bc-send-btn">✉ Send Broadcast</button>
       </div>
@@ -15471,9 +15503,10 @@ function famSmsTargets(students){
     if(!confirm('Send broadcast to '+targets.length+' famil'+(targets.length!==1?'ies':'y')+' ('+students.length+' students)?'))return;
     const btn=$('bc-send-btn');if(btn){btn.disabled=true;btn.textContent='Sending…';}
     const prog=$('bc-send-progress');let sent=0;const failed=[];
+    const bodyHtml=bcEditorHtml();
     for(const t of targets){
       const footer=bcFooter(t);
-      const ok=await sendGmailMessage(t.email,subject,body+footer);
+      const ok=await sendGmailHtml(t.email,subject,body+footer,bcEmailHtml(bodyHtml,t));
       if(ok)sent++;else failed.push(t.name||t.email);
       if(prog)prog.innerHTML='<div class="send-progress">Sending… '+sent+' / '+targets.length+'</div>';
     }
@@ -15501,14 +15534,13 @@ function bcFooter(t){
 function bcPreviewHTML(targets,idx){
   const t=targets[idx];if(!t)return '';
   const subject=$('bc-subject')?.value.trim()||'(no subject yet)';
-  const body=($('bc-body')?.value.trim()||'(no message yet)')+bcFooter(t);
   return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:12px;">
       <span style="color:var(--ink-muted);">Preview as:</span>
       <select class="form-select" style="width:auto;max-width:100%;" onchange="_bcPrevIdx=+this.value;$('bc-prev-body').innerHTML=bcPreviewHTML(_bcPrevTargets,_bcPrevIdx)">${targets.map((x,i)=>`<option value="${i}" ${i===idx?'selected':''}>${famEsc(famJoinNames(x.students.map(s=>s.first))+' '+(x.students[0].last||''))} — ${famEsc(x.email)}</option>`).join('')}</select>
     </div>
     <div class="email-card"><div style="padding:10px 16px;font-size:12px;color:var(--ink-muted);">To: ${famEsc(t.name||'')} &lt;${famEsc(t.email)}&gt;</div>
       <div style="padding:10px 16px;border-top:1px solid var(--border);font-size:13px;"><strong>Subject:</strong> ${famEsc(subject)}</div>
-      <pre style="padding:14px 16px;font-size:12px;font-family:Georgia,serif;line-height:1.7;white-space:pre-wrap;margin:0;border-top:1px solid var(--border);">${famEsc(body)}</pre></div>`;
+      <div style="padding:16px;margin:0;border-top:1px solid var(--border);background:#fff;">${bcEmailHtml(bcEditorHtml()||'<span style="color:#999;">(no message yet)</span>',t)}</div></div>`;
 }
 let _bcPrevTargets=[],_bcPrevIdx=0;
 previewBroadcast=function(){
@@ -15525,6 +15557,206 @@ previewBroadcast=function(){
     <div class="modal-footer"><button class="btn" onclick="closeModal('modal-bc-preview')">Close</button><button class="btn success" onclick="closeModal('modal-bc-preview');sendBroadcast()">✉ Send broadcast</button></div></div>`;
   modal.classList.add('open');
 };
+// ══════════════════════════════════════════════════════
+// BROADCAST — rich text editor (bold, sizes, colors, lists, links, emojis) + HTML email
+// The hidden #bc-body textarea always holds the plain-text version (used for the
+// text/plain part of the email and the "message is empty" checks).
+// ══════════════════════════════════════════════════════
+const BC_COLORS=['#222222','#c62828','#ad1457','#6a1b9a','#1565c0','#00838f','#2e7d32','#ef6c00','#6d4c41','#757575'];
+const BC_HIGHLIGHTS=['transparent','#fff59d','#ffe0b2','#c8e6c9','#bbdefb','#f8bbd0','#e1bee7'];
+const BC_EMOJIS=['🥋','🥇','🏆','🎉','🎊','⭐','🌟','✨','🔥','💪','👊','🙌','👏','👍','🙏','❤️','💙','💛','😀','😄','😊','🤩','😎','🥳','😅','🤔','📢','📣','📅','🗓️','⏰','📍','📝','✅','❌','⚠️','❗','❓','💵','💳','🎁','🎂','🎄','🦃','🎃','☀️','🌧️','❄️','🏫','🚗','👕','📸','🎥','🐉','👨‍👩‍👧','👉','➡️','🔔','💡','🛑'];
+let _bcRange=null,_bcLastField='editor',_bcLastSize=15;
+function bcEd(){return $('bc-editor');}
+function bcSaveSel(){const ed=bcEd(),sel=window.getSelection();if(ed&&sel&&sel.rangeCount&&ed.contains(sel.anchorNode))_bcRange=sel.getRangeAt(0).cloneRange();}
+function bcRestoreSel(){const ed=bcEd();if(!ed)return;ed.focus();if(_bcRange){const sel=window.getSelection();sel.removeAllRanges();sel.addRange(_bcRange);}}
+function bcCmd(cmd,val){bcRestoreSel();try{document.execCommand('styleWithCSS',false,cmd!=='fontSize');}catch(e){}document.execCommand(cmd,false,val==null?null:val);bcNormalize();bcSaveSel();bcSync();}
+function bcSize(px){if(!px)return;_bcLastSize=+px;bcCmd('fontSize','7');}
+function bcAlign(){bcRestoreSel();const on=document.queryCommandState('justifyCenter');bcCmd(on?'justifyLeft':'justifyCenter');}
+function bcLink(){
+  bcSaveSel();
+  const selText=_bcRange?String(_bcRange):'';
+  let url=prompt('Link address (web page or email):',/^https?:\/\//i.test(selText)?selText:'https://');
+  if(!url||url==='https://')return;
+  url=url.trim();
+  if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(url))url='mailto:'+url;
+  else if(!/^(https?:|mailto:)/i.test(url))url='https://'+url;
+  bcRestoreSel();
+  if(!selText){document.execCommand('insertHTML',false,'<a href="'+famEsc(url)+'">'+famEsc(url.replace(/^mailto:/,''))+'</a>&nbsp;');}
+  else document.execCommand('createLink',false,url);
+  bcSaveSel();bcSync();
+}
+function bcTogglePop(id){
+  bcSaveSel();
+  document.querySelectorAll('.bc-pop.open').forEach(p=>{if(p.id!==id)p.classList.remove('open');});
+  const p=$(id);if(p)p.classList.toggle('open');
+}
+function bcClosePops(){document.querySelectorAll('.bc-pop.open').forEach(p=>p.classList.remove('open'));}
+function bcEmoji(e){
+  bcClosePops();
+  const subj=$('bc-subject');
+  if(_bcLastField==='subject'&&subj){
+    const a=subj.selectionStart??subj.value.length,b=subj.selectionEnd??a;
+    subj.value=subj.value.slice(0,a)+e+subj.value.slice(b);subj.focus();subj.setSelectionRange(a+e.length,a+e.length);return;
+  }
+  bcRestoreSel();document.execCommand('insertText',false,e);bcSaveSel();bcSync();
+}
+// Chrome's fontSize command makes <font size="7"> (or xxx-large spans) — turn those into real pixel sizes.
+function bcNormalize(){
+  const ed=bcEd();if(!ed)return;
+  ed.querySelectorAll('font[size="7"]').forEach(f=>{const sp=document.createElement('span');sp.style.fontSize=_bcLastSize+'px';if(f.color)sp.style.color=f.color;sp.innerHTML=f.innerHTML;f.replaceWith(sp);});
+  ed.querySelectorAll('span').forEach(sp=>{if(/xxx-large/.test(sp.style.fontSize))sp.style.fontSize=_bcLastSize+'px';});
+}
+
+// Keep only email-safe formatting (also used on pasted content from Word/Docs/websites).
+const BC_KEEP_TAGS={B:1,STRONG:1,I:1,EM:1,U:1,S:1,STRIKE:1,BR:1,P:1,DIV:1,SPAN:1,UL:1,OL:1,LI:1,A:1,HR:1,BLOCKQUOTE:1,H1:1,H2:1,H3:1,FONT:1};
+const BC_DROP_TAGS={SCRIPT:1,STYLE:1,META:1,LINK:1,TITLE:1,HEAD:1,IFRAME:1,OBJECT:1,EMBED:1,IMG:1,SVG:1,VIDEO:1,AUDIO:1,FORM:1,INPUT:1,BUTTON:1,SELECT:1,TEXTAREA:1};
+const BC_KEEP_CSS=['font-weight','font-style','text-decoration','text-decoration-line','font-size','color','background-color','text-align'];
+const BC_FONT_SIZES={1:11,2:13,3:15,4:17,5:19,6:24,7:32};
+function bcClean(root){
+  [...root.childNodes].forEach(n=>{
+    if(n.nodeType===8){n.remove();return;}
+    if(n.nodeType!==1)return;
+    const tag=n.tagName.toUpperCase();
+    if(BC_DROP_TAGS[tag]){n.remove();return;}
+    bcClean(n);
+    if(!BC_KEEP_TAGS[tag]){n.replaceWith(...n.childNodes);return;}
+    if(tag==='FONT'){
+      const sp=document.createElement('span');
+      if(n.getAttribute('color'))sp.style.color=n.getAttribute('color');
+      const sz=n.getAttribute('size');if(sz&&BC_FONT_SIZES[sz])sp.style.fontSize=(sz==='7'?_bcLastSize:BC_FONT_SIZES[sz])+'px';
+      sp.append(...n.childNodes);n.replaceWith(sp);bcCleanAttrs(sp);return;
+    }
+    bcCleanAttrs(n);
+  });
+  return root;
+}
+// Parse HTML in an inert <template> (nothing loads or runs), then clean it.
+function bcFrag(html){const t=document.createElement('template');t.innerHTML=html;bcClean(t.content);const box=document.createElement('div');box.appendChild(t.content);return box;}
+function bcCleanAttrs(el){
+  const keep=[];
+  BC_KEEP_CSS.forEach(k=>{const v=el.style.getPropertyValue(k);if(v&&!/var\(|expression|url\(/i.test(v))keep.push(k+':'+v);});
+  const href=el.tagName==='A'?(el.getAttribute('href')||''):'';
+  [...el.attributes].forEach(a=>el.removeAttribute(a.name));
+  if(keep.length)el.setAttribute('style',keep.join(';'));
+  if(href&&/^(https?:|mailto:)/i.test(href.trim()))el.setAttribute('href',href.trim());
+}
+// The message body as email HTML (inline styles so Gmail/Outlook/Apple Mail all render it).
+function bcEditorHtml(){
+  const ed=bcEd();if(!ed||!ed.textContent.trim())return '';
+  const box=bcFrag(ed.innerHTML);
+  const add=(sel,css)=>box.querySelectorAll(sel).forEach(el=>el.setAttribute('style',css+(el.getAttribute('style')?';'+el.getAttribute('style'):'')));
+  add('p','margin:0 0 12px');add('ul,ol','margin:6px 0 12px;padding-left:26px');add('li','margin:0 0 4px');
+  add('a','color:#1565c0;text-decoration:underline');add('blockquote','margin:8px 0;padding-left:12px;border-left:3px solid #ddd;color:#555');
+  add('h1','font-size:28px;margin:0 0 10px');add('h2','font-size:22px;margin:0 0 10px');add('h3','font-size:18px;margin:0 0 8px');
+  box.querySelectorAll('hr').forEach(h=>h.setAttribute('style','border:none;border-top:1px solid #ddd;margin:16px 0'));
+  return box.innerHTML;
+}
+// Plain-text version of the editor (lists get bullets, links keep their address).
+function bcText(node){
+  let out='';
+  node.childNodes.forEach(n=>{
+    if(n.nodeType===3){out+=n.nodeValue.replace(/ /g,' ');return;}
+    if(n.nodeType!==1)return;
+    const tag=n.tagName;
+    if(tag==='BR'){out+='\n';return;}
+    if(tag==='HR'){out+='\n'+'—'.repeat(20)+'\n';return;}
+    if(tag==='LI'){const ol=n.parentElement&&n.parentElement.tagName==='OL';const i=[...n.parentElement.children].indexOf(n)+1;out+=(ol?i+'. ':'• ')+bcText(n).trim()+'\n';return;}
+    if(tag==='A'){const t=bcText(n),h=(n.getAttribute('href')||'').replace(/^mailto:/,'');out+=t+(h&&h!==t.trim()?' ('+h+')':'');return;}
+    const block=/^(DIV|P|UL|OL|H1|H2|H3|BLOCKQUOTE)$/.test(tag);
+    if(block&&out&&!out.endsWith('\n'))out+='\n';
+    out+=bcText(n);
+    if(block&&!out.endsWith('\n'))out+='\n';
+    if(tag==='P')out+='\n';
+  });
+  return out;
+}
+function bcSync(){const ed=bcEd(),ta=$('bc-body');if(!ed||!ta)return;ta.value=bcText(bcFrag(ed.innerHTML)).replace(/\n{3,}/g,'\n\n').trim();ed.classList.toggle('empty',!ed.textContent.trim());try{localStorage.setItem('nma_bc_draft',ed.innerHTML);}catch(e){}}
+// Footer links (Parent Hub, registration, playlists) as HTML, URLs clickable.
+function bcFooterHtml(t){
+  const txt=bcFooter(t).replace(/^\s*—+\s*/,'').trim();
+  if(!txt)return '';
+  return famEsc(txt).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" style="color:#1565c0;">$1</a>').replace(/\n/g,'<br>');
+}
+function bcEmailHtml(bodyHtml,t){
+  const f=t?bcFooterHtml(t):'';
+  return '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#222222;max-width:640px;">'+bodyHtml+
+    (f?'<div style="margin-top:22px;padding-top:14px;border-top:1px solid #dddddd;font-size:13px;line-height:1.6;color:#555555;">'+f+'</div>':'')+'</div>';
+}
+// Gmail send with an HTML part and a plain-text fallback.
+async function sendGmailHtml(to,subject,text,html){
+  try{
+    const CRLF='\r\n',alt='nma_alt_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const b64=t=>wrapBase64(btoa(unescape(encodeURIComponent(t))));
+    const raw='To: '+to+CRLF+'Subject: '+mimeEncodeHeader(subject)+CRLF+'MIME-Version: 1.0'+CRLF+
+      'Content-Type: multipart/alternative; boundary="'+alt+'"'+CRLF+CRLF+
+      '--'+alt+CRLF+'Content-Type: text/plain; charset=UTF-8'+CRLF+'Content-Transfer-Encoding: base64'+CRLF+CRLF+b64(text)+CRLF+
+      '--'+alt+CRLF+'Content-Type: text/html; charset=UTF-8'+CRLF+'Content-Transfer-Encoding: base64'+CRLF+CRLF+
+      b64('<!doctype html><html><head><meta charset="utf-8"></head><body>'+html+'</body></html>')+CRLF+'--'+alt+'--';
+    const res=await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',{method:'POST',
+      headers:{Authorization:'Bearer '+gmailToken,'Content-Type':'application/json'},
+      body:JSON.stringify({raw:btoa(raw).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')})});
+    if(!res.ok){if(res.status===401)gmailHandle401();const err=await res.json().catch(()=>({}));console.warn('Gmail send failed:',err?.error?.message||res.status);return false;}
+    return true;
+  }catch(e){console.warn('Send failed:',e);return false;}
+}
+// Test send: the exact email one family would get, to the NMA inbox.
+async function bcSendTest(){
+  bcSync();
+  if(!gmailToken){alert('Connect Gmail first on the Emails tab.');return;}
+  const subject=$('bc-subject')?.value.trim(),body=$('bc-body')?.value.trim();
+  if(!subject){alert('Please enter a subject.');return;}
+  if(!body){alert('Please enter a message.');return;}
+  const targets=famEmailTargets(getBroadcastRecipients());
+  const t=targets.find(x=>x.students.length>1)||targets[0]||null;
+  const btn=$('bc-test-btn');if(btn){btn.disabled=true;btn.textContent='Sending test…';}
+  const to=(typeof OWNER_EMAIL!=='undefined'&&OWNER_EMAIL)||'noblesmartialarts@gmail.com';
+  const ok=await sendGmailHtml(to,'[TEST] '+subject,body+(t?bcFooter(t):''),bcEmailHtml(bcEditorHtml(),t));
+  if(btn){btn.disabled=false;btn.textContent='🧪 Send test to me';}
+  ok?toast('Test sent to '+to+(t?' (links shown for '+famJoinNames(t.students.map(s=>s.first))+')':'')):alert('Test send failed. Check your Gmail connection.');
+}
+// Make sure the plain-text copy is fresh before any send/preview.
+(function(){
+  if(sendBroadcast._rich)return;
+  const sb=sendBroadcast,pb=previewBroadcast;
+  sendBroadcast=function(){bcSync();return sb.apply(this,arguments);};sendBroadcast._rich=true;sendBroadcast._fam=true;
+  previewBroadcast=function(){bcSync();return pb.apply(this,arguments);};
+})();
+(function bcInit(){
+  const ed=bcEd();if(!ed||ed._bcInit)return;ed._bcInit=true;
+  const st=document.createElement('style');
+  st.textContent='.bc-toolbar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border);background:var(--paper);}'+
+    '.bc-tb{border:1px solid transparent;background:transparent;color:var(--ink);border-radius:6px;padding:4px 8px;font-size:13px;cursor:pointer;line-height:1.2;min-width:30px;}'+
+    '.bc-tb:hover{background:var(--surface);border-color:var(--border);}'+
+    '.bc-sep{width:1px;height:20px;background:var(--border);margin:0 3px;}'+
+    '.bc-size{border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:12px;background:var(--surface);color:var(--ink);}'+
+    '.bc-pop-wrap{position:relative;display:inline-block;}'+
+    '.bc-pop{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;box-shadow:0 6px 20px rgba(0,0,0,.15);grid-template-columns:repeat(5,26px);gap:5px;}'+
+    '.bc-pop.open{display:grid;}'+
+    '.bc-emoji-pop{grid-template-columns:repeat(8,30px);gap:2px;max-height:230px;overflow:auto;right:0;left:auto;}'+
+    '.bc-sw{width:26px;height:26px;border-radius:6px;border:1px solid rgba(0,0,0,.2);cursor:pointer;padding:0;}'+
+    '.bc-em{width:30px;height:30px;border:none;background:transparent;font-size:19px;cursor:pointer;border-radius:6px;padding:0;}.bc-em:hover{background:var(--paper);}'+
+    '.bc-editor{min-height:280px;max-height:60vh;overflow:auto;padding:16px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#222;background:#fff;outline:none;}'+
+    '.bc-editor.empty:before{content:attr(data-placeholder);color:#999;pointer-events:none;}'+
+    '.bc-editor a{color:#1565c0;}.bc-editor ul,.bc-editor ol{padding-left:26px;}.bc-editor hr{border:none;border-top:1px solid #ddd;margin:14px 0;}';
+  document.head.appendChild(st);
+  $('bc-color-pop').innerHTML=BC_COLORS.map(c=>'<button type="button" class="bc-sw" title="'+c+'" style="background:'+c+'" onclick="bcClosePops();bcCmd(\'foreColor\',\''+c+'\')"></button>').join('');
+  $('bc-hl-pop').innerHTML=BC_HIGHLIGHTS.map(c=>'<button type="button" class="bc-sw" title="'+(c==='transparent'?'No highlight':c)+'" style="background:'+(c==='transparent'?'#fff linear-gradient(135deg,transparent 45%,#c62828 45%,#c62828 55%,transparent 55%)':c)+'" onclick="bcClosePops();bcCmd(\'hiliteColor\',\''+c+'\')"></button>').join('');
+  $('bc-emoji-pop').innerHTML=BC_EMOJIS.map(e=>'<button type="button" class="bc-em" onclick="bcEmoji(\''+e+'\')">'+e+'</button>').join('');
+  ed.addEventListener('input',()=>{bcNormalize();bcSync();});
+  ed.addEventListener('keyup',bcSaveSel);ed.addEventListener('mouseup',bcSaveSel);
+  ed.addEventListener('focus',()=>{_bcLastField='editor';});
+  $('bc-subject')?.addEventListener('focus',()=>{_bcLastField='subject';});
+  ed.addEventListener('paste',e=>{
+    const cd=e.clipboardData;if(!cd)return;e.preventDefault();
+    const html=cd.getData('text/html');
+    if(html)document.execCommand('insertHTML',false,bcFrag(html).innerHTML);
+    else document.execCommand('insertText',false,cd.getData('text/plain'));
+    bcSync();
+  });
+  document.addEventListener('mousedown',e=>{if(!e.target.closest('.bc-pop-wrap'))bcClosePops();});
+  try{const d=localStorage.getItem('nma_bc_draft');if(d&&!ed.innerHTML.trim())ed.innerHTML=bcFrag(d).innerHTML;}catch(e){}
+  bcSync();
+})();
 // Texts: one per guardian phone, {first} becomes every child's name ("Adara, Caden & Timothy").
 (function(){
   if(typeof smsSelectGroup!=='function'||smsSelectGroup._fam)return;
