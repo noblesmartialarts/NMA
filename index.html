@@ -1770,7 +1770,7 @@ tbody td{font-size:11px!important;}
           <div style="font-size:12px;color:var(--ink-muted);">Subject:</div>
           <input type="text" id="bc-subject" class="form-input" style="flex:1;" placeholder="e.g. NMA — May Announcement">
         </div>
-        <div class="bc-toolbar" id="bc-toolbar" onmousedown="if(event.target.closest('button'))event.preventDefault();">
+        <div class="bc-toolbar" id="bc-toolbar" onmousedown="_rtEd=$('bc-editor');if(event.target.closest('button'))event.preventDefault();">
           <button type="button" class="bc-tb" title="Bold (Ctrl+B)" onclick="bcCmd('bold')"><b>B</b></button>
           <button type="button" class="bc-tb" title="Italic (Ctrl+I)" onclick="bcCmd('italic')"><i>I</i></button>
           <button type="button" class="bc-tb" title="Underline (Ctrl+U)" onclick="bcCmd('underline')"><u>U</u></button>
@@ -5166,7 +5166,7 @@ function openQuickEmail(key){
         </select>
       </div>
       <div class="form-group"><label class="form-label">Subject</label><input type="text" class="form-input" id="qe-subject"></div>
-      <div class="form-group"><label class="form-label">Body</label><textarea class="form-input" id="qe-body" rows="10" style="resize:vertical;font-family:Georgia,serif;line-height:1.7;"></textarea></div>
+      <div class="form-group"><label class="form-label">Body</label><div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">${rtEditorHtml('qe',240)}</div></div>
       <div style="font-size:11px;color:var(--ink-faint);">This is exactly what will be sent — edit freely before confirming.</div>
     </div>
     <div class="modal-footer">
@@ -5175,6 +5175,7 @@ function openQuickEmail(key){
     </div>
   </div>`;
   modal.classList.add('open');
+  rtAttach('qe','qe-subject',true);
   renderQuickEmailPreview(key);
 }
 function renderQuickEmailPreview(key){
@@ -5188,10 +5189,12 @@ function renderQuickEmailPreview(key){
 async function sendQuickEmail(key){
   const r=resolveEmailRecipient(key);if(!r)return;
   const subject=$('qe-subject').value.trim();
+  if($('qe-editor'))bcSync($('qe-editor'));
   const body=$('qe-body').value;
   if(!subject){alert('Subject required.');return;}
   const btn=$('qe-send-btn');if(btn){btn.disabled=true;btn.textContent='Sending…';}
-  const ok=await sendGmailMessage(r.email,subject,body);
+  const qeHtml=bcEditorHtml($('qe-editor'));
+  const ok=qeHtml?await sendGmailHtml(r.email,subject,body,bcEmailHtml(qeHtml,null)):await sendGmailMessage(r.email,subject,body);
   if(ok){
     if(r.type==='s'){const rec=DB.students.find(x=>x.id===r.id);if(rec)addHistory(rec,'reg','Email sent: '+subject);}
     else if(r.type==='p'){const rec=(DB.prospects||[]).find(x=>x.id===r.id);if(rec)rec.notes=(rec.notes?rec.notes+'\n':'')+'['+todayStr()+'] Email sent: '+subject;}
@@ -5551,7 +5554,7 @@ function renderEmailTemplates(){
   out.innerHTML=`
     <div style="background:var(--blue-light);border:1px solid var(--blue);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--blue);display:flex;align-items:center;gap:10px;">
       <span style="font-size:18px;">📧</span>
-      <div><strong>Gmail connected</strong> — click "Open in Gmail" to compose directly in your noblesmartialarts inbox, or copy the body and paste manually.</div>
+      <div><strong>Gmail connected</strong> — format the email below (bold, sizes, colors, emojis) and click <strong>Send</strong>. "Open in Gmail" still opens the original plain version.</div>
     </div>
     <div class="email-card">
       <div class="email-hdr">
@@ -5562,19 +5565,37 @@ function renderEmailTemplates(){
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
           ${t.custom?`<button class="btn small danger" onclick="deleteCustomTemplate('${tmplId}')">Delete</button>`:''}
           <button class="btn success" onclick="copyEmail()">📋 Copy Body</button>
-          ${gmailUrl?`<a href="${gmailUrl}" target="_blank" class="btn primary">✉ Open in Gmail ↗</a>`:'<span style="font-size:12px;color:var(--ink-muted);padding:8px;">No email on file</span>'}
+          ${gmailUrl?`<a href="${gmailUrl}" target="_blank" class="btn">Open in Gmail ↗</a><button class="btn primary" id="em-send-btn" onclick="emSendSingle('${key}')">✉ Send</button>`:'<span style="font-size:12px;color:var(--ink-muted);padding:8px;">No email on file</span>'}
         </div>
       </div>
       <div class="email-meta" style="display:flex;align-items:center;gap:8px;">
         <strong>Subject:</strong> <span id="email-subject-text">${subject}</span>
         <button class="btn ghost" style="font-size:11px;" onclick="copySubject()">Copy subject</button>
       </div>
-      <textarea class="email-preview" id="email-body-text">${body}</textarea>
+      ${rtEditorHtml('em',240,'email-body-text')}
     </div>
     <div style="font-size:12px;color:var(--ink-muted);margin-top:5px;">
-      Edit body above if needed. "Open in Gmail" opens a pre-filled compose window in your noblesmartialarts@gmail.com account.
-      To: <strong>${s.email||'no email on record'}</strong>
+      Edit the email above if needed — what you see is what gets sent. To: <strong>${s.email||'no email on record'}</strong>
     </div>`;
+  rtAttach('em',null,true);
+  $('email-body-text').value=body;
+}
+// Send the (formatted) single-recipient template email straight from the Emails page.
+async function emSendSingle(key){
+  const r=resolveEmailRecipient(key);if(!r||!r.email)return;
+  if(!gmailToken){alert('Connect Gmail first using the "Connect Gmail" button at the top.');return;}
+  const ed=$('em-editor');if(ed)bcSync(ed);
+  const subject=($('email-subject-text')?.textContent||'').trim(),body=$('email-body-text')?.value.trim()||'';
+  if(!subject||!body){alert('The email is empty.');return;}
+  if(!confirm('Send "'+subject+'" to '+r.email+'?'))return;
+  const btn=$('em-send-btn');if(btn){btn.disabled=true;btn.textContent='Sending…';}
+  const html=bcEditorHtml(ed);
+  const ok=html?await sendGmailHtml(r.email,subject,body,bcEmailHtml(html,null)):await sendGmailMessage(r.email,subject,body);
+  if(btn){btn.disabled=false;btn.textContent='✉ Send';}
+  if(!ok){alert('Send failed. Check your Gmail connection and try again.');return;}
+  if(r.type==='s'){const rec=DB.students.find(x=>x.id===r.id);if(rec)addHistory(rec,'reg','Email sent: '+subject);}
+  else if(r.type==='p'){const rec=(DB.prospects||[]).find(x=>x.id===r.id);if(rec)rec.notes=(rec.notes?rec.notes+'\n':'')+'['+todayStr()+'] Email sent: '+subject;}
+  save();toast('Email sent to '+r.label+'.');
 }
 function copyEmail(){const ta=$('email-body-text');if(!ta)return;navigator.clipboard.writeText(ta.value).then(()=>toast('Body copied!')).catch(()=>{ta.select();document.execCommand('copy');toast('Body copied!');});}
 function copySubject(){const el=$('email-subject-text');if(!el)return;navigator.clipboard.writeText(el.textContent).then(()=>toast('Subject copied!')).catch(()=>toast('Subject copied!'));}
@@ -15565,8 +15586,9 @@ previewBroadcast=function(){
 const BC_COLORS=['#222222','#c62828','#ad1457','#6a1b9a','#1565c0','#00838f','#2e7d32','#ef6c00','#6d4c41','#757575'];
 const BC_HIGHLIGHTS=['transparent','#fff59d','#ffe0b2','#c8e6c9','#bbdefb','#f8bbd0','#e1bee7'];
 const BC_EMOJIS=['🥋','🥇','🏆','🎉','🎊','⭐','🌟','✨','🔥','💪','👊','🙌','👏','👍','🙏','❤️','💙','💛','😀','😄','😊','🤩','😎','🥳','😅','🤔','📢','📣','📅','🗓️','⏰','📍','📝','✅','❌','⚠️','❗','❓','💵','💳','🎁','🎂','🎄','🦃','🎃','☀️','🌧️','❄️','🏫','🚗','👕','📸','🎥','🐉','👨‍👩‍👧','👉','➡️','🔔','💡','🛑'];
-let _bcRange=null,_bcLastField='editor',_bcLastSize=15;
-function bcEd(){return $('bc-editor');}
+let _bcRange=null,_bcLastField='editor',_bcLastSize=15,_rtEd=null;
+// The editor the toolbar acts on: whichever one was used last (broadcast, quick email, template preview).
+function bcEd(){return (_rtEd&&document.body.contains(_rtEd))?_rtEd:$('bc-editor');}
 function bcSaveSel(){const ed=bcEd(),sel=window.getSelection();if(ed&&sel&&sel.rangeCount&&ed.contains(sel.anchorNode))_bcRange=sel.getRangeAt(0).cloneRange();}
 function bcRestoreSel(){const ed=bcEd();if(!ed)return;ed.focus();if(_bcRange){const sel=window.getSelection();sel.removeAllRanges();sel.addRange(_bcRange);}}
 function bcCmd(cmd,val){bcRestoreSel();try{document.execCommand('styleWithCSS',false,cmd!=='fontSize');}catch(e){}document.execCommand(cmd,false,val==null?null:val);bcNormalize();bcSaveSel();bcSync();}
@@ -15593,8 +15615,8 @@ function bcTogglePop(id){
 function bcClosePops(){document.querySelectorAll('.bc-pop.open').forEach(p=>p.classList.remove('open'));}
 function bcEmoji(e){
   bcClosePops();
-  const subj=$('bc-subject');
-  if(_bcLastField==='subject'&&subj){
+  const subj=_bcLastField&&_bcLastField.tagName?_bcLastField:null;
+  if(subj&&document.body.contains(subj)){
     const a=subj.selectionStart??subj.value.length,b=subj.selectionEnd??a;
     subj.value=subj.value.slice(0,a)+e+subj.value.slice(b);subj.focus();subj.setSelectionRange(a+e.length,a+e.length);return;
   }
@@ -15641,8 +15663,8 @@ function bcCleanAttrs(el){
   if(href&&/^(https?:|mailto:)/i.test(href.trim()))el.setAttribute('href',href.trim());
 }
 // The message body as email HTML (inline styles so Gmail/Outlook/Apple Mail all render it).
-function bcEditorHtml(){
-  const ed=bcEd();if(!ed||!ed.textContent.trim())return '';
+function bcEditorHtml(ed){
+  ed=ed||$('bc-editor');if(!ed||!ed.textContent.trim())return '';
   const box=bcFrag(ed.innerHTML);
   const add=(sel,css)=>box.querySelectorAll(sel).forEach(el=>el.setAttribute('style',css+(el.getAttribute('style')?';'+el.getAttribute('style'):'')));
   add('p','margin:0 0 12px');add('ul,ol','margin:6px 0 12px;padding-left:26px');add('li','margin:0 0 4px');
@@ -15670,7 +15692,54 @@ function bcText(node){
   });
   return out;
 }
-function bcSync(){const ed=bcEd(),ta=$('bc-body');if(!ed||!ta)return;ta.value=bcText(bcFrag(ed.innerHTML)).replace(/\n{3,}/g,'\n\n').trim();ed.classList.toggle('empty',!ed.textContent.trim());try{localStorage.setItem('nma_bc_draft',ed.innerHTML);}catch(e){}}
+const RT_TA_VALUE=Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value');
+function bcSync(ed){ed=ed||bcEd();const ta=ed&&$(ed.dataset.ta||'bc-body');if(!ed||!ta)return;RT_TA_VALUE.set.call(ta,bcText(bcFrag(ed.innerHTML)).replace(/\n{3,}/g,'\n\n').trim());ed.classList.toggle('empty',!ed.textContent.trim());if(ed.id==='bc-editor'){try{localStorage.setItem('nma_bc_draft',ed.innerHTML);}catch(e){}}}
+// Plain text (a template) → editor HTML: line breaks kept, web addresses clickable.
+function rtTextToHtml(v){return famEsc(String(v||'')).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1">$1</a>').replace(/\n/g,'<br>');}
+// Same toolbar as the Broadcast page, for any editor (p = id prefix).
+function rtToolbarHtml(p){
+  const b=(t,c,lbl)=>'<button type="button" class="bc-tb" title="'+t+'" onclick="'+c+'">'+lbl+'</button>';
+  return '<div class="bc-toolbar" onmousedown="_rtEd=$(\''+p+'-editor\');if(event.target.closest(\'button\'))event.preventDefault();">'+
+    b('Bold (Ctrl+B)',"bcCmd('bold')",'<b>B</b>')+b('Italic (Ctrl+I)',"bcCmd('italic')",'<i>I</i>')+b('Underline (Ctrl+U)',"bcCmd('underline')",'<u>U</u>')+b('Strikethrough',"bcCmd('strikeThrough')",'<s>S</s>')+
+    '<span class="bc-sep"></span><select class="bc-size" title="Text size" onmousedown="bcSaveSel()" onchange="bcSize(this.value);this.selectedIndex=0;"><option value="">Size</option><option value="13">Small</option><option value="15">Normal</option><option value="19">Large</option><option value="24">Big</option><option value="32">Huge</option></select>'+
+    '<span class="bc-pop-wrap">'+b('Text color',"bcTogglePop('"+p+"-color-pop')",'<span style="border-bottom:3px solid #c62828;padding:0 2px;font-weight:700;">A</span>')+'<div class="bc-pop" id="'+p+'-color-pop"></div></span>'+
+    '<span class="bc-pop-wrap">'+b('Highlight',"bcTogglePop('"+p+"-hl-pop')",'<span style="background:#fff59d;padding:0 4px;color:#222;">H</span>')+'<div class="bc-pop" id="'+p+'-hl-pop"></div></span>'+
+    '<span class="bc-sep"></span>'+b('Bulleted list',"bcCmd('insertUnorderedList')",'• List')+b('Numbered list',"bcCmd('insertOrderedList')",'1. List')+b('Center','bcAlign()','≡ Center')+b('Add a link','bcLink()','🔗')+b('Divider line',"bcCmd('insertHorizontalRule')",'―')+
+    '<span class="bc-pop-wrap">'+b('Emoji (also works in the subject)',"bcTogglePop('"+p+"-emoji-pop')",'😀')+'<div class="bc-pop bc-emoji-pop" id="'+p+'-emoji-pop"></div></span>'+
+    '<span class="bc-sep"></span>'+b('Clear formatting on selected text',"bcCmd('removeFormat')",'⌫ Clear')+'</div>';
+}
+// Toolbar + editor + the hidden textarea that holds the plain-text copy.
+function rtEditorHtml(p,minH,taId){
+  return rtToolbarHtml(p)+'<div id="'+p+'-editor" class="bc-editor" contenteditable="true" data-ta="'+(taId||p+'-body')+'" style="min-height:'+(minH||220)+'px;"></div><textarea id="'+(taId||p+'-body')+'" style="display:none;"></textarea>';
+}
+function rtFillPops(p){
+  const c=$(p+'-color-pop'),h=$(p+'-hl-pop'),e=$(p+'-emoji-pop');
+  if(c)c.innerHTML=BC_COLORS.map(x=>'<button type="button" class="bc-sw" title="'+x+'" style="background:'+x+'" onclick="bcClosePops();bcCmd(\'foreColor\',\''+x+'\')"></button>').join('');
+  if(h)h.innerHTML=BC_HIGHLIGHTS.map(x=>'<button type="button" class="bc-sw" title="'+(x==='transparent'?'No highlight':x)+'" style="background:'+(x==='transparent'?'#fff linear-gradient(135deg,transparent 45%,#c62828 45%,#c62828 55%,transparent 55%)':x)+'" onclick="bcClosePops();bcCmd(\'hiliteColor\',\''+x+'\')"></button>').join('');
+  if(e)e.innerHTML=BC_EMOJIS.map(x=>'<button type="button" class="bc-em" onclick="bcEmoji(\''+x+'\')">'+x+'</button>').join('');
+}
+// Wire up an editor. bindTa: setting the hidden textarea's .value (e.g. a template) fills the editor.
+function rtAttach(p,subjId,bindTa){
+  rtStyles();
+  const ed=$(p+'-editor');if(!ed||ed._rtInit)return ed;ed._rtInit=true;
+  rtFillPops(p);
+  ed.addEventListener('input',()=>{_rtEd=ed;bcNormalize();bcSync(ed);});
+  ed.addEventListener('keyup',bcSaveSel);ed.addEventListener('mouseup',bcSaveSel);
+  ed.addEventListener('focus',()=>{_rtEd=ed;_bcLastField='editor';});
+  const subj=subjId&&$(subjId);if(subj)subj.addEventListener('focus',()=>{_bcLastField=subj;});
+  ed.addEventListener('paste',e=>{
+    const cd=e.clipboardData;if(!cd)return;e.preventDefault();_rtEd=ed;
+    const html=cd.getData('text/html');
+    if(html)document.execCommand('insertHTML',false,bcFrag(html).innerHTML);
+    else document.execCommand('insertText',false,cd.getData('text/plain'));
+    bcSync(ed);
+  });
+  const ta=$(ed.dataset.ta);
+  if(bindTa&&ta)Object.defineProperty(ta,'value',{configurable:true,get(){return RT_TA_VALUE.get.call(ta);},
+    set(v){RT_TA_VALUE.set.call(ta,v);ed.innerHTML=rtTextToHtml(v);ed.classList.toggle('empty',!ed.textContent.trim());}});
+  ed.classList.toggle('empty',!ed.textContent.trim());
+  return ed;
+}
 // Footer links (Parent Hub, registration, playlists) as HTML, URLs clickable.
 function bcFooterHtml(t){
   const txt=bcFooter(t).replace(/^\s*—+\s*/,'').trim();
@@ -15721,9 +15790,9 @@ async function bcSendTest(){
   sendBroadcast=function(){bcSync();return sb.apply(this,arguments);};sendBroadcast._rich=true;sendBroadcast._fam=true;
   previewBroadcast=function(){bcSync();return pb.apply(this,arguments);};
 })();
-(function bcInit(){
-  const ed=bcEd();if(!ed||ed._bcInit)return;ed._bcInit=true;
-  const st=document.createElement('style');
+function rtStyles(){
+  if($('rt-styles'))return;
+  const st=document.createElement('style');st.id='rt-styles';
   st.textContent='.bc-toolbar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--border);background:var(--paper);}'+
     '.bc-tb{border:1px solid transparent;background:transparent;color:var(--ink);border-radius:6px;padding:4px 8px;font-size:13px;cursor:pointer;line-height:1.2;min-width:30px;}'+
     '.bc-tb:hover{background:var(--surface);border-color:var(--border);}'+
@@ -15739,23 +15808,14 @@ async function bcSendTest(){
     '.bc-editor.empty:before{content:attr(data-placeholder);color:#999;pointer-events:none;}'+
     '.bc-editor a{color:#1565c0;}.bc-editor ul,.bc-editor ol{padding-left:26px;}.bc-editor hr{border:none;border-top:1px solid #ddd;margin:14px 0;}';
   document.head.appendChild(st);
-  $('bc-color-pop').innerHTML=BC_COLORS.map(c=>'<button type="button" class="bc-sw" title="'+c+'" style="background:'+c+'" onclick="bcClosePops();bcCmd(\'foreColor\',\''+c+'\')"></button>').join('');
-  $('bc-hl-pop').innerHTML=BC_HIGHLIGHTS.map(c=>'<button type="button" class="bc-sw" title="'+(c==='transparent'?'No highlight':c)+'" style="background:'+(c==='transparent'?'#fff linear-gradient(135deg,transparent 45%,#c62828 45%,#c62828 55%,transparent 55%)':c)+'" onclick="bcClosePops();bcCmd(\'hiliteColor\',\''+c+'\')"></button>').join('');
-  $('bc-emoji-pop').innerHTML=BC_EMOJIS.map(e=>'<button type="button" class="bc-em" onclick="bcEmoji(\''+e+'\')">'+e+'</button>').join('');
-  ed.addEventListener('input',()=>{bcNormalize();bcSync();});
-  ed.addEventListener('keyup',bcSaveSel);ed.addEventListener('mouseup',bcSaveSel);
-  ed.addEventListener('focus',()=>{_bcLastField='editor';});
-  $('bc-subject')?.addEventListener('focus',()=>{_bcLastField='subject';});
-  ed.addEventListener('paste',e=>{
-    const cd=e.clipboardData;if(!cd)return;e.preventDefault();
-    const html=cd.getData('text/html');
-    if(html)document.execCommand('insertHTML',false,bcFrag(html).innerHTML);
-    else document.execCommand('insertText',false,cd.getData('text/plain'));
-    bcSync();
-  });
   document.addEventListener('mousedown',e=>{if(!e.target.closest('.bc-pop-wrap'))bcClosePops();});
+}
+(function bcInit(){
+  const ed=$('bc-editor');if(!ed||ed._rtInit)return;
+  ed.dataset.ta='bc-body';
+  rtAttach('bc','bc-subject');
   try{const d=localStorage.getItem('nma_bc_draft');if(d&&!ed.innerHTML.trim())ed.innerHTML=bcFrag(d).innerHTML;}catch(e){}
-  bcSync();
+  bcSync(ed);
 })();
 // Texts: one per guardian phone, {first} becomes every child's name ("Adara, Caden & Timothy").
 (function(){
