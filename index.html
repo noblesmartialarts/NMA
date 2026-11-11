@@ -15552,8 +15552,11 @@ function famSmsTargets(students){
 
 // Current RecDesk links come from the website admin (Parent Hub → registration links).
 let _siteRegUrls=null;
+// Practice video links from the website admin; used where the CRM has no built-in playlist (e.g. Legends Club).
+let _siteVideos=[];
+function siteVideoUrl(key){const k=String(key||'').toLowerCase().replace(/[^a-z]/g,'');if(!k)return '';const v=(_siteVideos||[]).find(x=>x&&x.url&&String(x.label||'').toLowerCase().replace(/[^a-z]/g,'').indexOf(k)===0);return v?v.url:'';}
 function siteRegUrl(g){if(!_siteRegUrls)return '';const k=String(g).toLowerCase().replace(/[^a-z]/g,'');const hit=Object.keys(_siteRegUrls).find(x=>x.toLowerCase().replace(/[^a-z]/g,'')===k);return hit?_siteRegUrls[hit]:'';}
-(async function(){try{if(typeof supaDirect==='undefined')return;const{data}=await supaDirect.from('nma_site_content').select('data').eq('id','main').single();_siteRegUrls=(data&&data.data&&data.data.regUrls)||{};}catch(e){}})();
+(async function(){try{if(typeof supaDirect==='undefined')return;const{data}=await supaDirect.from('nma_site_content').select('data').eq('id','main').single();_siteRegUrls=(data&&data.data&&data.data.regUrls)||{};_siteVideos=(data&&data.data&&data.data.videos)||[];}catch(e){}})();
 function bcFooter(t){
   const groups=[...new Set(t.students.map(s=>s.group))];
   let footer='\n\n'+'—'.repeat(30);
@@ -16671,7 +16674,7 @@ function portalViewFor(f){
       ready,
       nextTest:ev?{name:ev.name||ev.type,date:ev.date,type:ev.type,testingFor:testsFor}:null,
       bb:portalBB(s),
-      curriculum:cyc?{label:cyc.label,program:String(cur.program||key).replace(/&amp;/g,'&'),items:[['Self-defense',cyc.selfDefense],['Form',cyc.form],['Kicks',cyc.kicks],['Fight set',cyc.fights],['Weapon',cyc.weapon]].filter(x=>x[1]),videos:(typeof YT_PLAYLISTS!=='undefined'&&YT_PLAYLISTS[key+':'+cyc.num])||''}:null,
+      curriculum:cyc?{label:cyc.label,program:String(cur.program||key).replace(/&amp;/g,'&'),items:[['Self-defense',cyc.selfDefense],['Form',cyc.form],['Kicks',cyc.kicks],['Fight set',cyc.fights],['Weapon',cyc.weapon]].filter(x=>x[1]),videos:(typeof YT_PLAYLISTS!=='undefined'&&YT_PLAYLISTS[key+':'+cyc.num])||siteVideoUrl(key)||''}:null,
       attendance:{since:launch,present:att.filter(a=>a.status==='present').length,days:att},
       intent:portalIntentFor(s,upcoming),
       // Next month's RecDesk link once they've earned stripe #1 (the portal fills in the current link from the website admin).
