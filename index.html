@@ -1762,6 +1762,7 @@ tbody td{font-size:11px!important;}
         <label class="checkbox-row"><input type="checkbox" id="bc-include-reg"> Registration link for group</label>
         <label class="checkbox-row"><input type="checkbox" id="bc-include-challenge"> Challenge of the Month</label>
         <label class="checkbox-row"><input type="checkbox" id="bc-include-playlist"> Current curriculum playlist</label>
+        <label class="checkbox-row"><input type="checkbox" id="bc-include-portal"> Family Portal link <span style="color:var(--ink-muted);font-size:11px;">(only families with portal access)</span></label>
         <label class="checkbox-row"><input type="checkbox" id="bc-include-review"> Google review reminder <span style="color:var(--ink-muted);font-size:11px;">(skips families who already reviewed)</span></label>
       </div>
     </div>
@@ -15572,6 +15573,11 @@ function bcFooter(t){
     lines.forEach(x=>{footer+='\n\n'+(lines.length>1||keys.length>1?x.k+' ':'')+'Curriculum Playlist:\n'+x.yt;});
   }
   if($('bc-include-linktree')?.checked)footer+='\n\nNMA Parent Hub (announcements, registration, resources):\n'+LINKTREE;
+  if($('bc-include-portal')?.checked){
+    // Only families with a guardian who has portal access turned on (others couldn't sign in).
+    const fids=new Set(t.students.map(s=>s.familyId).filter(Boolean));
+    if((DB.families||[]).some(f=>fids.has(f.id)&&(f.contacts||[]).some(c=>c.portal)))footer+='\n\nYour NMA Family Portal (belt progress, attendance, practice videos, letters):\n'+portalPageUrl();
+  }
   if($('bc-include-review')?.checked){
     // Skip families already matched to a Google review.
     const reviewed=new Set((DB.googleReviews||[]).map(r=>r.familyId).filter(Boolean));
