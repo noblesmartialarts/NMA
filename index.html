@@ -1762,6 +1762,7 @@ tbody td{font-size:11px!important;}
         <label class="checkbox-row"><input type="checkbox" id="bc-include-reg"> Registration link for group</label>
         <label class="checkbox-row"><input type="checkbox" id="bc-include-challenge"> Challenge of the Month</label>
         <label class="checkbox-row"><input type="checkbox" id="bc-include-playlist"> Current curriculum playlist</label>
+        <label class="checkbox-row"><input type="checkbox" id="bc-include-review"> Google review reminder <span style="color:var(--ink-muted);font-size:11px;">(skips families who already reviewed)</span></label>
       </div>
     </div>
     <div>
@@ -7767,7 +7768,8 @@ async function sendBackupNow() {
 var YT_PLAYLISTS = {"Little Dragons:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dS7eWFHxD-Apf0gcIntoai", "Little Dragons:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dq5WvHrTSC3EVbfwn409U1", "Little Dragons:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4eCTfxKUYatW0WRgvcVjP2O", "Karate Kids:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dS7eWFHxD-Apf0gcIntoai", "Karate Kids:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dq5WvHrTSC3EVbfwn409U1", "Karate Kids:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4eCTfxKUYatW0WRgvcVjP2O", "Black Belt Club Level I:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4d0_UXPKU0uoIPAyBisK-dn", "Black Belt Club Level I:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4cUEOH0rniRj9IKIyYAD2mi", "Black Belt Club Level I:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4ekZOCeB-NNcUGRpW9TJINC", "Black Belt Club Level II:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dItG1ZSPtEJxJGo9hfG9nk", "Black Belt Club Level II:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4ctS6bPouwD95HFHHUaYU4Y", "Black Belt Club Level II:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dqViWS9NSUKfEt2SUTyjzU", "Master's Club:1": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dr_XJiC9iSm_cD68K3MCg0", "Master's Club:2": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4cq7inexNmVUd6OFGKS3m8g", "Master's Club:3": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4e0GrpffhGt_9RmR4J9lJrP"};
 var YT_TEST_REVIEW = {"Black Belt Club": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4eUahX2qfuzlGwXmUVbW5lM", "Master's Club": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4dV-xGvrSQVJPV-uDDPWKbw", "Black Belt": "https://www.youtube.com/playlist?list=PLYTSq2Y3Hi4fOWc4TxxfkHRESNBc6Fo3I"};
 var REG_LINKS = {"Little Dragons": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=1", "Karate Kids": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=2", "Black Belt Club": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=3", "Master's Club": "https://wakeforestnc.recdesk.com/Community/Program?programInfoId=4"};
-var LINKTREE = 'https://linktr.ee/noblesmartialarts';
+var LINKTREE = 'https://noblesmartialarts.com/parent-hub'; // Parent Hub on the NMA site (replaced the old Linktree)
+var REVIEW_URL = 'https://noblesmartialarts.com/review';
 var NMA_WEBSITE = 'https://noblesmartialarts.com';
 
 function getPlaylist(groupKey, cycleNum) {
@@ -15562,8 +15564,19 @@ function bcFooter(t){
   let footer='\n\n'+'—'.repeat(30);
   if($('bc-include-challenge')?.checked&&DB.challengeOfMonth)footer+='\n\nChallenge of the Month:\n'+DB.challengeOfMonth;
   if($('bc-include-reg')?.checked)groups.forEach(g=>{const u=siteRegUrl(g)||(DB.regLinks&&DB.regLinks[g])||REG_LINKS[g];if(u)footer+='\n\nRegister for '+g+':\n'+u;});
-  if($('bc-include-playlist')?.checked)groups.forEach(g=>{const yt=getPlaylist(Object.keys(YT_PLAYLISTS).find(k=>k.startsWith(g+':')&&k.endsWith(':'+(CURRICULUM[g]?.currentCycle||1)))?g:null,CURRICULUM[g]?.currentCycle);if(yt)footer+='\n\n'+(groups.length>1?g+' ':'')+'Curriculum Playlist:\n'+yt;});
+  if($('bc-include-playlist')?.checked){
+    // One playlist per curriculum the family's kids are in (BBC splits into Level I / II). Legends uses the website admin's link.
+    const keys=[...new Set(t.students.map(s=>portalCurriculumKey(s)))];
+    const lines=[];
+    keys.forEach(k=>{const cyc=CURRICULUM[k]?.currentCycle||1;const yt=getPlaylist(k,cyc)||siteVideoUrl(k);if(yt)lines.push({k,yt});});
+    lines.forEach(x=>{footer+='\n\n'+(lines.length>1||keys.length>1?x.k+' ':'')+'Curriculum Playlist:\n'+x.yt;});
+  }
   if($('bc-include-linktree')?.checked)footer+='\n\nNMA Parent Hub (announcements, registration, resources):\n'+LINKTREE;
+  if($('bc-include-review')?.checked){
+    // Skip families already matched to a Google review.
+    const reviewed=new Set((DB.googleReviews||[]).map(r=>r.familyId).filter(Boolean));
+    if(!t.students.some(s=>s.familyId&&reviewed.has(s.familyId)))footer+="\n\nEnjoying NMA? A quick Google review helps other families find us — it only takes a minute:\n"+REVIEW_URL;
+  }
   return footer;
 }
 // Broadcast preview: the exact email one family will get (pick any family to check).
