@@ -16789,6 +16789,14 @@ const HOLIDAY_SHOP={
     {id:'parent45x3',cat:'lessons',vendor:'NMA',name:'Parent Self-Defense · 3 × 45 min',price:125,detail:'Regularly $150. For an NMA parent or guardian. Good through March 31, 2027.',opts:[]}
   ]
 };
+// Apparel photos come from the NMA T-Shirt Order form on Jotform; the photo follows the chosen design.
+const HS_JF='https://www.jotform.com/uploads/noblesmartialarts/form_files/';
+const HS_DESIGN_IMG={'Original NMA Logo':HS_JF+'logo_original_1000_f99bbbb49282552fc62f8f0c0907c095.png','NMA Lion Head':HS_JF+'nma_lion_head_d572260355dc2b46f764a0e975def284.jpg','NMA Claw Marks':HS_JF+'claw_marks_ce435bc328723c932823f275ea612cfe.jpg','NMA Ninja':HS_JF+'nma_ninja_73e9cfcfff01122b91d49cb973bf6066.jpg','NMA Crest':HS_JF+'nma_crest_93edea53cd899f84c600575ada9875ab.jpg','NMA Cherry Blossom':HS_JF+'nma_cherry_blossom_90298fb1ea4177694e15ff1ac22b0895.png','NMA Paint Splatter':HS_JF+'nma_splatter_dcea1030528bd6ade2f7ac40737cf695.png'};
+['tee','ls','sweat','hoodie'].forEach(id=>{const i=HOLIDAY_SHOP.items.find(x=>x.id===id);if(!i)return;
+  i.designImgs=Object.assign({},HS_DESIGN_IMG,id==='sweat'?{'Original NMA Logo':HS_JF+'logo-original-1000.656c0ed3b578b9.38580023.png'}:{});
+  i.img=i.designImgs['NMA Lion Head'];});
+[['uni-full','full_74bccb935a40e25f2a4f24f4b08cf967.webp'],['uni-top','top_123092ee40e1fef38ddd759988cea136.webp'],['uni-pants','bottoms_495cedc26de29d65ae3e539c47f61082.webp']]
+  .forEach(([id,f])=>{const i=HOLIDAY_SHOP.items.find(x=>x.id===id);if(i)i.img=HS_JF+f;});
 // Product photos live on the website (noblesmartialarts.com/shop-img/<item id>.jpg).
 ['spar-set','spar-duffle','brave-gloves','brave-headgear','brave-shins','student-headgear','rebreak','target','gameness','wavemaster','belt-display','foam-chux','wood-chux','chrome-chux','chrome-bo']
   .forEach(id=>{const i=HOLIDAY_SHOP.items.find(x=>x.id===id);if(i)i.img='/shop-img/'+(id==='spar-duffle'?'spar-set':id)+'.jpg';});
