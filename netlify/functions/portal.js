@@ -8,7 +8,7 @@
 //   request-guardian {token, name, email, phone, relationship, studentIds} → Sensei approves in the CRM
 //   me           {token}            → the family's portal view, filtered to the guardian's kids
 //   submit-intent{token, studentId, eventId, answers, note, focus, programFeedback, signedBy, affirm, studentSigned}
-//   submit-shop  {token, studentId, lines:[{itemId, qty, opts}], note}  → Holiday Shop order (checked against the view's catalog)
+//   submit-shop  {token, lines:[{itemId, qty, opts, studentId}], studentId?, note}  → Holiday Shop order (checked against the view's catalog)
 //
 // Staff ops (CRM session in Authorization header, owner/authorized users only):
 //   staff-publish {guardians:[…], views:[{id,data}], familyIds:[…]}   → sync access list and family views
@@ -329,16 +329,24 @@ async function parentOps(op, body, event) {
 
   // Holiday Shop: the order is checked against the catalog published in this family's view.
   if (op === 'submit-shop') {
-    const r = await scopedStudent(body.studentId);
-    if (!r) return json(400, { error: 'Please choose which student this order is for.' });
+    // One checkout can cover several kids: each line names its student (or falls back to body.studentId).
+    const req = Array.isArray(body.lines) ? body.lines.slice(0, 40) : [];
+    if (!req.length) return json(400, { error: 'Your order is empty.' });
+    const sids = [...new Set(req.map(l => String((l && l.studentId) || body.studentId || '')))];
+    const kids = {};
+    let r = null;
+    for (const sid of sids) {
+      const k = sid ? await scopedStudent(sid) : null;
+      if (!k) return json(400, { error: 'Please choose which student each item is for.' });
+      if (r && k.g.family_id !== r.g.family_id) return json(400, { error: 'Please place a separate order for each family.' });
+      r = r || k; kids[sid] = k.s;
+    }
     const shop = r.view.shop;
     if (!shop || !Array.isArray(shop.items)) return json(400, { error: 'The shop isn\'t open for your family.' });
     const today = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10);
     if (today > shop.deadline) return json(400, { error: 'closed', message: 'Holiday orders closed on ' + longDate(shop.deadline) + '.' });
     const recent = await rows('portal_log?event=eq.shop_order&email=eq.' + enc(sess.e) + '&at=gt.' + enc(new Date(Date.now() - 3600e3).toISOString()) + '&select=id');
     if (recent.length >= 6) return json(429, { error: 'You\'ve placed several orders this hour. Message Sensei Brandon if you need to change one.' });
-    const req = Array.isArray(body.lines) ? body.lines.slice(0, 40) : [];
-    if (!req.length) return json(400, { error: 'Your order is empty.' });
     const lines = [];
     for (const l of req) {
       const item = shop.items.find(x => x.id === String(l && l.itemId));
@@ -353,7 +361,8 @@ async function parentOps(op, body, event) {
         if (!allowed.includes(v)) return json(400, { error: 'Please choose a ' + o.label.toLowerCase() + ' for ' + item.name + '.' });
         opts[o.k] = v; parts.push(v);
       }
-      lines.push({ itemId: item.id, name: item.name, vendor: item.vendor || '', price: +item.price, qty, opts, optText: parts.join(' · ') });
+      const kid = kids[String(l.studentId || body.studentId || '')];
+      lines.push({ itemId: item.id, name: item.name, vendor: item.vendor || '', price: +item.price, qty, opts, optText: parts.join(' · '), studentId: String(kid.id), studentName: kid.first });
     }
     // Multi-buy deals (e.g. 2 for $45) count every line of that item together, so mixed colors still qualify.
     for (const item of shop.items) {
@@ -362,24 +371,35 @@ async function parentOps(op, body, event) {
       const save = Math.floor(q / item.deal.qty) * (item.deal.qty * item.price - item.deal.price);
       if (save > 0) lines.push({ itemId: item.id, name: item.name + ' — ' + item.deal.qty + ' for $' + item.deal.price, vendor: '', price: -save, qty: 1, opts: {}, optText: '', deal: true });
     }
+    // Category discounts (e.g. 10% off 3+ apparel items), across every student in this checkout.
+    for (const d of (shop.discounts || [])) {
+      const inCat = lines.filter(l => !l.deal && (shop.items.find(x => x.id === l.itemId) || {}).cat === d.cat);
+      const q = inCat.reduce((a, l) => a + l.qty, 0);
+      if (q < d.min) continue;
+      const save = Math.round(inCat.reduce((a, l) => a + l.price * l.qty, 0) * d.pct) / 100;
+      if (save > 0) lines.push({ itemId: 'discount-' + d.cat, name: d.label, vendor: '', price: -save, qty: 1, opts: {}, optText: '', deal: true });
+    }
     const total = Math.round(lines.reduce((a, l) => a + l.price * l.qty, 0) * 100) / 100;
     const note = str(body.note, 500).trim();
-    const studentName = r.s.first + (r.s.last ? ' ' + r.s.last : '');
-    await write('POST', 'portal_inbox', { family_id: r.g.family_id, email: sess.e, kind: 'shop', student_id: String(r.s.id), payload: { shopId: shop.id, title: shop.title, studentName, lines, total, note, parentName: r.g.name || '' }, status: 'new', created_at: now() });
+    const names = Object.values(kids).map(k => k.first);
+    const studentName = names.length > 1 ? names.slice(0, -1).join(', ') + ' & ' + names[names.length - 1] : (r.s.first + (r.s.last ? ' ' + r.s.last : ''));
+    await write('POST', 'portal_inbox', { family_id: r.g.family_id, email: sess.e, kind: 'shop', student_id: String(r.s.id), payload: { shopId: shop.id, title: shop.title, studentName, studentIds: Object.keys(kids), lines, total, note, parentName: r.g.name || '' }, status: 'new', created_at: now() });
     await log('shop_order', sess.e, r.g.family_id, ip);
-    const list = lines.map(l => l.deal ? '  • ' + l.name + ' savings — −$' + (-l.price).toFixed(2) : '  • ' + l.qty + '× ' + l.name + (l.optText ? ' (' + l.optText + ')' : '') + ' — $' + (l.price * l.qty).toFixed(2)).join('\n');
+    const multi = names.length > 1;
+    const list = lines.map(l => l.deal ? '  • ' + l.name + ' — −$' + (-l.price).toFixed(2) : '  • ' + l.qty + '× ' + l.name + (l.optText ? ' (' + l.optText + ')' : '') + (multi ? ' — for ' + l.studentName : '') + ' — $' + (l.price * l.qty).toFixed(2)).join('\n');
     const pay = ((r.view.school || {}).pay) || {};
     const ways = [];
     if (pay.venmo) ways.push('  • Venmo (preferred): @' + pay.venmo);
     if (pay.zelle) ways.push('  • Zelle: ' + pay.zelle);
     if (pay.paypal) ways.push('  • PayPal: paypal.me/' + pay.paypal);
+    const lastName = r.s.last || '';
     try {
       await sendEmail(sess.e, 'Your NMA ' + shop.title + ' order — $' + total.toFixed(2),
-        'Hi there,\n\nThanks for your order! Here\'s what you ordered for ' + r.s.first + ':\n\n' + list + '\n\nTotal: $' + total.toFixed(2) + '\n\n' +
-        'Please pay with one of these and include ' + studentName + ' in the note:\n' + ways.join('\n') + '\n\n' +
+        'Hi there,\n\nThanks for your order! Here\'s what you ordered' + (multi ? '' : ' for ' + r.s.first) + ':\n\n' + list + '\n\nTotal: $' + total.toFixed(2) + '\n\n' +
+        'Please pay with one of these and include "' + (names.join(' & ') + ' ' + lastName).trim() + '" in the note:\n' + ways.join('\n') + '\n\n' +
         'Pickup: ' + shop.pickup + '. Your order also shows in your family portal: ' + PORTAL_URL + '\n\nNeed to change something? Just reply to this email.\n\nSensei Brandon\nNoble\'s Martial Arts');
       await sendEmail(S.OWNER_EMAIL, '[NMA Portal] ' + shop.title + ' order — ' + studentName + ' — $' + total.toFixed(2),
-        list + '\n\nTotal: $' + total.toFixed(2) + (note ? '\nNote: ' + note : '') + '\n\nFrom: ' + (r.g.name || '') + ' <' + sess.e + '>\nStudent: ' + studentName + ' (' + r.s.group + ')\n\nIt will appear in Gear Orders the next time the CRM checks the portal.', sess.e);
+        list + '\n\nTotal: $' + total.toFixed(2) + (note ? '\nNote: ' + note : '') + '\n\nFrom: ' + (r.g.name || '') + ' <' + sess.e + '>\nStudents: ' + Object.values(kids).map(k => k.first + ' (' + k.group + ')').join(', ') + '\n\nIt will appear in Gear Orders the next time the CRM checks the portal.', sess.e);
     } catch (e) { /* the order is saved either way */ }
     return json(200, { ok: true, total, lines });
   }
