@@ -8,6 +8,7 @@
 //   request-guardian {token, name, email, phone, relationship, studentIds} → Sensei approves in the CRM
 //   me           {token}            → the family's portal view, filtered to the guardian's kids
 //   submit-intent{token, studentId, eventId, answers, note, focus, programFeedback, signedBy, affirm, studentSigned}
+//   submit-shop  {token, studentId, lines:[{itemId, qty, opts}], note}  → Holiday Shop order (checked against the view's catalog)
 //
 // Staff ops (CRM session in Authorization header, owner/authorized users only):
 //   staff-publish {guardians:[…], views:[{id,data}], familyIds:[…]}   → sync access list and family views
@@ -152,7 +153,7 @@ async function familiesFor(gs) {
   if (!famIds.length) return [];
   const list = famIds.map(enc).join(',');
   const views = await rows('portal_views?id=in.(' + list + ')&select=id,data,updated_at');
-  const inbox = await rows('portal_inbox?family_id=in.(' + list + ')&kind=in.(intent,absence,contact,guardian,reg)&select=id,family_id,email,kind,student_id,event_id,payload,status,created_at&order=created_at.desc&limit=200');
+  const inbox = await rows('portal_inbox?family_id=in.(' + list + ')&kind=in.(intent,absence,contact,guardian,reg,shop)&select=id,family_id,email,kind,student_id,event_id,payload,status,created_at&order=created_at.desc&limit=200');
   const reg = await siteRegUrls();
   const regBy = {}; Object.keys(reg || {}).forEach(k => { if (reg[k]) regBy[groupKey(k)] = reg[k]; });
   const today = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10); // Eastern-ish
@@ -173,6 +174,9 @@ async function familiesFor(gs) {
     const pc = mine.find(i => i.kind === 'contact' && i.status === 'new' && i.email === g.email);
     out.contactPending = pc ? pc.payload.next : null;
     out.guardianPending = mine.filter(i => i.kind === 'guardian' && i.status === 'new').map(i => ({ name: i.payload.next.name, email: i.payload.next.email }));
+    if (out.shop) out.shop = Object.assign({}, out.shop, { closed: today > out.shop.deadline });
+    out.shopOrders = mine.filter(i => i.kind === 'shop' && i.status !== 'dismissed' && (!out.shop || (i.payload || {}).shopId === out.shop.id))
+      .map(i => ({ id: i.id, at: i.created_at, studentName: i.payload.studentName || '', total: i.payload.total, lines: i.payload.lines || [] }));
     return out;
   }).filter(Boolean);
 }
@@ -321,6 +325,56 @@ async function parentOps(op, body, event) {
     await write('POST', 'portal_inbox', { family_id: r.g.family_id, email: sess.e, kind: 'reg', student_id: String(r.s.id), payload: { choice, month, note: str(body.note, 500).trim(), studentName: r.s.first + (r.s.last ? ' ' + r.s.last : '') }, status: 'new', created_at: now() });
     await log(choice === 'skip' ? 'month_off_reported' : 'registration_reported', sess.e, r.g.family_id, ip);
     return json(200, { ok: true });
+  }
+
+  // Holiday Shop: the order is checked against the catalog published in this family's view.
+  if (op === 'submit-shop') {
+    const r = await scopedStudent(body.studentId);
+    if (!r) return json(400, { error: 'Please choose which student this order is for.' });
+    const shop = r.view.shop;
+    if (!shop || !Array.isArray(shop.items)) return json(400, { error: 'The shop isn\'t open for your family.' });
+    const today = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10);
+    if (today > shop.deadline) return json(400, { error: 'closed', message: 'Holiday orders closed on ' + longDate(shop.deadline) + '.' });
+    const recent = await rows('portal_log?event=eq.shop_order&email=eq.' + enc(sess.e) + '&at=gt.' + enc(new Date(Date.now() - 3600e3).toISOString()) + '&select=id');
+    if (recent.length >= 6) return json(429, { error: 'You\'ve placed several orders this hour. Message Sensei Brandon if you need to change one.' });
+    const req = Array.isArray(body.lines) ? body.lines.slice(0, 40) : [];
+    if (!req.length) return json(400, { error: 'Your order is empty.' });
+    const lines = [];
+    for (const l of req) {
+      const item = shop.items.find(x => x.id === String(l && l.itemId));
+      if (!item) return json(400, { error: 'One of the items is no longer available. Please refresh and try again.' });
+      const qty = parseInt(l.qty, 10);
+      if (!(qty >= 1 && qty <= 10)) return json(400, { error: 'Quantities must be between 1 and 10.' });
+      const chosen = (l && typeof l.opts === 'object' && l.opts) || {};
+      const opts = {}, parts = [];
+      for (const o of (item.opts || [])) {
+        const v = String(chosen[o.k] == null ? '' : chosen[o.k]);
+        const allowed = o.by ? ((o.map || {})[opts[o.by]] || []) : (o.choices || []);
+        if (!allowed.includes(v)) return json(400, { error: 'Please choose a ' + o.label.toLowerCase() + ' for ' + item.name + '.' });
+        opts[o.k] = v; parts.push(v);
+      }
+      lines.push({ itemId: item.id, name: item.name, vendor: item.vendor || '', price: +item.price, qty, opts, optText: parts.join(' · ') });
+    }
+    const total = Math.round(lines.reduce((a, l) => a + l.price * l.qty, 0) * 100) / 100;
+    const note = str(body.note, 500).trim();
+    const studentName = r.s.first + (r.s.last ? ' ' + r.s.last : '');
+    await write('POST', 'portal_inbox', { family_id: r.g.family_id, email: sess.e, kind: 'shop', student_id: String(r.s.id), payload: { shopId: shop.id, title: shop.title, studentName, lines, total, note, parentName: r.g.name || '' }, status: 'new', created_at: now() });
+    await log('shop_order', sess.e, r.g.family_id, ip);
+    const list = lines.map(l => '  • ' + l.qty + '× ' + l.name + (l.optText ? ' (' + l.optText + ')' : '') + ' — $' + (l.price * l.qty).toFixed(2)).join('\n');
+    const pay = ((r.view.school || {}).pay) || {};
+    const ways = [];
+    if (pay.venmo) ways.push('  • Venmo (preferred): @' + pay.venmo);
+    if (pay.zelle) ways.push('  • Zelle: ' + pay.zelle);
+    if (pay.paypal) ways.push('  • PayPal: paypal.me/' + pay.paypal);
+    try {
+      await sendEmail(sess.e, 'Your NMA ' + shop.title + ' order — $' + total.toFixed(2),
+        'Hi there,\n\nThanks for your order! Here\'s what you ordered for ' + r.s.first + ':\n\n' + list + '\n\nTotal: $' + total.toFixed(2) + '\n\n' +
+        'Please pay with one of these and include ' + studentName + ' in the note:\n' + ways.join('\n') + '\n\n' +
+        'Pickup: ' + shop.pickup + '. Your order also shows in your family portal: ' + PORTAL_URL + '\n\nNeed to change something? Just reply to this email.\n\nSensei Brandon\nNoble\'s Martial Arts');
+      await sendEmail(S.OWNER_EMAIL, '[NMA Portal] ' + shop.title + ' order — ' + studentName + ' — $' + total.toFixed(2),
+        list + '\n\nTotal: $' + total.toFixed(2) + (note ? '\nNote: ' + note : '') + '\n\nFrom: ' + (r.g.name || '') + ' <' + sess.e + '>\nStudent: ' + studentName + ' (' + r.s.group + ')\n\nIt will appear in Gear Orders the next time the CRM checks the portal.', sess.e);
+    } catch (e) { /* the order is saved either way */ }
+    return json(200, { ok: true, total, lines });
   }
 
   // Questions for Sensei: emailed to Brandon with Reply-To the parent, and logged on the family's record.

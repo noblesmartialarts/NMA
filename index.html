@@ -16716,6 +16716,7 @@ function portalViewFor(f){
     family:{name:f.name},
     students,
     balance:{items,total:Math.round(items.reduce((a,i)=>a+i.amount,0)*100)/100},
+    shop:portalShopFor(f),
     guardians:(f.contacts||[]).filter(c=>c.email).map(c=>({name:c.name||'',email:famNormEmail(c.email),phone:c.phone||'',studentIds:c.students&&c.students.length?c.students:null})),
     school:{
       announcement:cfg.announcement||'',challenge:DB.challengeOfMonth||'',payInfo:cfg.payInfo||'',
@@ -16728,6 +16729,135 @@ function portalViewFor(f){
     }
   };
 }
+// ── Holiday Shop (family portal) ──
+// The catalog lives here and is published inside each family's portal view, so
+// the portal API checks orders against exactly what the family was shown.
+// Visibility: portalCfg().shop.mode = 'off' | 'preview' (only shop.families) | 'live' (every portal family).
+const HS_SIZES=['Youth S','Youth M','Youth L','Adult S','Adult M','Adult L','Adult XL','Adult XXL'];
+const HS_DESIGNS=['Original NMA Logo','NMA Lion Head','NMA Claw Marks','NMA Ninja','NMA Crest','NMA Cherry Blossom','NMA Paint Splatter'];
+const HS_DESIGN_COLORS={'Original NMA Logo':['Black','White','Gray'],'NMA Lion Head':['Red','Blue','Black'],'NMA Claw Marks':['Black','White','Gray'],'NMA Ninja':['Black','Blue','Red'],'NMA Crest':['Black','Blue','White','Red'],'NMA Cherry Blossom':['Black','Gray','Blue'],'NMA Paint Splatter':['Black','Red','Yellow','Gray']};
+const HS_UNI_SIZES=['00','0','1','2','3','4','Not sure — Sensei will size'];
+const HS_HEADGEAR=['Black','Grey','White','Teal','Neon Green','Blue','Neon Blue','Purple','Red','Neon Pink'];
+const HS_METALLIC=['Metallic Red','Metallic Blue','Metallic Green','Metallic Purple','Metallic Gold','Metallic Silver'];
+function hsApparel(id,name,price,detail,badge,colorMap){
+  return {id,cat:'apparel',vendor:'Tiger Claw',name,price,detail,badge:badge||'',opts:[
+    {k:'design',label:'Design',choices:HS_DESIGNS},
+    {k:'color',label:'Color',by:'design',map:colorMap||HS_DESIGN_COLORS},
+    {k:'size',label:'Size',choices:HS_SIZES}]};
+}
+const HOLIDAY_SHOP={
+  id:'holiday-2026',title:'Holiday Shop 2026',deadline:'2026-12-07',pickup:'at class the week of Dec 14',
+  intro:'NMA apparel, sparring gear, train-at-home equipment, weapons and private lesson packs — picked by Sensei Brandon for our students.',
+  sizingNote:'Sensei Brandon picks the right size for gear and weapons — you just choose colors.',
+  cats:[{id:'apparel',label:'Apparel',icon:'👕'},{id:'sparring',label:'Sparring Gear',icon:'🥊'},{id:'home',label:'Train at Home',icon:'🏠'},{id:'weapons',label:'Weapons',icon:'🥢'},{id:'lessons',label:'Lesson Packs',icon:'🎓'}],
+  items:[
+    hsApparel('tee','NMA T-Shirt',15,'Pick any NMA design.'),
+    hsApparel('ls','NMA Long Sleeve',22,'Pick any NMA design.'),
+    hsApparel('sweat','NMA Sweatshirt',28,'Crewneck. Pick any NMA design.','',Object.assign({},HS_DESIGN_COLORS,{'Original NMA Logo':['Red','Blue','Green','Yellow','Magenta']})),
+    hsApparel('hoodie','NMA Hoodie',35,'Pick any NMA design.','Gift favorite'),
+    {id:'uni-full',cat:'apparel',vendor:'Tiger Claw',name:'Full NMA Uniform',price:40,detail:'Top + pants, Lion Head logo on the back.',opts:[{k:'size',label:'Size',choices:HS_UNI_SIZES}]},
+    {id:'uni-top',cat:'apparel',vendor:'Tiger Claw',name:'Extra Uniform Top',price:25,detail:'Lion Head logo on the back.',opts:[{k:'size',label:'Size',choices:HS_UNI_SIZES}]},
+    {id:'uni-pants',cat:'apparel',vendor:'Tiger Claw',name:'Extra Uniform Pants',price:20,detail:'',opts:[{k:'size',label:'Size',choices:HS_UNI_SIZES}]},
+
+    {id:'spar-set',cat:'sparring',vendor:'Century',name:'Sparring Gear Set',price:85,detail:'Headgear, boxing gloves, shin guards, mouthpiece + case.',opts:[
+      {k:'headgear',label:'Headgear color',choices:HS_HEADGEAR},{k:'gloves',label:'Gloves color',choices:['Red/Black','Black/Green']},
+      {k:'shins',label:'Shin guard color',choices:['Black','Red','Blue','White']},{k:'case',label:'Mouthpiece case color',choices:['Black','Blue','White','Pink/Silver']}]},
+    {id:'spar-duffle',cat:'sparring',vendor:'Century',name:'Sparring Gear Set + Duffle Bag',price:110,badge:'Best value',detail:'Everything in the gear set, packed in a C-Gear duffle bag.',opts:[
+      {k:'headgear',label:'Headgear color',choices:HS_HEADGEAR},{k:'gloves',label:'Gloves color',choices:['Red/Black','Black/Green']},
+      {k:'shins',label:'Shin guard color',choices:['Black','Red','Blue','White']},{k:'case',label:'Mouthpiece case color',choices:['Black','Blue','White','Pink/Silver']},
+      {k:'bag',label:'Duffle bag',choices:['Black/Red','Black/Blue','Black/Green']}]},
+    {id:'brave-gloves',cat:'sparring',vendor:'Century',name:'Brave Youth Boxing Gloves',price:32,detail:'Mesh palm, built-in grip.',opts:[{k:'color',label:'Color',choices:['Red/Black','Black/Green']}]},
+    {id:'brave-headgear',cat:'sparring',vendor:'Century',name:'Brave Youth Headgear',price:38,detail:'Open-face upgrade headgear.',opts:[{k:'color',label:'Color',choices:['Black/Green','Red/Black']}]},
+    {id:'brave-shins',cat:'sparring',vendor:'Century',name:'Brave Youth Shin Guards',price:35,detail:'Shin + instep upgrade.',opts:[{k:'color',label:'Color',choices:['Red/Black','Black/Green']}]},
+    {id:'student-headgear',cat:'sparring',vendor:'Century',name:'Student Sparring Headgear',price:35,detail:'Our standard headgear in 10 colors.',opts:[{k:'color',label:'Color',choices:HS_HEADGEAR}]},
+
+    {id:'rebreak',cat:'home',vendor:'Century',name:'Rebreak Board',price:45,badge:'Kids love it',detail:'Snaps when broken, slides back together. Each color is harder.',opts:[{k:'level',label:'Difficulty',choices:['White (very easy)','Yellow (easy)','Orange (medium)','Green (medium plus)']}]},
+    {id:'target',cat:'home',vendor:'Century',name:'Square Hand Target',price:20,detail:'For partner kicks and strikes.',opts:[{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
+    {id:'gameness',cat:'home',vendor:'Century',name:'Gameness Boxing Gloves',price:30,detail:'Bag and fitness gloves.',opts:[{k:'color',label:'Color',choices:['Black','Red','Blue']}]},
+    {id:'wavemaster',cat:'home',vendor:'Century',name:'Wavemaster Freestanding Bag',price:210,detail:'Height adjusts 47"–68". Fill the base with water or sand.',opts:[{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
+    {id:'belt-display',cat:'home',vendor:'Century',name:'14-Level Belt Display',price:55,detail:'Wood display for every belt earned.',opts:[]},
+
+    {id:'foam-chux',cat:'weapons',vendor:'Century',name:'Foam Nunchaku',price:10,detail:'Safe for practice at home.',opts:[{k:'length',label:'Length',choices:['8"','12"']},{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
+    {id:'wood-chux',cat:'weapons',vendor:'Infinity',name:'Wood Chux',price:14,detail:'Natural poplar, 12" handles.',opts:[]},
+    {id:'chrome-chux',cat:'weapons',vendor:'Infinity',name:'Custom Chrome Chux',price:28,detail:'Built to order in your color.',opts:[{k:'color',label:'Color',choices:HS_METALLIC}]},
+    {id:'chrome-bo',cat:'weapons',vendor:'Infinity',name:'Custom Chrome Bo Staff',price:50,detail:'Built to order in your color.',opts:[{k:'color',label:'Color',choices:HS_METALLIC.concat(['Diamond Plate'])}]},
+
+    {id:'nst30x3',cat:'lessons',vendor:'NMA',name:'Skill Tune-Up · 3 × 30 min',price:89,detail:'Regularly $105. Good through March 31, 2027.',opts:[]},
+    {id:'nst30x5',cat:'lessons',vendor:'NMA',name:'Skill Tune-Up · 5 × 30 min',price:149,detail:'Regularly $175. Good through March 31, 2027.',opts:[]},
+    {id:'nst45x3',cat:'lessons',vendor:'NMA',name:'Skill Tune-Up · 3 × 45 min',price:125,detail:'Regularly $150. Sparring work is available at this length. Good through March 31, 2027.',opts:[]},
+    {id:'nst45x5',cat:'lessons',vendor:'NMA',name:'Skill Tune-Up · 5 × 45 min',price:210,badge:'Biggest savings',detail:'Regularly $250. Good through March 31, 2027.',opts:[]},
+    {id:'parent45x3',cat:'lessons',vendor:'NMA',name:'Parent Self-Defense · 3 × 45 min',price:125,detail:'Regularly $150. For an NMA parent or guardian. Good through March 31, 2027.',opts:[]}
+  ]
+};
+function portalShopCfg(){
+  const c=portalCfg();
+  if(!c.shop||typeof c.shop!=='object'){
+    // Start in preview with Sensei's own family so nothing reaches parents until it's switched on.
+    c.shop={mode:'preview',families:(DB.families||[]).filter(f=>/\bnoble\b/i.test(f.name||'')).map(f=>f.id)};
+  }
+  if(!Array.isArray(c.shop.families))c.shop.families=[];
+  return c.shop;
+}
+function portalShopFor(f){
+  const s=portalShopCfg();
+  if(s.mode==='live'||(s.mode==='preview'&&s.families.map(String).includes(String(f.id)))){
+    return Object.assign({},HOLIDAY_SHOP,{preview:s.mode==='preview',closed:localToday()>HOLIDAY_SHOP.deadline});
+  }
+  return null;
+}
+function hsOrders(){return (DB.gearOrders||[]).filter(o=>o.catalogKey===HOLIDAY_SHOP.id);}
+// Orders placed in the portal become normal gear orders (so the balance, payment matching and Who Owes all work).
+async function portalImportShopOrders(list,notify){
+  if(!list.length)return;
+  if(!DB.gearOrders)DB.gearOrders=[];
+  let added=0;
+  list.forEach(it=>{
+    const p=it.payload||{};const src='portal_shop_'+it.id;
+    if(DB.gearOrders.some(o=>o.sourceId===src))return;
+    const s=DB.students.find(x=>String(x.id)===String(it.student_id));
+    const lines=Array.isArray(p.lines)?p.lines:[];
+    DB.gearOrders.unshift({
+      id:Date.now()+added,date:String(it.created_at).slice(0,10),
+      studentId:s?s.id:null,studentName:s?s.first+' '+s.last:(p.studentName||''),
+      orderType:HOLIDAY_SHOP.title,amount:+p.total||0,
+      details:lines.map(l=>l.qty+'× '+l.name+(l.optText?' ('+l.optText+')':'')+' — $'+(l.price*l.qty)).join('; ')+(p.note?' | Note: '+p.note:''),
+      notes:'Family portal order by '+(p.parentName||it.email||''),
+      paymentMethod:'Unpaid',paid:false,catalogKey:HOLIDAY_SHOP.id,sourceSheet:'Family Portal',sourceId:src,lines
+    });
+    added++;
+  });
+  if(added)save();
+  for(const it of list){try{await portalCall('staff-inbox-mark',{id:it.id,status:'accepted'});}catch(e){}}
+  if(added){
+    if(notify)toast(added+' Holiday Shop order'+(added!==1?'s':'')+' from the family portal — added to Gear Orders.');
+    if(typeof renderGearOrders==='function'&&$('page-gearorders')?.classList.contains('active'))renderGearOrders();
+  }
+}
+// What to buy from each vendor, from every holiday order that isn't archived.
+function hsTally(){
+  const t={};
+  hsOrders().filter(o=>!o.archived).forEach(o=>(o.lines||[]).forEach(l=>{
+    const v=l.vendor||'Other';if(!t[v])t[v]={};
+    const k=l.name+(l.optText?' — '+l.optText:'');t[v][k]=(t[v][k]||0)+(+l.qty||1);
+  }));
+  return t;
+}
+function hsSettingsHTML(){
+  const s=portalShopCfg();const orders=hsOrders();
+  const total=orders.reduce((a,o)=>a+(+o.amount||0),0),paid=orders.filter(o=>o.paid);
+  const fams=(DB.families||[]).filter(f=>(f.contacts||[]).some(c=>c.portal)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const tally=hsTally();const vendors=Object.keys(tally).sort();
+  const modeLabel={off:'Off — nobody sees it',preview:'Preview — only the families checked below',live:'Open — every portal family'};
+  return `<div class="form-label" style="margin-top:14px;">🎁 ${famEsc(HOLIDAY_SHOP.title)} <span style="font-weight:400;color:var(--ink-muted);">— orders close ${fmtFull(HOLIDAY_SHOP.deadline)}</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;">
+      <select class="form-input" style="max-width:320px;" onchange="portalShopCfg().mode=this.value;save();renderFamilies();">${['off','preview','live'].map(m=>`<option value="${m}" ${s.mode===m?'selected':''}>${modeLabel[m]}</option>`).join('')}</select>
+      <span>${orders.length} order${orders.length!==1?'s':''} · $${total.toFixed(2)} · ${paid.length} paid</span>
+    </div>
+    ${s.mode==='preview'?`<div style="display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:12px;">${fams.map(f=>`<label><input type="checkbox" ${s.families.map(String).includes(String(f.id))?'checked':''} onchange="hsToggleFam('${famEsc(String(f.id))}',this.checked)"> ${famEsc(f.name)}</label>`).join('')||'<span style="color:var(--ink-muted);">No families have portal access yet.</span>'}</div>`:''}
+    ${s.mode==='live'?`<div style="font-size:12px;color:var(--red);margin-top:6px;font-weight:600;">Live: every family with portal access sees the shop.</div>`:''}
+    ${vendors.length?`<details style="margin-top:8px;font-size:12px;"><summary style="cursor:pointer;font-weight:600;">What to order from vendors</summary>${vendors.map(v=>`<div style="margin-top:6px;"><strong>${famEsc(v)}</strong><ul style="margin:2px 0 0 18px;">${Object.keys(tally[v]).sort().map(k=>`<li>${tally[v][k]}× ${famEsc(k)}</li>`).join('')}</ul></div>`).join('')}</details>`:''}`;
+}
+function hsToggleFam(id,on){const s=portalShopCfg();const a=s.families.map(String).filter(x=>x!==id);if(on)a.push(id);s.families=a;save();}
 function portalGuardianRows(){
   const out=[];
   (DB.families||[]).forEach(f=>(f.contacts||[]).forEach(c=>{
@@ -16957,6 +17087,7 @@ async function portalPreview(fid){
         <label style="font-size:12px;display:block;margin-top:4px;"><input type="checkbox" ${cfg.notifyLetters!==false?'checked':''} onchange="portalCfg().notifyLetters=this.checked;save();"> Email portal families automatically when an Intent letter opens for their child (with the $ fee and a link) — they won't also get the PDF</label>
         <div class="form-label" style="margin-top:12px;">Order links in the portal <span style="font-weight:400;color:var(--ink-muted);">— shown on a student's card once they've earned stripe #1</span></div>
         ${portalOrderRows()}
+        ${hsSettingsHTML()}
         ${portalContactsHTML()}
       </details>`);
     }catch(e){console.warn(e);}
@@ -17002,6 +17133,7 @@ async function portalCheckInbox(notify){
     const items=j.items||[];
     await portalImportAbsences(items.filter(i=>i.kind==='absence'));
     await portalImportMessages(items.filter(i=>i.kind==='message'||i.kind==='feedback'),notify);
+    await portalImportShopOrders(items.filter(i=>i.kind==='shop'),notify);
     _portalInbox=items.filter(i=>i.kind==='intent');
     const wasC=_portalContacts.length;_portalContacts=items.filter(i=>i.kind==='contact'||i.kind==='guardian'||i.kind==='reg');
     const n=_portalInbox.length;const was=_portalInboxCount;_portalInboxCount=n;
