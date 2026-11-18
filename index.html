@@ -16766,10 +16766,10 @@ const HOLIDAY_SHOP={
       {k:'headgear',label:'Headgear color',choices:HS_HEADGEAR},{k:'gloves',label:'Gloves color',choices:['Red/Black','Black/Green']},
       {k:'shins',label:'Shin guard color',choices:['Black','Red','Blue','White']},{k:'case',label:'Mouthpiece case color',choices:['Black','Blue','White','Pink/Silver']},
       {k:'bag',label:'Duffle bag',choices:['Black/Red','Black/Blue','Black/Green']}]},
-    {id:'brave-gloves',cat:'sparring',vendor:'Century',name:'Brave Youth Boxing Gloves',price:32,detail:'Mesh palm, built-in grip.',opts:[{k:'color',label:'Color',choices:['Red/Black','Black/Green']}]},
-    {id:'brave-headgear',cat:'sparring',vendor:'Century',name:'Brave Youth Headgear',price:38,detail:'Open-face upgrade headgear.',opts:[{k:'color',label:'Color',choices:['Black/Green','Red/Black']}]},
-    {id:'brave-shins',cat:'sparring',vendor:'Century',name:'Brave Youth Shin Guards',price:35,detail:'Shin + instep upgrade.',opts:[{k:'color',label:'Color',choices:['Red/Black','Black/Green']}]},
-    {id:'student-headgear',cat:'sparring',vendor:'Century',name:'Student Sparring Headgear',price:35,detail:'Our standard headgear in 10 colors.',opts:[{k:'color',label:'Color',choices:HS_HEADGEAR}]},
+    {id:'brave-gloves',cat:'sparring',group:'À la carte — sold separately, not part of the set',vendor:'Century',name:'Brave Youth Boxing Gloves',price:32,detail:'Mesh palm, built-in grip.',opts:[{k:'color',label:'Color',choices:['Red/Black','Black/Green']}]},
+    {id:'brave-headgear',cat:'sparring',group:'À la carte — sold separately, not part of the set',vendor:'Century',name:'Brave Youth Headgear',price:38,detail:'Open-face upgrade headgear.',opts:[{k:'color',label:'Color',choices:['Black/Green','Red/Black']}]},
+    {id:'brave-shins',cat:'sparring',group:'À la carte — sold separately, not part of the set',vendor:'Century',name:'Brave Youth Shin Guards',price:35,detail:'Shin + instep upgrade.',opts:[{k:'color',label:'Color',choices:['Red/Black','Black/Green']}]},
+    {id:'student-headgear',cat:'sparring',group:'À la carte — sold separately, not part of the set',vendor:'Century',name:'Student Sparring Headgear',price:35,detail:'Our standard headgear in 10 colors.',opts:[{k:'color',label:'Color',choices:HS_HEADGEAR}]},
 
     {id:'rebreak',cat:'home',vendor:'Century',name:'Rebreak Board',price:45,badge:'Kids love it',detail:'Snaps when broken, slides back together. Each color is harder.',opts:[{k:'level',label:'Difficulty',choices:['White (very easy)','Yellow (easy)','Orange (medium)','Green (medium plus)']}]},
     {id:'target',cat:'home',vendor:'Century',name:'Square Hand Target',price:20,detail:'For partner kicks and strikes.',opts:[{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
@@ -16789,6 +16789,9 @@ const HOLIDAY_SHOP={
     {id:'parent45x3',cat:'lessons',vendor:'NMA',name:'Parent Self-Defense · 3 × 45 min',price:125,detail:'Regularly $150. For an NMA parent or guardian. Good through March 31, 2027.',opts:[]}
   ]
 };
+// Product photos live on the website (noblesmartialarts.com/shop-img/<item id>.jpg).
+['spar-set','spar-duffle','brave-gloves','brave-headgear','brave-shins','student-headgear','rebreak','target','gameness','wavemaster','belt-display','foam-chux','wood-chux','chrome-chux','chrome-bo']
+  .forEach(id=>{const i=HOLIDAY_SHOP.items.find(x=>x.id===id);if(i)i.img='/shop-img/'+(id==='spar-duffle'?'spar-set':id)+'.jpg';});
 function portalShopCfg(){
   const c=portalCfg();
   if(!c.shop||typeof c.shop!=='object'){
