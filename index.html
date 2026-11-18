@@ -16770,16 +16770,16 @@ const HOLIDAY_SHOP={
     {id:'brave-headgear',cat:'sparring',group:'À la carte — sold separately, not part of the set',vendor:'Century',name:'Brave Youth Headgear',price:38,detail:'Open-face upgrade headgear.',opts:[{k:'color',label:'Color',choices:['Black/Green','Red/Black']}]},
     {id:'brave-shins',cat:'sparring',group:'À la carte — sold separately, not part of the set',vendor:'Century',name:'Brave Youth Shin Guards',price:35,detail:'Shin + instep upgrade.',opts:[{k:'color',label:'Color',choices:['Red/Black','Black/Green']}]},
     {id:'student-headgear',cat:'sparring',group:'À la carte — sold separately, not part of the set',vendor:'Century',name:'Student Sparring Headgear',price:35,detail:'Our standard headgear in 10 colors.',opts:[{k:'color',label:'Color',choices:HS_HEADGEAR}]},
+    {id:'gameness',cat:'sparring',group:'À la carte — sold separately, not part of the set',vendor:'Century',name:'Gameness Boxing Gloves',price:30,detail:'Bag and fitness gloves.',opts:[{k:'color',label:'Color',choices:['Black','Red','Blue']}]},
 
-    {id:'rebreak',cat:'home',vendor:'Century',name:'Rebreak Board',price:45,badge:'Kids love it',detail:'Snaps when broken, slides back together. Each color is harder.',opts:[{k:'level',label:'Difficulty',choices:['White (very easy)','Yellow (easy)','Orange (medium)','Green (medium plus)']}]},
+    {id:'rebreak',cat:'home',vendor:'Century',name:'Rebreakable Board',price:45,badge:'Kids love it',detail:'Snaps when broken, slides back together. Each color is harder.',opts:[{k:'level',label:'Difficulty',choices:['White (very easy)','Yellow (easy)','Orange (medium)','Green (medium plus)']}]},
     {id:'target',cat:'home',vendor:'Century',name:'Square Hand Target',price:20,detail:'For partner kicks and strikes.',opts:[{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
-    {id:'gameness',cat:'home',vendor:'Century',name:'Gameness Boxing Gloves',price:30,detail:'Bag and fitness gloves.',opts:[{k:'color',label:'Color',choices:['Black','Red','Blue']}]},
     {id:'wavemaster',cat:'home',vendor:'Century',name:'Wavemaster Freestanding Bag',price:210,detail:'Height adjusts 47"–68". Fill the base with water or sand.',opts:[{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
     {id:'belt-display',cat:'home',vendor:'Century',name:'14-Level Belt Display',price:55,detail:'Wood display for every belt earned.',opts:[]},
 
     {id:'foam-chux',cat:'weapons',vendor:'Century',name:'Foam Nunchaku',price:10,detail:'Safe for practice at home.',opts:[{k:'length',label:'Length',choices:['8"','12"']},{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
     {id:'wood-chux',cat:'weapons',vendor:'Infinity',name:'Wood Chux',price:14,detail:'Natural poplar, 12" handles.',opts:[]},
-    {id:'chrome-chux',cat:'weapons',vendor:'Infinity',name:'Custom Chrome Chux',price:28,detail:'Built to order in your color.',opts:[{k:'color',label:'Color',choices:HS_METALLIC}]},
+    {id:'chrome-chux',cat:'weapons',vendor:'Infinity',name:'Custom Chrome Chux',price:25,deal:{qty:2,price:45},badge:'2 for $45',detail:'Built to order in your color. $25 each, or 2 for $45 — colors can be different.',opts:[{k:'color',label:'Color',choices:HS_METALLIC}]},
     {id:'chrome-bo',cat:'weapons',vendor:'Infinity',name:'Custom Chrome Bo Staff',price:50,detail:'Built to order in your color.',opts:[{k:'color',label:'Color',choices:HS_METALLIC.concat(['Diamond Plate'])}]},
 
     {id:'nst30x3',cat:'lessons',vendor:'NMA',name:'Skill Tune-Up · 3 × 30 min',price:89,detail:'Regularly $105. Good through March 31, 2027.',opts:[]},
@@ -16831,7 +16831,7 @@ async function portalImportShopOrders(list,notify){
       id:Date.now()+added,date:String(it.created_at).slice(0,10),
       studentId:s?s.id:null,studentName:s?s.first+' '+s.last:(p.studentName||''),
       orderType:HOLIDAY_SHOP.title,amount:+p.total||0,
-      details:lines.map(l=>l.qty+'× '+l.name+(l.optText?' ('+l.optText+')':'')+' — $'+(l.price*l.qty)).join('; ')+(p.note?' | Note: '+p.note:''),
+      details:lines.map(l=>l.deal?l.name+' savings −$'+(-l.price):l.qty+'× '+l.name+(l.optText?' ('+l.optText+')':'')+' — $'+(l.price*l.qty)).join('; ')+(p.note?' | Note: '+p.note:''),
       notes:'Family portal order by '+(p.parentName||it.email||''),
       paymentMethod:'Unpaid',paid:false,catalogKey:HOLIDAY_SHOP.id,sourceSheet:'Family Portal',sourceId:src,lines
     });
@@ -16848,6 +16848,7 @@ async function portalImportShopOrders(list,notify){
 function hsTally(){
   const t={};
   hsOrders().filter(o=>!o.archived).forEach(o=>(o.lines||[]).forEach(l=>{
+    if(l.deal)return;
     const v=l.vendor||'Other';if(!t[v])t[v]={};
     const k=l.name+(l.optText?' — '+l.optText:'');t[v][k]=(t[v][k]||0)+(+l.qty||1);
   }));

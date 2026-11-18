@@ -355,12 +355,19 @@ async function parentOps(op, body, event) {
       }
       lines.push({ itemId: item.id, name: item.name, vendor: item.vendor || '', price: +item.price, qty, opts, optText: parts.join(' · ') });
     }
+    // Multi-buy deals (e.g. 2 for $45) count every line of that item together, so mixed colors still qualify.
+    for (const item of shop.items) {
+      if (!item.deal || !(item.deal.qty > 1)) continue;
+      const q = lines.filter(l => l.itemId === item.id).reduce((a, l) => a + l.qty, 0);
+      const save = Math.floor(q / item.deal.qty) * (item.deal.qty * item.price - item.deal.price);
+      if (save > 0) lines.push({ itemId: item.id, name: item.name + ' — ' + item.deal.qty + ' for $' + item.deal.price, vendor: '', price: -save, qty: 1, opts: {}, optText: '', deal: true });
+    }
     const total = Math.round(lines.reduce((a, l) => a + l.price * l.qty, 0) * 100) / 100;
     const note = str(body.note, 500).trim();
     const studentName = r.s.first + (r.s.last ? ' ' + r.s.last : '');
     await write('POST', 'portal_inbox', { family_id: r.g.family_id, email: sess.e, kind: 'shop', student_id: String(r.s.id), payload: { shopId: shop.id, title: shop.title, studentName, lines, total, note, parentName: r.g.name || '' }, status: 'new', created_at: now() });
     await log('shop_order', sess.e, r.g.family_id, ip);
-    const list = lines.map(l => '  • ' + l.qty + '× ' + l.name + (l.optText ? ' (' + l.optText + ')' : '') + ' — $' + (l.price * l.qty).toFixed(2)).join('\n');
+    const list = lines.map(l => l.deal ? '  • ' + l.name + ' savings — −$' + (-l.price).toFixed(2) : '  • ' + l.qty + '× ' + l.name + (l.optText ? ' (' + l.optText + ')' : '') + ' — $' + (l.price * l.qty).toFixed(2)).join('\n');
     const pay = ((r.view.school || {}).pay) || {};
     const ways = [];
     if (pay.venmo) ways.push('  • Venmo (preferred): @' + pay.venmo);
