@@ -16739,7 +16739,8 @@ const HS_DESIGN_COLORS={'Original NMA Logo':['Black','White','Gray'],'NMA Lion H
 const HS_UNI_SIZES=['Size 00','Size 0','Size 1','Size 2','Size 3','Size 4','Not sure — Sensei will size'];
 const HS_HEADGEAR=['Black','Grey','White','Teal','Neon Green','Blue','Neon Blue','Purple','Red','Neon Pink'];
 const HS_MOUTH=['Black','Clear','Red','Blue','Pink'];
-const HS_METALLIC=['Metallic Red','Metallic Blue','Metallic Green','Metallic Purple','Metallic Gold','Metallic Silver'];
+// Infinity's chrome color lists (Nov 2026): the bo uses "Glitter", the chux "Sparkle" for the same three finishes.
+const HS_CHROME=pre=>['Metallic Silver','Metallic Blue','Metallic Red','Metallic Green','Metallic Pink','Metallic Purple','Metallic Orange','Metallic Teal','Metallic Gold','Iridescent Silver','Rose Gold','Glossy Black','Glossy White','Carbon Fiber',pre+' Silver',pre+' Gold',pre+' Teal','Holographic Silver','Holographic Blue','Holographic Red','Holographic Green','Holographic Pink','Holographic Yellow'];
 function hsApparel(id,name,price,detail,badge,colorMap){
   return {id,cat:'apparel',vendor:'Tiger Claw',name,price,detail,badge:badge||'',opts:[
     {k:'design',label:'Design',choices:HS_DESIGNS},
@@ -16781,8 +16782,8 @@ const HOLIDAY_SHOP={
 
     {id:'foam-chux',cat:'weapons',vendor:'Century',name:'Foam Nunchaku',price:10,detail:'Safe for practice at home.',opts:[{k:'length',label:'Length',choices:['8"','12"']},{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
     {id:'wood-chux',cat:'weapons',vendor:'Infinity',name:'Wood Chux',price:14,detail:'Natural poplar, 12" handles.',opts:[]},
-    {id:'chrome-chux',cat:'weapons',vendor:'Infinity',name:'Custom Chrome Chux',price:25,deal:{qty:2,price:45},badge:'2 for $45',detail:'Built to order in your color. $25 each, or 2 for $45 — colors can be different.',opts:[{k:'color',label:'Color',choices:HS_METALLIC}]},
-    {id:'chrome-bo',cat:'weapons',vendor:'Infinity',name:'Custom Chrome Bo Staff',price:50,detail:'Built to order in your color.',opts:[{k:'color',label:'Color',choices:HS_METALLIC.concat(['Diamond Plate'])}]},
+    {id:'chrome-chux',cat:'weapons',vendor:'Infinity',name:'Custom Chrome Chux',price:25,deal:{qty:2,price:45},badge:'2 for $45',detail:'Built to order in your color. $25 each, or 2 for $45 — colors can be different.',opts:[{k:'color',label:'Color',choices:HS_CHROME('Sparkle')}]},
+    {id:'chrome-bo',cat:'weapons',vendor:'Infinity',name:'Custom Chrome Bo Staff',price:50,detail:'Built to order in your color.',opts:[{k:'color',label:'Color',choices:HS_CHROME('Glitter')}]},
 
     {id:'nst30x3',cat:'lessons',vendor:'NMA',name:'Skill Tune-Up · 3 × 30 min',price:89,detail:'Regularly $105. Good through March 31, 2027.',opts:[]},
     {id:'nst30x5',cat:'lessons',vendor:'NMA',name:'Skill Tune-Up · 5 × 30 min',price:149,detail:'Regularly $175. Good through March 31, 2027.',opts:[]},
