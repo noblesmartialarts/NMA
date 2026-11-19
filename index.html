@@ -496,6 +496,17 @@ tbody td{font-size:11px!important;}
 </div>
 
 <!-- LOG ASSIST MODAL -->
+<div class="modal-backdrop" id="modal-portal-remind">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header"><div class="modal-title">✉ Sign-in reminders</div><button class="btn ghost" onclick="closeModal('modal-portal-remind')">✕</button></div>
+    <div class="modal-body" id="pr-body"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-portal-remind')">Cancel</button>
+      <button class="btn primary" id="pr-send" onclick="sendPortalReminders()">Send reminders</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="modal-assist-log">
   <div class="modal" style="max-width:480px;">
     <div class="modal-header"><div class="modal-title">Log Class Assist</div><button class="btn ghost" onclick="closeModal('modal-assist-log')">✕</button></div>
@@ -15315,15 +15326,114 @@ function famContactPortal(f,c){
   const invited=(g&&g.invited_at)||c.invitedAt||null;
   const seen=g&&g.last_seen;
   if(seen)return {key:'active',rank:3,seen,invited,devices:(g.devices||[]).length};
-  if(invited)return {key:'invited',rank:2,invited};
+  if(invited)return {key:'invited',rank:2,invited,reminded:c.remindedAt||null};
   return {key:'access',rank:1};
 }
 function famPortalChip(st){
   const b=(bg,fg,t)=>`<span style="display:inline-block;background:${bg};color:${fg};border-radius:20px;padding:1px 8px;font-size:11px;font-weight:600;white-space:nowrap;">${t}</span>`;
   if(st.key==='active')return b('var(--green-light,#e3f4e8)','var(--green,#2e7d4f)','✓ Signed in · last seen '+famShortDate(st.seen));
-  if(st.key==='invited')return b('var(--blue-light,#e4eefb)','var(--blue,#2563eb)','✉ Invited '+famShortDate(st.invited)+' · not signed in yet');
+  if(st.key==='invited')return b('var(--blue-light,#e4eefb)','var(--blue,#2563eb)','✉ Invited '+famShortDate(st.invited)+(st.reminded?' · reminded '+famShortDate(st.reminded):'')+' · not signed in yet');
   if(st.key==='access')return b('var(--amber-light,#fdf3dc)','#9a6700','🔑 Access on · invite not sent');
   return b('var(--surface-2,#f1f1ee)','var(--ink-faint,#999)','No portal');
+}
+// ── Sign-in reminders: fresh one-time link to guardians who were invited but never signed in ──
+// Invite links expire after 3 days, so every reminder carries a new one. Not re-sent within 3 days.
+const PR_GAP_MS=3*864e5;
+function portalReminderTargets(){
+  const out=[];
+  (DB.families||[]).forEach(f=>{
+    if(!famMembers(f).some(s=>s.status==='Active'))return;
+    const anyActive=(f.contacts||[]).some(c=>famContactPortal(f,c).key==='active');
+    (f.contacts||[]).forEach(c=>{
+      if(!c.email||famContactPortal(f,c).key!=='invited')return;
+      const last=Math.max(Date.parse(c.remindedAt||0)||0,Date.parse(c.invitedAt||0)||0);
+      const recent=Date.now()-last<PR_GAP_MS;
+      out.push({f,c,anyActive,recent,check:!anyActive&&!recent});
+    });
+  });
+  return out.sort((a,b)=>String(a.f.name||'').localeCompare(String(b.f.name||'')));
+}
+function prShopLine(){
+  const s=typeof portalShopCfg==='function'?portalShopCfg():null;
+  return !!(s&&s.mode==='live'&&typeof HOLIDAY_SHOP!=='undefined'&&localToday()<=HOLIDAY_SHOP.deadline);
+}
+function prKids(f,c){
+  const kids=famMembers(f).filter(s=>s.status==='Active'&&(!c.students||!c.students.length||c.students.includes(s.id))).map(s=>s.first);
+  return kids.length>1?kids.slice(0,-1).join(', ')+' & '+kids[kids.length-1]:(kids[0]||'your student');
+}
+function prMessage(f,c,url){
+  const first=String(c.name||'').trim().split(/\s+/)[0];
+  const shop=prShopLine();
+  const by=shop?new Date(HOLIDAY_SHOP.deadline+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):'';
+  const subject=shop?'🎁 The NMA Holiday Shop is open — sign in to your Family Portal':'Reminder: your NMA Family Portal is ready';
+  const body=[
+    'Hi'+(first?' '+first:'')+',',
+    '',
+    'Just a friendly reminder — your NMA Family Portal is ready for you, and it looks like you haven’t had a chance to sign in yet.',
+    ...(shop?['','🎁 The Holiday Shop is open inside the portal! NMA apparel, sparring gear, train-at-home equipment and weapons — with holiday deals and a "keep it a surprise" option. Order by '+by+'; pickup at class.']:[]),
+    '',
+    'Tap this link to sign in (it works once and expires in 3 days):',
+    url||'[your personal sign-in link]',
+    '',
+    'After that, go to noblesmartialarts.com/family any time and enter this email address. We’ll email you a 6-digit code — no password to remember.',
+    '',
+    'In the portal you can see '+prKids(f,c)+'’s belt progress, attendance, upcoming classes, practice videos and balance — and message me directly.',
+    '',
+    'Questions or trouble signing in? Just reply to this email.',
+    '',
+    'See you on the mat,',
+    'Sensei Brandon',
+    'Noble’s Martial Arts'
+  ].join('\n');
+  return {subject,body};
+}
+let _prList=[];
+function openPortalReminders(){
+  famLoadPortalStat(true);
+  _prList=portalReminderTargets();
+  const ex=_prList[0];const m=ex?prMessage(ex.f,ex.c,null):null;
+  $('pr-body').innerHTML=_prList.length?`
+    <div style="font-size:13px;color:var(--ink-muted);margin-bottom:8px;">Guardians who were invited but haven’t signed in. Each gets a <b>new</b> one-time sign-in link (old invite links expire after 3 days), sent from your Gmail.${prShopLine()?' The Holiday Shop is open, so the email mentions it.':''}</div>
+    <div style="display:flex;gap:10px;font-size:12px;margin-bottom:6px;"><a href="#" onclick="document.querySelectorAll('.pr-cb').forEach(x=>x.checked=true);prCount();return false;">Select all</a><a href="#" onclick="document.querySelectorAll('.pr-cb').forEach(x=>x.checked=false);prCount();return false;">Select none</a></div>
+    <div style="max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:8px;">
+    ${_prList.map((t,i)=>`<label style="display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;">
+      <input type="checkbox" class="pr-cb" data-i="${i}" ${t.check?'checked':''} onchange="prCount()" style="margin-top:3px;">
+      <span style="flex:1;font-size:13px;"><b>${famEsc(t.c.name||t.c.email)}</b> <span style="color:var(--ink-muted);">· ${famEsc(t.f.name||'')} family · ${famEsc(t.c.email)}</span>
+      <span style="display:block;font-size:11px;color:var(--ink-muted);">Invited ${famShortDate(t.c.invitedAt)||'—'}${t.c.remindedAt?' · reminded '+famShortDate(t.c.remindedAt)+(t.c.remindCount>1?' ('+t.c.remindCount+'×)':''):''}${t.recent?' · <span style="color:#9a6700;">contacted in the last 3 days</span>':''}${t.anyActive?' · <span style="color:var(--green,#2e7d4f);">another guardian is signed in</span>':''}</span></span></label>`).join('')}
+    </div>
+    <details style="margin-top:10px;font-size:12px;"><summary style="cursor:pointer;font-weight:600;">Preview the email</summary>
+      <div style="margin-top:6px;padding:10px;background:var(--surface-2,#f6f6f3);border-radius:8px;white-space:pre-wrap;font-size:12px;"><b>Subject:</b> ${famEsc(m.subject)}
+
+${famEsc(m.body)}</div></details>`
+  :'<div style="color:var(--ink-muted);font-size:13px;">Nobody to remind — everyone who was invited has signed in.</div>';
+  prCount();$('modal-portal-remind').classList.add('open');
+}
+function prCount(){const n=document.querySelectorAll('.pr-cb:checked').length;const b=$('pr-send');if(b){b.disabled=!n;b.textContent=n?'Send '+n+' reminder'+(n!==1?'s':''):'Send reminders';}}
+async function sendPortalReminders(){
+  const picks=[...document.querySelectorAll('.pr-cb:checked')].map(x=>_prList[+x.dataset.i]).filter(Boolean);
+  if(!picks.length)return;
+  if(!gmailToken&&typeof gmailRefresh==='function')await gmailRefresh(true);
+  if(!gmailToken){alert('Connect Gmail first — reminders are sent from your Gmail.');return;}
+  if(!confirm('Email a fresh sign-in link to '+picks.length+' guardian'+(picks.length!==1?'s':'')+'?'))return;
+  const btn=$('pr-send');btn.disabled=true;
+  if(!(await portalPublish(true))){alert('Couldn’t sync the portal — check you’re signed in, then try again.');prCount();return;}
+  let sent=0;const failed=[];
+  for(const t of picks){
+    btn.textContent='Sending '+(sent+failed.length+1)+' of '+picks.length+'…';
+    try{
+      const link=await portalCall('staff-link',{familyId:t.f.id,contactId:t.c.id});
+      if(!link||!link.url)throw new Error('no link');
+      const m=prMessage(t.f,t.c,link.url);
+      const ok=await sendGmailMessage(t.c.email,m.subject,m.body);
+      if(!ok)throw new Error('send failed');
+      t.c.remindedAt=new Date().toISOString();t.c.remindCount=(t.c.remindCount||0)+1;
+      famMembers(t.f).filter(s=>s.status==='Active').forEach(s=>{if(typeof addHistory==='function')addHistory(s,'note','Family portal sign-in reminder emailed to '+t.c.email);});
+      sent++;
+    }catch(e){failed.push(t.c.name||t.c.email);}
+  }
+  save();_famPortalStatAt=0;closeModal('modal-portal-remind');
+  if(currentPageIs('families'))renderFamilies();
+  if(failed.length)alert('Sent '+sent+'. Couldn’t send to: '+failed.join(', ')+'.');else toast('✉ Sent '+sent+' sign-in reminder'+(sent!==1?'s':'')+'.');
 }
 function famPortalBest(f){return Math.max(0,...(f.contacts||[]).map(c=>famContactPortal(f,c).rank));}
 function famLastSeen(f){return (f.contacts||[]).map(c=>famContactPortal(f,c).seen||'').sort().pop()||'';}
@@ -15344,6 +15454,7 @@ function famListHTML(){
     ${chip('Signed in',cnt(3),'active','var(--green,#2e7d4f)')}
     ${chip('Invited, not signed in',cnt(2),'invited','var(--blue,#2563eb)')}
     ${chip('Access on, not invited',cnt(1),'access','#9a6700')}
+    ${(()=>{const n=portalReminderTargets().length;return n?`<button class="btn small" onclick="openPortalReminders()" title="Email a fresh sign-in link to guardians who were invited but haven't signed in" style="align-self:stretch;">✉ Remind invited (${n})</button>`:'';})()}
     ${chip('No portal access',cnt(0),'none','var(--ink-muted)')}
     <button class="btn small${famFilter.owing?' primary':''}" onclick="famSetFilter('owing',!famFilter.owing)" style="display:flex;flex-direction:column;align-items:flex-start;padding:6px 12px;min-width:110px;"><span style="font-size:18px;font-weight:700;${famFilter.owing?'':'color:var(--red);'}">${fmt$(owingTotal)}</span><span style="font-size:11px;">Owed · ${owingFams.length} famil${owingFams.length===1?'y':'ies'}</span></button>
   </div>`;
