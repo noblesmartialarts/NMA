@@ -8,10 +8,11 @@
 //   request-guardian {token, name, email, phone, relationship, studentIds} → Sensei approves in the CRM
 //   me           {token}            → the family's portal view, filtered to the guardian's kids
 //   submit-intent{token, studentId, eventId, answers, note, focus, programFeedback, signedBy, affirm, studentSigned}
-//   submit-shop  {token, lines:[{itemId, qty, opts, studentId}], studentId?, note, surprise?, freeGift?:{studentId, opts}}  → Holiday Shop order (checked against the view's catalog)
+//   submit-shop  {token, lines:[{itemId, qty, opts, studentId}], studentId?, note, surprise?, freeGift?:{studentId, opts}, replaces?}
+//   cancel-shop  {token, orderId}  → cancels the family's own Holiday Shop order before the deadline  → Holiday Shop order (checked against the view's catalog)
 //
 // Staff ops (CRM session in Authorization header, owner/authorized users only):
-//   staff-publish {guardians:[…], views:[{id,data}], familyIds:[…]}   → sync access list and family views
+//   staff-publish {guardians:[…], views:[{id,data}], familyIds:[…], site?:{holidayShop:{live,until,title}}}   → sync access list and family views
 //   staff-link    {familyId, contactId}                               → {url} invite link (14 days, 3 uses)
 //   staff-revoke  {familyId}                                          → signs out every device for that family
 //   staff-inbox   {status?}                                           → submissions to review
@@ -175,8 +176,8 @@ async function familiesFor(gs) {
     out.contactPending = pc ? pc.payload.next : null;
     out.guardianPending = mine.filter(i => i.kind === 'guardian' && i.status === 'new').map(i => ({ name: i.payload.next.name, email: i.payload.next.email }));
     if (out.shop) out.shop = Object.assign({}, out.shop, { closed: today > out.shop.deadline });
-    out.shopOrders = mine.filter(i => i.kind === 'shop' && i.status !== 'dismissed' && (!out.shop || (i.payload || {}).shopId === out.shop.id))
-      .map(i => ({ id: i.id, at: i.created_at, studentName: i.payload.studentName || '', total: i.payload.total, lines: i.payload.lines || [] }));
+    out.shopOrders = mine.filter(i => i.kind === 'shop' && i.status !== 'dismissed' && i.status !== 'cancelled' && (!out.shop || (i.payload || {}).shopId === out.shop.id))
+      .map(i => ({ id: i.id, at: i.created_at, studentName: i.payload.studentName || '', total: i.payload.total, lines: i.payload.lines || [], note: i.payload.note || '', surprise: !!i.payload.surprise, changed: !!i.payload.replaces }));
     return out;
   }).filter(Boolean);
 }
@@ -327,6 +328,36 @@ async function parentOps(op, body, event) {
     return json(200, { ok: true });
   }
 
+  // A Holiday Shop order this guardian's family placed, still open (not cancelled or replaced).
+  async function ownShopOrder(id) {
+    const n = parseInt(id, 10);
+    if (!n) return null;
+    const row = (await rows('portal_inbox?id=eq.' + n + '&kind=eq.shop&select=*'))[0];
+    if (!row || ['cancelled', 'dismissed'].includes(row.status)) return null;
+    return gs.some(g => g.family_id === row.family_id) ? row : null;
+  }
+
+  // Parents can cancel until the shop's deadline; Sensei gets a note to undo it in the CRM.
+  if (op === 'cancel-shop') {
+    const row = await ownShopOrder(body.orderId);
+    if (!row) return json(404, { error: 'That order can\'t be changed any more. Message Sensei Brandon if you need help.' });
+    const v = (await rows('portal_views?id=eq.' + enc(row.family_id) + '&select=data'))[0];
+    const shop = v && v.data && v.data.shop;
+    const today = new Date(Date.now() - 5 * 3600e3).toISOString().slice(0, 10);
+    if (!shop || today > shop.deadline) return json(400, { error: 'Orders closed on ' + longDate((shop || {}).deadline || today) + '. Message Sensei Brandon to change your order.' });
+    const p = row.payload || {};
+    await write('PATCH', 'portal_inbox?id=eq.' + row.id, { status: 'cancelled', handled_at: now() });
+    await write('POST', 'portal_inbox', { family_id: row.family_id, email: sess.e, kind: 'shop-cancel', student_id: row.student_id, payload: { orderId: row.id, reason: 'cancelled', total: p.total, studentName: p.studentName || '', title: p.title || '' }, status: 'new', created_at: now() });
+    await log('shop_cancel', sess.e, row.family_id, ip);
+    try {
+      await sendEmail(sess.e, 'Your NMA ' + (p.title || 'Holiday Shop') + ' order was cancelled',
+        'Hi there,\n\nYour order for ' + (p.studentName || 'your student') + ' ($' + (+p.total || 0).toFixed(2) + ') has been cancelled. If you already paid, Sensei Brandon will refund you.\n\nChanged your mind? You can place a new order in your family portal until ' + longDate(shop.deadline) + ': ' + PORTAL_URL + '\n\nSensei Brandon\nNoble\'s Martial Arts');
+      await sendEmail(S.OWNER_EMAIL, '[NMA Portal] Holiday order CANCELLED — ' + (p.studentName || '') + ' — $' + (+p.total || 0).toFixed(2),
+        'A family cancelled their Holiday Shop order (portal order #' + row.id + ').\nIf they already paid, a refund is due. The CRM marks the Gear Order cancelled the next time it checks the portal.\n\nFrom: ' + sess.e, sess.e);
+    } catch (e) { /* cancelled either way */ }
+    return json(200, { ok: true });
+  }
+
   // Holiday Shop: the order is checked against the catalog published in this family's view.
   if (op === 'submit-shop') {
     // One checkout can cover several kids: each line names its student (or falls back to body.studentId).
@@ -411,9 +442,17 @@ async function parentOps(op, body, event) {
     }
     const surprise = body.surprise === true;
     const note = str(body.note, 500).trim();
+    const old = body.replaces ? await ownShopOrder(body.replaces) : null;
+    if (body.replaces && (!old || old.family_id !== r.g.family_id)) return json(400, { error: 'The order you were changing can\'t be changed any more. Please refresh and try again.' });
     const names = Object.values(kids).map(k => k.first);
     const studentName = names.length > 1 ? names.slice(0, -1).join(', ') + ' & ' + names[names.length - 1] : (r.s.first + (r.s.last ? ' ' + r.s.last : ''));
-    await write('POST', 'portal_inbox', { family_id: r.g.family_id, email: sess.e, kind: 'shop', student_id: String(r.s.id), payload: { shopId: shop.id, title: shop.title, studentName, studentIds: Object.keys(kids), lines, total, note, surprise, parentName: r.g.name || '' }, status: 'new', created_at: now() });
+    const made = await write('POST', 'portal_inbox', { family_id: r.g.family_id, email: sess.e, kind: 'shop', student_id: String(r.s.id), payload: { shopId: shop.id, title: shop.title, studentName, studentIds: Object.keys(kids), lines, total, note, surprise, parentName: r.g.name || '', replaces: old ? old.id : null }, status: 'new', created_at: now() }, 'return=representation');
+    const newId = ((await made.json().catch(() => [])) || [])[0]?.id || null;
+    if (old) {
+      // The old order is replaced: hide it from the family and tell the CRM to swap the Gear Order.
+      await write('PATCH', 'portal_inbox?id=eq.' + old.id, { status: 'cancelled', handled_at: now() });
+      await write('POST', 'portal_inbox', { family_id: old.family_id, email: sess.e, kind: 'shop-cancel', student_id: old.student_id, payload: { orderId: old.id, reason: 'changed', replacedBy: newId, total: (old.payload || {}).total, studentName: (old.payload || {}).studentName || '' }, status: 'new', created_at: now() });
+    }
     await log('shop_order', sess.e, r.g.family_id, ip);
     const multi = names.length > 1;
     const list = lines.map(l => l.deal ? '  • ' + l.name + ' — −$' + (-l.price).toFixed(2) : '  • ' + l.qty + '× ' + l.name + (l.optText ? ' (' + l.optText + ')' : '') + (multi ? ' — for ' + l.studentName : '') + ' — ' + (l.gift ? 'FREE' : '$' + (l.price * l.qty).toFixed(2))).join('\n');
@@ -424,12 +463,12 @@ async function parentOps(op, body, event) {
     if (pay.paypal) ways.push('  • PayPal: paypal.me/' + pay.paypal);
     const lastName = r.s.last || '';
     try {
-      await sendEmail(sess.e, 'Your NMA ' + shop.title + ' order — $' + total.toFixed(2),
-        'Hi there,\n\nThanks for your order! Here\'s what you ordered' + (multi ? '' : ' for ' + r.s.first) + ':\n\n' + list + '\n\nTotal: $' + total.toFixed(2) + '\n\n' +
+      await sendEmail(sess.e, 'Your ' + (old ? 'updated ' : '') + 'NMA ' + shop.title + ' order — $' + total.toFixed(2),
+        'Hi there,\n\n' + (old ? 'Your order has been updated — this replaces your earlier one. ' : 'Thanks for your order! ') + 'Here\'s what you ordered' + (multi ? '' : ' for ' + r.s.first) + ':\n\n' + list + '\n\nTotal: $' + total.toFixed(2) + '\n\n' +
         'Please pay with one of these and include "' + (names.join(' & ') + ' ' + lastName).trim() + '" in the note:\n' + ways.join('\n') + '\n\n' +
         'Pickup: ' + shop.pickup + '.' + (surprise ? ' 🎁 You asked us to keep it a surprise — Sensei will bag it and hand it to a grown-up, not to your student.' : '') + ' Your order also shows in your family portal: ' + PORTAL_URL + '\n\nNeed to change something? Just reply to this email.\n\nSensei Brandon\nNoble\'s Martial Arts');
-      await sendEmail(S.OWNER_EMAIL, '[NMA Portal] ' + (surprise ? '🎁 SURPRISE · ' : '') + shop.title + ' order — ' + studentName + ' — $' + total.toFixed(2),
-        list + '\n\nTotal: $' + total.toFixed(2) + (note ? '\nNote: ' + note : '') + '\n\nFrom: ' + (r.g.name || '') + ' <' + sess.e + '>\nStudents: ' + Object.values(kids).map(k => k.first + ' (' + k.group + ')').join(', ') + '\n\nIt will appear in Gear Orders the next time the CRM checks the portal.', sess.e);
+      await sendEmail(S.OWNER_EMAIL, '[NMA Portal] ' + (surprise ? '🎁 SURPRISE · ' : '') + (old ? 'CHANGED ' : '') + shop.title + ' order — ' + studentName + ' — $' + total.toFixed(2),
+        list + '\n\nTotal: $' + total.toFixed(2) + (note ? '\nNote: ' + note : '') + '\n\nFrom: ' + (r.g.name || '') + ' <' + sess.e + '>\nStudents: ' + Object.values(kids).map(k => k.first + ' (' + k.group + ')').join(', ') + (old ? '\n\nThis replaces portal order #' + old.id + ' ($' + (+(old.payload || {}).total || 0).toFixed(2) + ').' : '') + '\n\nIt will appear in Gear Orders the next time the CRM checks the portal.', sess.e);
     } catch (e) { /* the order is saved either way */ }
     return json(200, { ok: true, total, lines });
   }
@@ -580,6 +619,17 @@ async function staffOps(op, body, user) {
       enabled: g.enabled !== false, updated_at: now(),
     }));
     if (clean.length) await write('POST', 'portal_guardians?on_conflict=id', clean, 'resolution=merge-duplicates,return=minimal');
+    // Holiday Shop switch for the public Parent Hub (link shows only while the shop is open to everyone).
+    if (body.site && body.site.holidayShop && typeof body.site.holidayShop === 'object') {
+      const hs = body.site.holidayShop;
+      const want = { live: hs.live === true, until: str(hs.until, 10), title: str(hs.title, 80) };
+      try {
+        const cur = (await rows('nma_site_content?id=eq.main&select=data'))[0];
+        if (cur && cur.data && JSON.stringify(cur.data.holidayShop || null) !== JSON.stringify(want)) {
+          await write('PATCH', 'nma_site_content?id=eq.main', { data: Object.assign({}, cur.data, { holidayShop: want }) }, 'return=minimal');
+        }
+      } catch (e) { console.warn('holidayShop site flag', e.message); }
+    }
     // Guard against a half-loaded CRM wiping everyone's access.
     if (!clean.length && body.confirmEmpty !== true) return json(400, { error: 'empty_publish' });
     const keep = new Set(clean.map(g => g.id));

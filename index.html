@@ -373,6 +373,7 @@ tbody td{font-size:11px!important;}
     <div class="nav-item" data-page="workshops" onclick="nav('workshops')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 4.86L20 8l-4 3.9.94 5.5L12 15.9l-4.94 2.6L8 13l-4-3.9 5.6-1.14z"/></svg><span>Workshops</span></div>
     <div class="nav-item" data-page="apparel" onclick="nav('apparel')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.57a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.57a2 2 0 0 0-1.34-2.23z"/></svg><span>Apparel Orders</span></div>
     <div class="nav-item" data-page="gearorders" onclick="nav('gearorders')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><circle cx="12" cy="13" r="3"/></svg><span>Gear Orders</span></div>
+    <div class="nav-item" data-page="holidayshop" onclick="nav('holidayshop')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="13" rx="1"/><path d="M3 12h18M12 8v13"/><path d="M12 8c-2-4-6-4-6-1.5S9 8 12 8zM12 8c2-4 6-4 6-1.5S15 8 12 8z"/></svg><span>Holiday Shop</span></div>
     <div class="nav-item" data-page="beltorder" onclick="nav('beltorder')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><span>Belt Orders</span></div>
     <div class="nav-item" data-page="inventory" onclick="nav('inventory')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg><span>Inventory</span></div>
     <div class="nav-item" data-page="invoices" onclick="nav('invoices')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span>Invoices</span></div>
@@ -905,6 +906,18 @@ tbody td{font-size:11px!important;}
       <tbody id="apparel-tbody"></tbody>
     </table>
   </div>
+</div>
+
+<!-- HOLIDAY SHOP -->
+<div id="page-holidayshop" class="page">
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div><div class="page-title">Holiday Shop</div><div class="page-subtitle" id="hs-sub">Family portal holiday ordering</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button class="btn" onclick="portalCheckInbox(true).then(renderHolidayShop)">↻ Check for new orders</button>
+      <button class="btn" onclick="nav('gearorders')">Open Gear Orders</button>
+    </div>
+  </div>
+  <div id="hs-body"></div>
 </div>
 
 <!-- GEAR ORDERS -->
@@ -3224,7 +3237,7 @@ function nav(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   $('page-'+page).classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
-  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,reviews:()=>renderReviews(),commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,prospects:initProspects,goodjob:initGoodJob,ai:initAI,families:initFamilies,business:initBusiness,parentfeedback:initParentFeedback,events:initEvents,privatelessons:initPrivateLessons,workshops:renderWorkshops};
+  const fns={dashboard:renderDashboard,roster:renderRoster,attendance:initAttendance,checkin:initCheckin,testing:renderTesting,revenue:renderRevenue,beltorder:initBeltOrder,inventory:renderInventory,invoices:renderInvoices,emails:initEmails,curriculum:renderCurriculum,belts:renderBeltPaths,vendors:()=>{},letters:initLetters,backup:renderBackup,inbox:initInbox,broadcast:initBroadcast,reviews:()=>renderReviews(),commlog:initCommLog,promoreport:initPromoReport,groups:initGroups,links:initLinks,classnotes:initClassNotes,gearorders:initGearOrders,holidayshop:renderHolidayShop,apparel:initApparelOrders,leaders:initLeaders,classplans:initClassPlans,assistlog:initAssistLog,timer:initTimer,sms:initSms,prospects:initProspects,goodjob:initGoodJob,ai:initAI,families:initFamilies,business:initBusiness,parentfeedback:initParentFeedback,events:initEvents,privatelessons:initPrivateLessons,workshops:renderWorkshops};
   fns[page]?.();
 }
 
@@ -16750,8 +16763,8 @@ function hsApparel(id,name,price,detail,badge,colorMap){
     {k:'size',label:'Size',choices:HS_SIZES}]};
 }
 const HOLIDAY_SHOP={
-  id:'holiday-2026',title:'Holiday Shop 2026',deadline:'2026-12-07',pickup:'at class the week of Dec 14',
-  intro:'NMA apparel, sparring gear, train-at-home equipment, weapons and private lesson packs — picked by Sensei Brandon for our students.',
+  id:'holiday-2026',title:'Holiday Shop 2026',deadline:'2026-12-07',pickup:'at class Dec 14–21',
+  intro:'NMA apparel, sparring gear, train-at-home equipment and weapons — picked by Sensei Brandon for our students.',
   sizingNote:'Sensei Brandon picks the right size for gear and weapons — you just choose colors.',
   freeGift:{min:150,itemId:'tee',label:'Free NMA T-Shirt',note:'Orders of $150 or more get a free NMA T-shirt — pick the design, color and size at checkout.'},
   surpriseNote:'Buying a gift? Check “Keep it a surprise” at checkout and Sensei will bag it and hand it to a grown-up at pickup — not to your student.',
@@ -16845,7 +16858,7 @@ async function portalImportShopOrders(list,notify){
       orderType:HOLIDAY_SHOP.title,amount:+p.total||0,
       details:(p.surprise?'🎁 SURPRISE — hand to a grown-up | ':'')+lines.map(l=>l.deal?l.name+' −$'+(-l.price):l.qty+'× '+l.name+(l.optText?' ('+l.optText+')':'')+((p.studentIds||[]).length>1&&l.studentName?' for '+l.studentName:'')+' — '+(l.gift?'FREE':'$'+(l.price*l.qty))).join('; ')+(p.note?' | Note: '+p.note:''),
       notes:(p.surprise?'🎁 SURPRISE: bag it and hand it to a grown-up, not the student. ':'')+'Family portal order by '+(p.parentName||it.email||''),
-      paymentMethod:'Unpaid',paid:false,catalogKey:HOLIDAY_SHOP.id,sourceSheet:'Family Portal',sourceId:src,lines
+      paymentMethod:'Unpaid',paid:false,catalogKey:HOLIDAY_SHOP.id,sourceSheet:'Family Portal',sourceId:src,lines,parentName:p.parentName||it.email||'',surprise:!!p.surprise
     });
     added++;
   });
@@ -16856,33 +16869,161 @@ async function portalImportShopOrders(list,notify){
     if(typeof renderGearOrders==='function'&&$('page-gearorders')?.classList.contains('active'))renderGearOrders();
   }
 }
+// A parent cancelled or changed an order in the portal (allowed until the deadline).
+// Unpaid: the old order drops to $0 and is archived. Paid: it's flagged with the refund owed,
+// or — when it was changed — what they already paid is credited against the new order.
+function hsNote(o,t){t=String(t).trim();o.notes=((o.notes||'')+' '+t).trim();o.hsNote=((o.hsNote||'')+' '+t).trim();}
+async function portalImportShopCancels(list,notify){
+  if(!list.length)return;
+  if(!DB.gearOrders)DB.gearOrders=[];
+  let n=0;const msgs=[];
+  list.forEach(it=>{
+    const p=it.payload||{};
+    const old=DB.gearOrders.find(o=>o.sourceId==='portal_shop_'+p.orderId);
+    if(!old||old.hsCancelled)return;
+    const was=+old.amount||0;const when=String(it.created_at||'').slice(0,10)||localToday();
+    old.hsCancelled=p.reason==='changed'?'changed':'cancelled';old.hsCancelledOn=when;old.hsOrigAmount=was;
+    if(p.reason==='changed'){
+      const nu=DB.gearOrders.find(o=>o.sourceId==='portal_shop_'+p.replacedBy);
+      if(nu)nu.hsReplaces=old.sourceId;
+      if(old.paid){
+        if(nu){
+          const tot=+nu.amount||0,diff=Math.round((tot-was)*100)/100;
+          nu.hsCredit=was;nu.hsTotal=tot;
+          if(diff>0){nu.amount=diff;hsNote(nu,` Changed order: $${was.toFixed(2)} already paid on the earlier order, so $${diff.toFixed(2)} is still due (new total $${tot.toFixed(2)}).`);}
+          else{nu.amount=0;nu.paid=true;nu.paymentMethod=old.paymentMethod||'Credit';nu.paidDate=when;
+            if(diff<0){nu.refundDue=-diff;}
+            hsNote(nu,`Changed order: covered by the $${was.toFixed(2)} paid on the earlier order${diff<0?` — refund $${(-diff).toFixed(2)}`:''} (new total $${tot.toFixed(2)}).`);}
+        }
+        old.archived=true;
+        hsNote(old,` CHANGED by parent ${fmtDate(when)} — payment carried to the new order.`);
+        msgs.push((old.studentName||'A family')+' changed a paid order');
+      }else{
+        old.amount=0;old.archived=true;
+        hsNote(old,` CHANGED by parent ${fmtDate(when)} — replaced by a new order (was $${was.toFixed(2)}).`);
+        msgs.push((old.studentName||'A family')+' changed an order');
+      }
+    }else if(old.paid){
+      old.refundDue=was;
+      hsNote(old,` CANCELLED by parent ${fmtDate(when)} — refund $${was.toFixed(2)}.`);
+      msgs.push((old.studentName||'A family')+' cancelled a PAID order — refund $'+was.toFixed(2));
+    }else{
+      old.amount=0;old.archived=true;
+      hsNote(old,` CANCELLED by parent ${fmtDate(when)} (was $${was.toFixed(2)}).`);
+      msgs.push((old.studentName||'A family')+' cancelled an order');
+    }
+    n++;
+  });
+  if(n)save();
+  for(const it of list){try{await portalCall('staff-inbox-mark',{id:it.id,status:'accepted'});}catch(e){}}
+  if(n){
+    if(notify)toast('Holiday Shop: '+msgs.join(' · '));
+    if($('page-gearorders')?.classList.contains('active'))renderGearOrders();
+    if($('page-holidayshop')?.classList.contains('active'))renderHolidayShop();
+  }
+}
 // What to buy from each vendor, from every holiday order that isn't archived.
 function hsTally(){
   const t={};
-  hsOrders().filter(o=>!o.archived).forEach(o=>(o.lines||[]).forEach(l=>{
+  hsOrders().filter(o=>!o.archived&&!o.hsCancelled).forEach(o=>(o.lines||[]).forEach(l=>{
     if(l.deal)return;
     const v=l.vendor||'Other';if(!t[v])t[v]={};
     const k=l.name+(l.optText?' — '+l.optText:'');t[v][k]=(t[v][k]||0)+(+l.qty||1);
   }));
   return t;
 }
-function hsSettingsHTML(){
-  const s=portalShopCfg();const orders=hsOrders();
-  const total=orders.reduce((a,o)=>a+(+o.amount||0),0),paid=orders.filter(o=>o.paid);
+function hsSettingsHTML(onPage){
+  const s=portalShopCfg();let orders=hsOrders();
+  orders=orders.filter(o=>!o.hsCancelled);const total=orders.reduce((a,o)=>a+(o.hsTotal!=null?+o.hsTotal:(+o.amount||0)),0),paid=orders.filter(o=>o.paid);
   const fams=(DB.families||[]).filter(f=>(f.contacts||[]).some(c=>c.portal)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const tally=hsTally();const vendors=Object.keys(tally).sort();
   const modeLabel={off:'Off — nobody sees it',preview:'Preview — only the families checked below',live:'Open — every portal family'};
   return `<div class="form-label" style="margin-top:14px;">🎁 ${famEsc(HOLIDAY_SHOP.title)} <span style="font-weight:400;color:var(--ink-muted);">— orders close ${fmtFull(HOLIDAY_SHOP.deadline)}</span></div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;">
-      <select class="form-input" style="max-width:320px;" onchange="portalShopCfg().mode=this.value;save();renderFamilies();">${['off','preview','live'].map(m=>`<option value="${m}" ${s.mode===m?'selected':''}>${modeLabel[m]}</option>`).join('')}</select>
-      <span>${orders.length} order${orders.length!==1?'s':''} · $${total.toFixed(2)} · ${paid.length} paid</span>
+      <select class="form-input" style="max-width:320px;" onchange="portalShopCfg().mode=this.value;save();hsRefresh();portalPublish(true).catch(()=>{});">${['off','preview','live'].map(m=>`<option value="${m}" ${s.mode===m?'selected':''}>${modeLabel[m]}</option>`).join('')}</select>
+      ${onPage?'':`<span>${orders.length} order${orders.length!==1?'s':''} · $${total.toFixed(2)} · ${paid.length} paid · <a href="#" onclick="nav('holidayshop');return false;">Open the Holiday Shop page →</a></span>`}
     </div>
     ${s.mode==='preview'?`<div style="display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:12px;">${fams.map(f=>`<label><input type="checkbox" ${s.families.map(String).includes(String(f.id))?'checked':''} onchange="hsToggleFam('${famEsc(String(f.id))}',this.checked)"> ${famEsc(f.name)}</label>`).join('')||'<span style="color:var(--ink-muted);">No families have portal access yet.</span>'}</div>`:''}
     ${s.mode==='live'?`<div style="font-size:12px;color:var(--red);margin-top:6px;font-weight:600;">Live: every family with portal access sees the shop.</div>`:''}
     <details style="margin-top:8px;font-size:12px;"><summary style="cursor:pointer;font-weight:600;">Items in the shop (${HOLIDAY_SHOP.items.length-s.hidden.length} of ${HOLIDAY_SHOP.items.length} on${s.hidden.length?' · off: '+famEsc(HOLIDAY_SHOP.items.filter(i=>s.hidden.includes(i.id)).map(i=>i.name).join(', ')):''})</summary><div style="display:flex;flex-direction:column;gap:3px;margin-top:6px;">${HOLIDAY_SHOP.cats.map(c=>`<div style="font-weight:600;margin-top:4px;">${c.icon} ${famEsc(c.label)}</div>`+HOLIDAY_SHOP.items.filter(i=>i.cat===c.id).map(i=>`<label><input type="checkbox" ${s.hidden.includes(i.id)?'':'checked'} onchange="hsToggleItem('${i.id}',this.checked)"> ${famEsc(i.name)} — $${i.price}</label>`).join('')).join('')}</div></details>
-    ${vendors.length?`<details style="margin-top:8px;font-size:12px;"><summary style="cursor:pointer;font-weight:600;">What to order from vendors</summary>${vendors.map(v=>`<div style="margin-top:6px;"><strong>${famEsc(v)}</strong><ul style="margin:2px 0 0 18px;">${Object.keys(tally[v]).sort().map(k=>`<li>${tally[v][k]}× ${famEsc(k)}</li>`).join('')}</ul></div>`).join('')}</details>`:''}`;
+    ${vendors.length&&!onPage?`<details style="margin-top:8px;font-size:12px;"><summary style="cursor:pointer;font-weight:600;">What to order from vendors</summary>${vendors.map(v=>`<div style="margin-top:6px;"><strong>${famEsc(v)}</strong><ul style="margin:2px 0 0 18px;">${Object.keys(tally[v]).sort().map(k=>`<li>${tally[v][k]}× ${famEsc(k)}</li>`).join('')}</ul></div>`).join('')}</details>`:''}`;
 }
-function hsToggleItem(id,on){const s=portalShopCfg();const a=s.hidden.map(String).filter(x=>x!==id);if(!on)a.push(id);s.hidden=a;save();renderFamilies();}
+// ── Holiday Shop page: switches, every order, refunds, pickup and the vendor list ──
+let _hsFilter='open';
+function hsStatus(o){
+  if(o.hsCancelled==='changed')return{k:'changed',label:'Changed',cls:'badge-gray'};
+  if(o.hsCancelled)return o.refundDue?{k:'refund',label:'Cancelled — refund due',cls:'badge-red'}:{k:'cancelled',label:'Cancelled',cls:'badge-gray'};
+  if(o.refundDue)return{k:'refund',label:'Paid — refund due',cls:'badge-red'};
+  if(o.pickedUp)return{k:'done',label:'Picked up',cls:'badge-green'};
+  return o.paid?{k:'paid',label:'Paid',cls:'badge-green'}:{k:'unpaid',label:'Unpaid',cls:'badge-gray'};
+}
+function hsOrderTotal(o){return o.hsTotal!=null?+o.hsTotal:(+o.amount||0);}
+function renderHolidayShop(){
+  const body=$('hs-body');if(!body)return;
+  const s=portalShopCfg();const all=hsOrders();
+  const live=all.filter(o=>!o.hsCancelled);
+  const sales=live.reduce((a,o)=>a+hsOrderTotal(o),0);
+  const owed=live.filter(o=>!o.paid).reduce((a,o)=>a+(+o.amount||0),0);
+  const refunds=all.filter(o=>o.refundDue);
+  const refundAmt=refunds.reduce((a,o)=>a+(+o.refundDue||0),0);
+  const surprise=live.filter(o=>o.surprise||/SURPRISE/.test(o.notes||''));
+  const daysLeft=Math.round((new Date(HOLIDAY_SHOP.deadline+'T23:59:59')-new Date())/864e5);
+  const sub=$('hs-sub');
+  if(sub)sub.textContent=`${s.mode==='live'?'Open to every portal family':s.mode==='preview'?'Preview — only checked families see it':'Off — parents can’t see it'} · orders close ${fmtFull(HOLIDAY_SHOP.deadline)}${daysLeft>=0?' ('+daysLeft+' day'+(daysLeft!==1?'s':'')+' left)':' (closed)'} · pickup ${HOLIDAY_SHOP.pickup}`;
+  const f=_hsFilter;
+  let rows=[...all].sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.id).localeCompare(String(a.id)));
+  if(f==='open')rows=rows.filter(o=>!o.hsCancelled||o.refundDue);
+  else if(f==='unpaid')rows=rows.filter(o=>!o.hsCancelled&&!o.paid);
+  else if(f==='refund')rows=rows.filter(o=>o.refundDue);
+  else if(f==='pickup')rows=rows.filter(o=>!o.hsCancelled&&!o.pickedUp);
+  else if(f==='cancelled')rows=rows.filter(o=>o.hsCancelled);
+  const tally=hsTally();const vendors=Object.keys(tally).sort();
+  const chip=(k,l)=>`<button class="btn small${f===k?' primary':''}" onclick="_hsFilter='${k}';renderHolidayShop()">${l}</button>`;
+  const lineList=o=>(o.lines||[]).map(l=>l.deal?`<div style="color:var(--green);">${famEsc(l.name)} −$${(-l.price).toFixed(2)}</div>`:`<div>${l.qty}× ${famEsc(l.name)}${l.optText?` <span style="color:var(--ink-muted);">(${famEsc(l.optText)})</span>`:''}${l.studentName&&new Set((o.lines||[]).map(x=>x.studentName).filter(Boolean)).size>1?` <span style="color:var(--ink-muted);">· ${famEsc(l.studentName)}</span>`:''}${l.gift?' <strong style="color:var(--green);">FREE</strong>':''}</div>`).join('')||`<div style="color:var(--ink-muted);">${famEsc(o.details||'')}</div>`;
+  body.innerHTML=`
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+    <div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">Orders</div><div class="stat-num">${live.length}</div><div class="stat-sub">${all.length-live.length} cancelled/changed</div></div>
+    <div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">Sales</div><div class="stat-num">${fmt$(sales)}</div><div class="stat-sub">after deals</div></div>
+    <div class="stat-card" style="flex:1;min-width:130px;cursor:pointer;" onclick="_hsFilter='unpaid';renderHolidayShop()"><div class="stat-label">Still owed</div><div class="stat-num" style="color:var(--red);">${fmt$(owed)}</div><div class="stat-sub">${live.filter(o=>!o.paid).length} unpaid</div></div>
+    <div class="stat-card" style="flex:1;min-width:130px;cursor:pointer;" onclick="_hsFilter='refund';renderHolidayShop()"><div class="stat-label">Refunds due</div><div class="stat-num" style="color:${refunds.length?'var(--red)':'inherit'};">${fmt$(refundAmt)}</div><div class="stat-sub">${refunds.length} order${refunds.length!==1?'s':''}</div></div>
+    <div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">🎁 Surprises</div><div class="stat-num">${surprise.length}</div><div class="stat-sub">hand to a grown-up</div></div>
+  </div>
+  <div class="pf-card" style="margin-bottom:12px;">${hsSettingsHTML(true)}</div>
+  <div class="pf-card" style="margin-bottom:12px;">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+      <strong style="font-family:var(--font-display);margin-right:6px;">Orders</strong>
+      ${chip('open','Active')}${chip('unpaid','Unpaid')}${chip('pickup','Not picked up')}${chip('refund','Refunds due')}${chip('cancelled','Cancelled / changed')}${chip('all','All')}
+    </div>
+    ${rows.length?`<div class="table-wrap"><table style="width:100%;font-size:12px;"><thead><tr><th>Date</th><th>Student(s)</th><th>Items</th><th style="text-align:right;">Total</th><th>Status</th><th></th></tr></thead><tbody>
+    ${rows.map(o=>{const st=hsStatus(o);const sp=o.surprise||/SURPRISE/.test(o.notes||'');return `<tr style="${o.hsCancelled&&!o.refundDue?'opacity:.6;':''}vertical-align:top;">
+      <td style="white-space:nowrap;color:var(--ink-muted);">${fmtDate(o.date)}</td>
+      <td><strong>${famEsc(o.studentName||'—')}</strong>${sp?'<div style="color:var(--red);font-weight:600;">🎁 Surprise</div>':''}${o.parentName?`<div style="color:var(--ink-faint);font-size:11px;">${famEsc(o.parentName)}</div>`:''}</td>
+      <td>${lineList(o)}${/Note: /.test(o.details||'')?`<div style="color:var(--amber);margin-top:2px;">📝 ${famEsc(String(o.details).split('| Note: ').pop())}</div>`:''}${o.hsNote?`<div style="color:var(--ink-muted);font-size:11px;margin-top:3px;">${famEsc(o.hsNote)}</div>`:''}</td>
+      <td style="text-align:right;white-space:nowrap;"><strong>${fmt$(o.hsCancelled?(o.hsOrigAmount||0):hsOrderTotal(o))}</strong>${o.hsCredit!=null&&!o.hsCancelled?`<div style="font-size:10px;color:var(--ink-muted);">$${(+o.amount||0).toFixed(2)} due after credit</div>`:''}</td>
+      <td><span class="badge ${st.cls}">${st.label}</span>${o.refundDue?`<div style="font-size:11px;color:var(--red);margin-top:2px;">Refund ${fmt$(o.refundDue)}</div>`:''}</td>
+      <td style="white-space:nowrap;">
+        ${!o.hsCancelled?`<button class="btn small" onclick="hsTogglePaid('${String(o.id)}')">${o.paid?'↩ Unpaid':'✓ Paid'}</button> <button class="btn small" onclick="hsTogglePicked('${String(o.id)}')">${o.pickedUp?'↩ Not picked up':'📦 Picked up'}</button>`:''}
+        ${o.refundDue?` <button class="btn small success" onclick="hsRefundSent('${String(o.id)}')">Refund sent</button>`:''}
+      </td></tr>`;}).join('')}</tbody></table></div>`:`<div style="color:var(--ink-muted);padding:12px 0;">${all.length?'No orders in this view.':'No holiday orders yet. Portal orders show up here within a few minutes (or press “Check for new orders”).'}</div>`}
+  </div>
+  <div class="pf-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;"><strong style="font-family:var(--font-display);">What to order from vendors</strong>${vendors.length?'<button class="btn small" onclick="hsCopyVendorList()">📋 Copy list</button>':''}</div>
+    <div style="font-size:12px;color:var(--ink-muted);margin:2px 0 6px;">Every active order, combined. Cancelled orders are left out; free T-shirts are included.</div>
+    ${vendors.length?`<div style="display:flex;gap:20px;flex-wrap:wrap;font-size:13px;">${vendors.map(v=>`<div style="min-width:220px;"><strong>${famEsc(v)}</strong><ul style="margin:4px 0 0 18px;">${Object.keys(tally[v]).sort().map(k=>`<li>${tally[v][k]}× ${famEsc(k)}</li>`).join('')}</ul></div>`).join('')}</div>`:'<div style="color:var(--ink-muted);font-size:13px;">Nothing yet.</div>'}
+  </div>`;
+}
+function hsFind(id){return (DB.gearOrders||[]).find(x=>String(x.id)===String(id));}
+function hsTogglePaid(id){const o=hsFind(id);if(!o)return;o.paid=!o.paid;if(o.paid){if(!o.paymentMethod||o.paymentMethod==='Unpaid')o.paymentMethod='Venmo';if(!o.paidDate)o.paidDate=localToday();}save();renderHolidayShop();toast(o.paid?'Marked paid ✓':'Marked unpaid');}
+function hsTogglePicked(id){const o=hsFind(id);if(!o)return;o.pickedUp=!o.pickedUp;o.pickedUpOn=o.pickedUp?localToday():null;save();renderHolidayShop();}
+function hsRefundSent(id){const o=hsFind(id);if(!o||!o.refundDue)return;if(!confirm('Mark the '+fmt$(o.refundDue)+' refund to '+(o.studentName||'this family')+' as sent?'))return;
+  hsNote(o,`Refund of $${(+o.refundDue).toFixed(2)} sent ${fmtDate(localToday())}.`);
+  // A refunded cancellation brings in nothing; a refund on a changed order lowers the old payment.
+  if(o.hsCancelled==='cancelled'){o.amount=0;o.archived=true;}
+  o.refundDue=0;save();renderHolidayShop();toast('Refund marked sent.');}
+function hsCopyVendorList(){const t=hsTally();const txt=Object.keys(t).sort().map(v=>v+'\n'+Object.keys(t[v]).sort().map(k=>'  '+t[v][k]+'× '+k).join('\n')).join('\n\n');
+  (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast('Vendor list copied.')).catch(()=>prompt('Copy the list:',txt));}
+function hsRefresh(){if($('page-holidayshop')?.classList.contains('active'))renderHolidayShop();else if($('page-families')?.classList.contains('active'))renderFamilies();}
+function hsToggleItem(id,on){const s=portalShopCfg();const a=s.hidden.map(String).filter(x=>x!==id);if(!on)a.push(id);s.hidden=a;save();hsRefresh();}
 function hsToggleFam(id,on){const s=portalShopCfg();const a=s.families.map(String).filter(x=>x!==id);if(on)a.push(id);s.families=a;save();}
 function portalGuardianRows(){
   const out=[];
@@ -16909,7 +17050,7 @@ async function portalPublish(force){
   const gsig=portalHash(JSON.stringify(guardians));
   if(!force&&!views.length&&gsig===_portalGSig&&Object.keys(_portalSigs).length===famIds.length)return true;
   _portalBusy=(async()=>{
-    await portalCall('staff-publish',{guardians,views,familyIds:famIds,confirmEmpty:!guardians.length,notify:{letters:portalCfg().notifyLetters!==false}});
+    await portalCall('staff-publish',{guardians,views,familyIds:famIds,confirmEmpty:!guardians.length,notify:{letters:portalCfg().notifyLetters!==false},site:{holidayShop:{live:portalShopCfg().mode==='live',until:HOLIDAY_SHOP.deadline,title:HOLIDAY_SHOP.title}}});
     _portalSigs=sigs;_portalGSig=gsig;_portalStatus='Synced '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
     try{localStorage.setItem('nma_portal_published','1');}catch(e){}
   })();
@@ -17160,6 +17301,7 @@ async function portalCheckInbox(notify){
     await portalImportAbsences(items.filter(i=>i.kind==='absence'));
     await portalImportMessages(items.filter(i=>i.kind==='message'||i.kind==='feedback'),notify);
     await portalImportShopOrders(items.filter(i=>i.kind==='shop'),notify);
+    await portalImportShopCancels(items.filter(i=>i.kind==='shop-cancel'),notify);
     _portalInbox=items.filter(i=>i.kind==='intent');
     const wasC=_portalContacts.length;_portalContacts=items.filter(i=>i.kind==='contact'||i.kind==='guardian'||i.kind==='reg');
     const n=_portalInbox.length;const was=_portalInboxCount;_portalInboxCount=n;
