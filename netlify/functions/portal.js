@@ -366,18 +366,29 @@ async function parentOps(op, body, event) {
       lines.push({ itemId: item.id, name: item.name, vendor: item.vendor || '', price: +item.price, qty, opts, optText: parts.join(' · '), studentId: String(kid.id), studentName: kid.first });
     }
     // Multi-buy deals (e.g. 2 for $45) count every line of that item together, so mixed colors still qualify.
+    const covered = {};
     for (const item of shop.items) {
       if (!item.deal || !(item.deal.qty > 1)) continue;
       const q = lines.filter(l => l.itemId === item.id).reduce((a, l) => a + l.qty, 0);
-      const save = Math.floor(q / item.deal.qty) * (item.deal.qty * item.price - item.deal.price);
+      const sets = Math.floor(q / item.deal.qty);
+      covered[item.id] = sets * item.deal.qty;
+      const save = sets * (item.deal.qty * item.price - item.deal.price);
       if (save > 0) lines.push({ itemId: item.id, name: item.name + ' — ' + item.deal.qty + ' for $' + item.deal.price, vendor: '', price: -save, qty: 1, opts: {}, optText: '', deal: true });
     }
+    // Combos (e.g. target + body shield): one saving per complete set.
+    for (const c of (shop.combos || [])) {
+      const sets = Math.min.apply(null, c.items.map(id => lines.filter(l => !l.deal && l.itemId === id).reduce((a, l) => a + l.qty, 0)));
+      if (sets > 0) lines.push({ itemId: 'combo-' + c.id, name: c.label, vendor: '', price: -(sets * c.save), qty: 1, opts: {}, optText: '', deal: true });
+    }
     // Category discounts (e.g. 10% off 3+ apparel items), across every student in this checkout.
+    // Items already in a multi-buy deal count toward the minimum but aren't discounted again.
     for (const d of (shop.discounts || [])) {
       const inCat = lines.filter(l => !l.deal && (shop.items.find(x => x.id === l.itemId) || {}).cat === d.cat);
       const q = inCat.reduce((a, l) => a + l.qty, 0);
       if (q < d.min) continue;
-      const save = Math.round(inCat.reduce((a, l) => a + l.price * l.qty, 0) * d.pct) / 100;
+      const ids = [...new Set(inCat.map(l => l.itemId))];
+      const sub = ids.reduce((a, id) => { const it = shop.items.find(x => x.id === id); const n = inCat.filter(l => l.itemId === id).reduce((b, l) => b + l.qty, 0); return a + it.price * (n - (covered[id] || 0)); }, 0);
+      const save = Math.round(sub * d.pct) / 100;
       if (save > 0) lines.push({ itemId: 'discount-' + d.cat, name: d.label, vendor: '', price: -save, qty: 1, opts: {}, optText: '', deal: true });
     }
     const total = Math.round(lines.reduce((a, l) => a + l.price * l.qty, 0) * 100) / 100;

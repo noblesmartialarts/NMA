@@ -16755,13 +16755,14 @@ const HOLIDAY_SHOP={
   sizingNote:'Sensei Brandon picks the right size for gear and weapons — you just choose colors.',
   freeGift:{min:150,itemId:'tee',label:'Free NMA T-Shirt',note:'Orders of $150 or more get a free NMA T-shirt — pick the design, color and size at checkout.'},
   surpriseNote:'Buying a gift? Check “Keep it a surprise” at checkout and Sensei will bag it and hand it to a grown-up at pickup — not to your student.',
+  combos:[{id:'partner-pads',items:['target','body-shield'],save:8,label:'Partner Pad Pack — target + body shield'}],
   discounts:[{cat:'apparel',min:3,pct:10,label:'10% off 3+ apparel items',note:'Buy any 3 or more apparel items (shirts, hoodies, uniforms — any mix, any kids) and save 10%.'}],
-  cats:[{id:'apparel',label:'Apparel',icon:'👕'},{id:'sparring',label:'Sparring Gear',icon:'🥊',note:'Everything in this section can be used in class. Get the full set, replace a single piece, or upgrade — upgrades aren\'t in the standard set but are approved for class.'},{id:'home',label:'Train at Home',icon:'🏠'},{id:'weapons',label:'Weapons',icon:'🥢'},{id:'lessons',label:'Lesson Packs',icon:'🎓'}],
+  cats:[{id:'apparel',label:'Apparel',icon:'👕'},{id:'sparring',label:'Sparring Gear',icon:'🥊',note:'Everything in this section can be used in class. Get the full set, replace a single piece, or upgrade — upgrades aren\'t in the standard set but are approved for class.'},{id:'home',label:'Train at Home',icon:'🏠'},{id:'weapons',label:'Weapons',icon:'🥢'}],
   items:[
     hsApparel('tee','NMA T-Shirt',15,'Pick any NMA design.'),
     hsApparel('ls','NMA Long Sleeve',22,'Pick any NMA design.'),
     hsApparel('sweat','NMA Sweatshirt',28,'Crewneck. Pick any NMA design.','',Object.assign({},HS_DESIGN_COLORS,{'Original NMA Logo':['Red','Blue','Green','Yellow','Magenta']})),
-    hsApparel('hoodie','NMA Hoodie',35,'Pick any NMA design.','Gift favorite'),
+    Object.assign(hsApparel('hoodie','NMA Hoodie',35,'Pick any NMA design. 3 for $90 — any designs, any kids.','3 for $90'),{deal:{qty:3,price:90}}),
     {id:'uni-full',cat:'apparel',vendor:'Tiger Claw',name:'Full NMA Uniform',price:40,detail:'Top + pants, Lion Head logo on the back.',opts:[{k:'size',label:'Size',choices:HS_UNI_SIZES}]},
     {id:'uni-top',cat:'apparel',vendor:'Tiger Claw',name:'Extra Uniform Top',price:25,detail:'Lion Head logo on the back.',opts:[{k:'size',label:'Size',choices:HS_UNI_SIZES}]},
     {id:'uni-pants',cat:'apparel',vendor:'Tiger Claw',name:'Extra Uniform Pants',price:20,detail:'',opts:[{k:'size',label:'Size',choices:HS_UNI_SIZES}]},
@@ -16783,23 +16784,18 @@ const HOLIDAY_SHOP={
     {id:'brave-headgear',cat:'sparring',group:'Upgrades — not in the standard set, but approved for use in class',vendor:'Century',name:'Brave Youth Headgear',price:38,detail:'Open-face upgrade headgear.',opts:[{k:'color',label:'Color',choices:['Black/Green','Red/Black']}]},
     {id:'brave-shins',cat:'sparring',group:'Upgrades — not in the standard set, but approved for use in class',vendor:'Century',name:'Brave Youth Shin Guards',price:35,detail:'Shin + instep upgrade.',opts:[{k:'color',label:'Color',choices:['Red/Black','Black/Green']}]},
     {id:'gameness',cat:'sparring',group:'Upgrades — not in the standard set, but approved for use in class',vendor:'Century',name:'Gameness Boxing Gloves',price:30,detail:'Bag and fitness gloves.',opts:[{k:'color',label:'Color',choices:['Black','Red','Blue']}]},
-    {id:'rebreak',cat:'home',vendor:'Century',name:'Rebreakable Board',price:45,badge:'Kids love it',detail:'Snaps when broken, slides back together. Each color is harder.',opts:[{k:'level',label:'Difficulty',choices:['White (very easy)','Yellow (easy)','Orange (medium)','Green (medium plus)']}]},
-    {id:'target',cat:'home',vendor:'Century',name:'Square Hand Target',price:20,detail:'For partner kicks and strikes.',opts:[{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
-    {id:'body-shield',cat:'home',vendor:'Century',name:'Brave Body Shield',price:60,detail:'Big target for kicks and punches — great for a parent to hold.',opts:[]},
+    {id:'rebreak',cat:'home',vendor:'Century',name:'Rebreakable Board',price:45,badge:'Limited stock',detail:'Snaps when broken, slides back together. Each color is harder.',opts:[{k:'level',label:'Difficulty',choices:['White (very easy)','Yellow (easy)','Orange (medium)','Green (medium plus)']}]},
+    {id:'target',cat:'home',vendor:'Century',name:'Square Hand Target',price:20,detail:'For partner kicks and strikes. Partner Pad Pack: add a Body Shield and save $8.',opts:[{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
+    {id:'body-shield',cat:'home',vendor:'Century',name:'Brave Body Shield',price:60,badge:'Partner Pad Pack',detail:'Big target for kicks and punches — great for a parent to hold. Partner Pad Pack: with a Square Hand Target, both for $72.',opts:[]},
     {id:'wavemaster',cat:'home',vendor:'Century',name:'Wavemaster Freestanding Bag',price:210,detail:'Height adjusts 47"–68". Fill the base with water or sand.',opts:[{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
     {id:'belt-display',cat:'home',vendor:'Century',name:'14-Level Belt Display',price:55,detail:'Wood display for every belt earned.',opts:[]},
 
-    {id:'foam-chux',cat:'weapons',vendor:'Century',name:'Foam Nunchaku',price:10,detail:'Safe for practice at home.',opts:[{k:'length',label:'Length',choices:['8"','12"']},{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
-    {id:'escrima',cat:'weapons',vendor:'Century',name:'Rattan Escrima Stick',price:10,detail:'Peeled rattan, sold individually.',opts:[{k:'length',label:'Length',choices:['26"','28"']}]},
-    {id:'wood-chux',cat:'weapons',vendor:'Infinity',name:'Wood Chux',price:14,detail:'Natural poplar, 12" handles.',opts:[]},
+    {id:'foam-chux',cat:'weapons',vendor:'Century',name:'Foam Nunchaku',price:10,deal:{qty:2,price:18},badge:'2 for $18',detail:'Safe for practice at home. 2 for $18 — mix lengths and colors.',opts:[{k:'length',label:'Length',choices:['8"','12"']},{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
+    {id:'escrima',cat:'weapons',vendor:'Century',name:'Rattan Escrima Stick',price:10,deal:{qty:2,price:18},badge:'Pair for $18',detail:'Peeled rattan. Escrima are used in pairs — get 2 for $18.',opts:[{k:'length',label:'Length',choices:['26"','28"']}]},
+    {id:'wood-chux',cat:'weapons',vendor:'Infinity',name:'Wood Chux',price:14,deal:{qty:2,price:25},badge:'2 for $25',detail:'Natural poplar, 12" handles. 2 for $25.',opts:[]},
     {id:'chrome-chux',cat:'weapons',vendor:'Infinity',name:'Custom Chrome Chux',price:25,deal:{qty:2,price:45},badge:'2 for $45',detail:'Built to order in your color. $25 each, or 2 for $45 — colors can be different.',opts:[{k:'color',label:'Color',choices:HS_CHROME('Sparkle')}]},
     {id:'chrome-bo',cat:'weapons',vendor:'Infinity',name:'Custom Chrome Bo Staff',price:50,detail:'Built to order in your color.',opts:[{k:'color',label:'Color',choices:HS_CHROME('Glitter')}]},
 
-    {id:'nst30x3',cat:'lessons',vendor:'NMA',name:'Skill Tune-Up · 3 × 30 min',price:89,detail:'Regularly $105. Good through March 31, 2027.',opts:[]},
-    {id:'nst30x5',cat:'lessons',vendor:'NMA',name:'Skill Tune-Up · 5 × 30 min',price:149,detail:'Regularly $175. Good through March 31, 2027.',opts:[]},
-    {id:'nst45x3',cat:'lessons',vendor:'NMA',name:'Skill Tune-Up · 3 × 45 min',price:125,detail:'Regularly $150. Sparring work is available at this length. Good through March 31, 2027.',opts:[]},
-    {id:'nst45x5',cat:'lessons',vendor:'NMA',name:'Skill Tune-Up · 5 × 45 min',price:210,badge:'Biggest savings',detail:'Regularly $250. Good through March 31, 2027.',opts:[]},
-    {id:'parent45x3',cat:'lessons',vendor:'NMA',name:'Parent Self-Defense · 3 × 45 min',price:125,detail:'Regularly $150. For an NMA parent or guardian. Good through March 31, 2027.',opts:[]}
   ]
 };
 // Apparel photos come from the NMA T-Shirt Order form on Jotform; the photo follows the chosen design.
@@ -16811,7 +16807,7 @@ const HS_DESIGN_IMG={'Original NMA Logo':HS_JF+'logo_original_1000_f99bbbb492825
 [['uni-full','full_74bccb935a40e25f2a4f24f4b08cf967.webp'],['uni-top','top_123092ee40e1fef38ddd759988cea136.webp'],['uni-pants','bottoms_495cedc26de29d65ae3e539c47f61082.webp']]
   .forEach(([id,f])=>{const i=HOLIDAY_SHOP.items.find(x=>x.id===id);if(i)i.img=HS_JF+f;});
 // Product photos live on the website (noblesmartialarts.com/shop-img/<item id>.jpg).
-['spar-set','spar-duffle','brave-gloves','brave-headgear','brave-shins','student-headgear','rebreak','target','gameness','wavemaster','belt-display','foam-chux','wood-chux','chrome-chux','chrome-bo','nst30x3','nst30x5','nst45x3','nst45x5','parent45x3','body-shield','escrima','duffle','cloth-shins','mouthpiece','mouth-case']
+['spar-set','spar-duffle','brave-gloves','brave-headgear','brave-shins','student-headgear','rebreak','target','gameness','wavemaster','belt-display','foam-chux','wood-chux','chrome-chux','chrome-bo','body-shield','escrima','duffle','cloth-shins','mouthpiece','mouth-case']
   .forEach(id=>{const i=HOLIDAY_SHOP.items.find(x=>x.id===id);if(i)i.img='/shop-img/'+(id==='spar-duffle'?'spar-set':id)+'.jpg';});
 function portalShopCfg(){
   const c=portalCfg();
