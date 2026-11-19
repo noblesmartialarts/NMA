@@ -15357,17 +15357,17 @@ function prShopLine(){
   const s=typeof portalShopCfg==='function'?portalShopCfg():null;
   return !!(s&&s.mode==='live'&&typeof HOLIDAY_SHOP!=='undefined'&&localToday()<=HOLIDAY_SHOP.deadline);
 }
+function prKidCount(f,c){return famMembers(f).filter(s=>s.status==='Active'&&(!c.students||!c.students.length||c.students.includes(s.id))).length;}
 function prKids(f,c){
   const kids=famMembers(f).filter(s=>s.status==='Active'&&(!c.students||!c.students.length||c.students.includes(s.id))).map(s=>s.first);
   return kids.length>1?kids.slice(0,-1).join(', ')+' & '+kids[kids.length-1]:(kids[0]||'your student');
 }
 function prMessage(f,c,url){
-  const first=String(c.name||'').trim().split(/\s+/)[0];
   const shop=prShopLine();
   const by=shop?new Date(HOLIDAY_SHOP.deadline+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):'';
   const subject=shop?'🎁 The NMA Holiday Shop is open — sign in to your Family Portal':'Reminder: your NMA Family Portal is ready';
   const body=[
-    'Hi'+(first?' '+first:'')+',',
+    'Hi there,',
     '',
     'Just a friendly reminder — your NMA Family Portal is ready for you, and it looks like you haven’t had a chance to sign in yet.',
     ...(shop?['','🎁 The Holiday Shop is open inside the portal! NMA apparel, sparring gear, train-at-home equipment and weapons — with holiday deals and a "keep it a surprise" option. Order by '+by+'; pickup at class.']:[]),
@@ -15377,7 +15377,7 @@ function prMessage(f,c,url){
     '',
     'After that, go to noblesmartialarts.com/family any time and enter this email address. We’ll email you a 6-digit code — no password to remember.',
     '',
-    'In the portal you can see '+prKids(f,c)+'’s belt progress, attendance, upcoming classes, practice videos and balance — and message me directly.',
+    'In the portal you can see your '+(prKidCount(f,c)>1?'students’':'student’s')+' belt progress, attendance, upcoming classes, practice videos and balance — and message me directly.',
     '',
     'Questions or trouble signing in? Just reply to this email.',
     '',
