@@ -16738,6 +16738,7 @@ const HS_DESIGNS=['Original NMA Logo','NMA Lion Head','NMA Claw Marks','NMA Ninj
 const HS_DESIGN_COLORS={'Original NMA Logo':['Black','White','Gray'],'NMA Lion Head':['Red','Blue','Black'],'NMA Claw Marks':['Black','White','Gray'],'NMA Ninja':['Black','Blue','Red'],'NMA Crest':['Black','Blue','White','Red'],'NMA Cherry Blossom':['Black','Gray','Blue'],'NMA Paint Splatter':['Black','Red','Yellow','Gray']};
 const HS_UNI_SIZES=['Size 00','Size 0','Size 1','Size 2','Size 3','Size 4','Not sure — Sensei will size'];
 const HS_HEADGEAR=['Black','Grey','White','Teal','Neon Green','Blue','Neon Blue','Purple','Red','Neon Pink'];
+const HS_DUFFLE=['Black/White','Black/Yellow','Black/Green','Black/Blue','Black/Red'];
 const HS_MOUTH=['Black','Clear','Red','Blue','Pink'];
 // Infinity's chrome color lists (Nov 2026): the bo uses "Glitter", the chux "Sparkle" for the same three finishes.
 const HS_CHROME=pre=>['Metallic Silver','Metallic Blue','Metallic Red','Metallic Green','Metallic Pink','Metallic Purple','Metallic Orange','Metallic Teal','Metallic Gold','Iridescent Silver','Rose Gold','Glossy Black','Glossy White','Carbon Fiber',pre+' Silver',pre+' Gold',pre+' Teal','Holographic Silver','Holographic Blue','Holographic Red','Holographic Green','Holographic Pink','Holographic Yellow'];
@@ -16752,7 +16753,7 @@ const HOLIDAY_SHOP={
   intro:'NMA apparel, sparring gear, train-at-home equipment, weapons and private lesson packs — picked by Sensei Brandon for our students.',
   sizingNote:'Sensei Brandon picks the right size for gear and weapons — you just choose colors.',
   discounts:[{cat:'apparel',min:3,pct:10,label:'10% off 3+ apparel items',note:'Buy any 3 or more apparel items (shirts, hoodies, uniforms — any mix, any kids) and save 10%.'}],
-  cats:[{id:'apparel',label:'Apparel',icon:'👕'},{id:'sparring',label:'Sparring Gear',icon:'🥊'},{id:'home',label:'Train at Home',icon:'🏠'},{id:'weapons',label:'Weapons',icon:'🥢'},{id:'lessons',label:'Lesson Packs',icon:'🎓'}],
+  cats:[{id:'apparel',label:'Apparel',icon:'👕'},{id:'sparring',label:'Sparring Gear',icon:'🥊',note:'Everything in this section can be used in class. Get the full set, replace a single piece, or upgrade — upgrades aren\'t in the standard set but are approved for class.'},{id:'home',label:'Train at Home',icon:'🏠'},{id:'weapons',label:'Weapons',icon:'🥢'},{id:'lessons',label:'Lesson Packs',icon:'🎓'}],
   items:[
     hsApparel('tee','NMA T-Shirt',15,'Pick any NMA design.'),
     hsApparel('ls','NMA Long Sleeve',22,'Pick any NMA design.'),
@@ -16768,19 +16769,25 @@ const HOLIDAY_SHOP={
     {id:'spar-duffle',cat:'sparring',vendor:'Century',name:'Sparring Gear Set + Duffle Bag',price:110,badge:'Best value',detail:'Everything in the gear set, packed in a C-Gear duffle bag.',opts:[
       {k:'headgear',label:'Headgear color',choices:HS_HEADGEAR},{k:'gloves',label:'Gloves color',choices:['Red/Black','Black/Green']},
       {k:'shins',label:'Shin guard color',choices:['Black','Red','Blue','White']},{k:'mouth',label:'Mouthpiece color',choices:HS_MOUTH},{k:'case',label:'Mouthpiece case color',choices:['Black','Blue','White','Pink/Silver']},
-      {k:'bag',label:'Duffle bag',choices:['Black/Red','Black/Blue','Black/Green']}]},
-    {id:'brave-gloves',cat:'sparring',group:'À la carte — sold separately, not part of the set',vendor:'Century',name:'Brave Youth Boxing Gloves',price:32,detail:'Mesh palm, built-in grip.',opts:[{k:'color',label:'Color',choices:['Red/Black','Black/Green']}]},
-    {id:'brave-headgear',cat:'sparring',group:'À la carte — sold separately, not part of the set',vendor:'Century',name:'Brave Youth Headgear',price:38,detail:'Open-face upgrade headgear.',opts:[{k:'color',label:'Color',choices:['Black/Green','Red/Black']}]},
-    {id:'brave-shins',cat:'sparring',group:'À la carte — sold separately, not part of the set',vendor:'Century',name:'Brave Youth Shin Guards',price:35,detail:'Shin + instep upgrade.',opts:[{k:'color',label:'Color',choices:['Red/Black','Black/Green']}]},
-    {id:'student-headgear',cat:'sparring',group:'À la carte — sold separately, not part of the set',vendor:'Century',name:'Student Sparring Headgear',price:35,detail:'Our standard headgear in 10 colors.',opts:[{k:'color',label:'Color',choices:HS_HEADGEAR}]},
-    {id:'gameness',cat:'sparring',group:'À la carte — sold separately, not part of the set',vendor:'Century',name:'Gameness Boxing Gloves',price:30,detail:'Bag and fitness gloves.',opts:[{k:'color',label:'Color',choices:['Black','Red','Blue']}]},
+      {k:'bag',label:'Duffle bag',choices:HS_DUFFLE}]},
 
+    {id:'student-headgear',cat:'sparring',group:'Individual pieces — the same gear that comes in the set',vendor:'Century',name:'Student Sparring Headgear',price:35,detail:'Our standard headgear in 10 colors.',opts:[{k:'color',label:'Color',choices:HS_HEADGEAR}]},
+    {id:'brave-gloves',cat:'sparring',group:'Individual pieces — the same gear that comes in the set',vendor:'Century',name:'Brave Youth Boxing Gloves',price:32,detail:'Mesh palm, built-in grip.',opts:[{k:'color',label:'Color',choices:['Red/Black','Black/Green']}]},
+    {id:'cloth-shins',cat:'sparring',group:'Individual pieces — the same gear that comes in the set',vendor:'Century',name:'Cloth Shin Instep Guards',price:20,detail:'The shin guards that come in the set.',opts:[{k:'color',label:'Color',choices:['Black','Red','Blue','White']}]},
+    {id:'mouthpiece',cat:'sparring',group:'Individual pieces — the same gear that comes in the set',vendor:'Century',name:'Mouthpiece',price:5,detail:'Single mouthguard — boil-and-bite fit.',opts:[{k:'color',label:'Color',choices:HS_MOUTH}]},
+    {id:'mouth-case',cat:'sparring',group:'Individual pieces — the same gear that comes in the set',vendor:'Century',name:'Mouthpiece Case',price:5,detail:'Keeps the mouthpiece clean in the gear bag.',opts:[{k:'color',label:'Color',choices:['Black','Blue','White','Pink/Silver']}]},
+    {id:'duffle',cat:'sparring',group:'Individual pieces — the same gear that comes in the set',vendor:'Century',name:'C-Gear Duffle Bag',price:35,detail:'Mesh top vents sweaty gear; zippered end pockets.',opts:[{k:'color',label:'Color',choices:HS_DUFFLE}]},
+    {id:'brave-headgear',cat:'sparring',group:'Upgrades — not in the standard set, but approved for use in class',vendor:'Century',name:'Brave Youth Headgear',price:38,detail:'Open-face upgrade headgear.',opts:[{k:'color',label:'Color',choices:['Black/Green','Red/Black']}]},
+    {id:'brave-shins',cat:'sparring',group:'Upgrades — not in the standard set, but approved for use in class',vendor:'Century',name:'Brave Youth Shin Guards',price:35,detail:'Shin + instep upgrade.',opts:[{k:'color',label:'Color',choices:['Red/Black','Black/Green']}]},
+    {id:'gameness',cat:'sparring',group:'Upgrades — not in the standard set, but approved for use in class',vendor:'Century',name:'Gameness Boxing Gloves',price:30,detail:'Bag and fitness gloves.',opts:[{k:'color',label:'Color',choices:['Black','Red','Blue']}]},
     {id:'rebreak',cat:'home',vendor:'Century',name:'Rebreakable Board',price:45,badge:'Kids love it',detail:'Snaps when broken, slides back together. Each color is harder.',opts:[{k:'level',label:'Difficulty',choices:['White (very easy)','Yellow (easy)','Orange (medium)','Green (medium plus)']}]},
     {id:'target',cat:'home',vendor:'Century',name:'Square Hand Target',price:20,detail:'For partner kicks and strikes.',opts:[{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
+    {id:'body-shield',cat:'home',vendor:'Century',name:'Brave Body Shield',price:60,detail:'Big target for kicks and punches — great for a parent to hold.',opts:[]},
     {id:'wavemaster',cat:'home',vendor:'Century',name:'Wavemaster Freestanding Bag',price:210,detail:'Height adjusts 47"–68". Fill the base with water or sand.',opts:[{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
     {id:'belt-display',cat:'home',vendor:'Century',name:'14-Level Belt Display',price:55,detail:'Wood display for every belt earned.',opts:[]},
 
     {id:'foam-chux',cat:'weapons',vendor:'Century',name:'Foam Nunchaku',price:10,detail:'Safe for practice at home.',opts:[{k:'length',label:'Length',choices:['8"','12"']},{k:'color',label:'Color',choices:['Black','Blue','Red']}]},
+    {id:'escrima',cat:'weapons',vendor:'Century',name:'Rattan Escrima Stick',price:10,detail:'Peeled rattan, sold individually.',opts:[{k:'length',label:'Length',choices:['26"','28"']}]},
     {id:'wood-chux',cat:'weapons',vendor:'Infinity',name:'Wood Chux',price:14,detail:'Natural poplar, 12" handles.',opts:[]},
     {id:'chrome-chux',cat:'weapons',vendor:'Infinity',name:'Custom Chrome Chux',price:25,deal:{qty:2,price:45},badge:'2 for $45',detail:'Built to order in your color. $25 each, or 2 for $45 — colors can be different.',opts:[{k:'color',label:'Color',choices:HS_CHROME('Sparkle')}]},
     {id:'chrome-bo',cat:'weapons',vendor:'Infinity',name:'Custom Chrome Bo Staff',price:50,detail:'Built to order in your color.',opts:[{k:'color',label:'Color',choices:HS_CHROME('Glitter')}]},
@@ -16801,7 +16808,7 @@ const HS_DESIGN_IMG={'Original NMA Logo':HS_JF+'logo_original_1000_f99bbbb492825
 [['uni-full','full_74bccb935a40e25f2a4f24f4b08cf967.webp'],['uni-top','top_123092ee40e1fef38ddd759988cea136.webp'],['uni-pants','bottoms_495cedc26de29d65ae3e539c47f61082.webp']]
   .forEach(([id,f])=>{const i=HOLIDAY_SHOP.items.find(x=>x.id===id);if(i)i.img=HS_JF+f;});
 // Product photos live on the website (noblesmartialarts.com/shop-img/<item id>.jpg).
-['spar-set','spar-duffle','brave-gloves','brave-headgear','brave-shins','student-headgear','rebreak','target','gameness','wavemaster','belt-display','foam-chux','wood-chux','chrome-chux','chrome-bo','nst30x3','nst30x5','nst45x3','nst45x5','parent45x3']
+['spar-set','spar-duffle','brave-gloves','brave-headgear','brave-shins','student-headgear','rebreak','target','gameness','wavemaster','belt-display','foam-chux','wood-chux','chrome-chux','chrome-bo','nst30x3','nst30x5','nst45x3','nst45x5','parent45x3','body-shield','escrima','duffle']
   .forEach(id=>{const i=HOLIDAY_SHOP.items.find(x=>x.id===id);if(i)i.img='/shop-img/'+(id==='spar-duffle'?'spar-set':id)+'.jpg';});
 function portalShopCfg(){
   const c=portalCfg();
