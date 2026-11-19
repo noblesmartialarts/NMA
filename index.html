@@ -16816,12 +16816,15 @@ function portalShopCfg(){
     c.shop={mode:'preview',families:(DB.families||[]).filter(f=>/\bnoble\b/i.test(f.name||'')).map(f=>f.id)};
   }
   if(!Array.isArray(c.shop.families))c.shop.families=[];
+  // Items switched off (out of stock etc.) are left out of what families see and can order.
+  if(!Array.isArray(c.shop.hidden))c.shop.hidden=['rebreak'];
   return c.shop;
 }
 function portalShopFor(f){
   const s=portalShopCfg();
   if(s.mode==='live'||(s.mode==='preview'&&s.families.map(String).includes(String(f.id)))){
-    return Object.assign({},HOLIDAY_SHOP,{preview:s.mode==='preview',closed:localToday()>HOLIDAY_SHOP.deadline});
+    const off=s.hidden.map(String);
+    return Object.assign({},HOLIDAY_SHOP,{items:HOLIDAY_SHOP.items.filter(i=>!off.includes(i.id)),combos:(HOLIDAY_SHOP.combos||[]).filter(c=>c.items.every(id=>!off.includes(id))),preview:s.mode==='preview',closed:localToday()>HOLIDAY_SHOP.deadline});
   }
   return null;
 }
@@ -16876,8 +16879,10 @@ function hsSettingsHTML(){
     </div>
     ${s.mode==='preview'?`<div style="display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:12px;">${fams.map(f=>`<label><input type="checkbox" ${s.families.map(String).includes(String(f.id))?'checked':''} onchange="hsToggleFam('${famEsc(String(f.id))}',this.checked)"> ${famEsc(f.name)}</label>`).join('')||'<span style="color:var(--ink-muted);">No families have portal access yet.</span>'}</div>`:''}
     ${s.mode==='live'?`<div style="font-size:12px;color:var(--red);margin-top:6px;font-weight:600;">Live: every family with portal access sees the shop.</div>`:''}
+    <details style="margin-top:8px;font-size:12px;"><summary style="cursor:pointer;font-weight:600;">Items in the shop (${HOLIDAY_SHOP.items.length-s.hidden.length} of ${HOLIDAY_SHOP.items.length} on${s.hidden.length?' · off: '+famEsc(HOLIDAY_SHOP.items.filter(i=>s.hidden.includes(i.id)).map(i=>i.name).join(', ')):''})</summary><div style="display:flex;flex-direction:column;gap:3px;margin-top:6px;">${HOLIDAY_SHOP.cats.map(c=>`<div style="font-weight:600;margin-top:4px;">${c.icon} ${famEsc(c.label)}</div>`+HOLIDAY_SHOP.items.filter(i=>i.cat===c.id).map(i=>`<label><input type="checkbox" ${s.hidden.includes(i.id)?'':'checked'} onchange="hsToggleItem('${i.id}',this.checked)"> ${famEsc(i.name)} — $${i.price}</label>`).join('')).join('')}</div></details>
     ${vendors.length?`<details style="margin-top:8px;font-size:12px;"><summary style="cursor:pointer;font-weight:600;">What to order from vendors</summary>${vendors.map(v=>`<div style="margin-top:6px;"><strong>${famEsc(v)}</strong><ul style="margin:2px 0 0 18px;">${Object.keys(tally[v]).sort().map(k=>`<li>${tally[v][k]}× ${famEsc(k)}</li>`).join('')}</ul></div>`).join('')}</details>`:''}`;
 }
+function hsToggleItem(id,on){const s=portalShopCfg();const a=s.hidden.map(String).filter(x=>x!==id);if(!on)a.push(id);s.hidden=a;save();renderFamilies();}
 function hsToggleFam(id,on){const s=portalShopCfg();const a=s.families.map(String).filter(x=>x!==id);if(on)a.push(id);s.families=a;save();}
 function portalGuardianRows(){
   const out=[];
