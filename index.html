@@ -422,7 +422,7 @@ tbody td{font-size:11px!important;}
   <div id="total-biz-revenue-area"></div>
   <div class="stats-row" id="stats-row"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
-    <div><div class="section-divider"><span>At-risk students</span></div>
+    <div><div class="section-divider" style="display:flex;align-items:center;gap:8px;"><span>At-risk students</span><button class="btn small ghost" style="margin-left:auto;" onclick="openRadarSettings()" title="Choose what counts as at-risk">⚙ Radar settings</button></div>
       <div class="table-wrap"><table><thead><tr><th>Student</th><th>Issue</th><th>Belt</th></tr></thead><tbody id="risk-tbody"></tbody></table></div></div>
     <div><div class="section-divider"><span>Stripe-ready</span></div>
       <div class="table-wrap"><table><thead><tr><th>Student</th><th>Stripes</th><th>Group</th></tr></thead><tbody id="stripe-tbody"></tbody></table></div></div>
@@ -496,6 +496,17 @@ tbody td{font-size:11px!important;}
 </div>
 
 <!-- LOG ASSIST MODAL -->
+<div class="modal-backdrop" id="modal-radar">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header"><div class="modal-title">⚙ Retention Radar settings</div><button class="btn ghost" onclick="closeModal('modal-radar')">✕</button></div>
+    <div class="modal-body" id="rd-body"></div>
+    <div class="modal-footer">
+      <button class="btn ghost" onclick="resetRadarSettings()">Reset to defaults</button>
+      <button class="btn" onclick="closeModal('modal-radar')">Cancel</button>
+      <button class="btn primary" onclick="saveRadarSettings()">Save</button>
+    </div>
+  </div>
+</div>
 <div class="modal-backdrop" id="modal-portal-remind">
   <div class="modal" style="max-width:620px;">
     <div class="modal-header"><div class="modal-title">✉ Sign-in reminders</div><button class="btn ghost" onclick="closeModal('modal-portal-remind')">✕</button></div>
@@ -3168,12 +3179,139 @@ function intentToPromoteEligible(s){
   return intentLetterAutoEligible(s);
 }
 function isBBC2(s){return s.group==='Black Belt Club'&&['Blue II','Green','Green II'].includes(s.belt);}
-function missedRecent(sid){
-  const dates=Object.keys(DB.attendance).sort().slice(-3);let m=0;
-  for(const d of dates){const r=DB.attendance[d]&&DB.attendance[d][sid];if(r==='absent'||r===undefined)m++;}
-  return m>=2;
+// ══════════════════════════════════════════════════════
+// RETENTION RADAR — one configurable at-risk check used everywhere
+// (Dashboard, roster flags, Growth check-ins, Business page).
+// Settings live in DB.radar and are edited from "⚙ Radar settings".
+// ══════════════════════════════════════════════════════
+const RADAR_DEFAULTS={
+  graceDays:14,            // brand-new students: attendance rules wait this many days
+  unmarkedIsAbsent:true,   // on a scheduled class day, no mark = missed (classes are weekly, all groups)
+  backInClassClears:true,  // attending the most recent class clears attendance warnings
+  snoozeDays:21,           // how long "Called / Talked / Snooze" hides a student
+  rules:{
+    streak:{on:true,n:2},                         // missed N classes in a row
+    recent:{on:true,window:3,missed:2},           // missed X of the last Y classes
+    cycle:{on:true,minHeld:4,pct:50},             // attended under % of classes this belt cycle
+    drop:{on:false,recent:4,prior:8,dropPct:40},  // attendance down vs. their own normal
+    away:{on:false,days:21},                      // no class attended in N days
+    unregistered:{on:false},                      // registration marked "No" (any time of month)
+    notOnRoster:{on:true}                         // missing from this month's roster (after the roster check)
+  }
+};
+function radarCfg(){
+  const d=RADAR_DEFAULTS,c=DB.radar||{},r=c.rules||{};
+  const rules={};Object.keys(d.rules).forEach(k=>{rules[k]=Object.assign({},d.rules[k],r[k]||{});});
+  return {graceDays:c.graceDays!=null?c.graceDays:d.graceDays,
+    unmarkedIsAbsent:c.unmarkedIsAbsent!=null?c.unmarkedIsAbsent:d.unmarkedIsAbsent,
+    backInClassClears:c.backInClassClears!=null?c.backInClassClears:d.backInClassClears,
+    snoozeDays:c.snoozeDays!=null?c.snoozeDays:d.snoozeDays,rules};
 }
-function isAtRisk(s){return s.status==='Active'&&(missedRecent(s.id)||s.registered==='No');}
+function radarDaysBetween(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000);}
+// Class days that actually happened: attendance was taken and the date is today or earlier.
+// Scheduled class days count for everyone; other days (makeups, check-ins) only count explicit marks.
+function radarHistory(s,cfg){
+  const today=localToday();
+  const sched=new Set((DB.classDates||[]).map(c=>c.date));
+  const start=s.firstDate||'';
+  const out=[];
+  Object.keys(DB.attendance||{}).sort().forEach(d=>{
+    if(d>today||(start&&d<start))return;
+    const rec=DB.attendance[d];if(!rec)return;
+    const taken=Object.keys(rec).some(k=>rec[k]==='present'||rec[k]==='absent'||rec[k]==='excused');
+    if(!taken)return;
+    const v=rec[s.id];
+    if(v==='present')out.push({d,v:'P'});
+    else if(v==='absent')out.push({d,v:'A'});
+    else if(v==='excused')return;                                  // excused: neither present nor missed
+    else if(sched.has(d)&&cfg.unmarkedIsAbsent&&start)out.push({d,v:'A'}); // unmarked on a scheduled day
+  });
+  return out;
+}
+// Returns [{rule, text}] — every flag explains itself.
+function radarReasons(s,cfgIn){
+  if(!s||s.status!=='Active'||s.omitFromReg)return [];
+  const cfg=cfgIn||radarCfg(),R=cfg.rules,today=localToday(),out=[];
+  const h=radarHistory(s,cfg);
+  const isNew=s.firstDate&&radarDaysBetween(s.firstDate,today)<cfg.graceDays;
+  const backInClass=h.length&&h[h.length-1].v==='P';
+  if(!isNew&&!(cfg.backInClassClears&&backInClass)){
+    if(R.streak.on){let n=0;for(let i=h.length-1;i>=0&&h[i].v==='A';i--)n++;
+      if(n>=R.streak.n)out.push({rule:'streak',text:'Missed '+n+' classes in a row'});}
+    if(R.recent.on&&!out.some(x=>x.rule==='streak')){const w=h.slice(-R.recent.window);const m=w.filter(x=>x.v==='A').length;
+      if(w.length>=R.recent.window&&m>=R.recent.missed)out.push({rule:'recent',text:'Missed '+m+' of the last '+w.length+' classes'});}
+    if(R.cycle.on&&!out.length){const st=typeof cycleStartFor==='function'?cycleStartFor(s):'';const c=h.filter(x=>x.d>st);const p=c.filter(x=>x.v==='P').length;
+      if(c.length>=R.cycle.minHeld&&p/c.length*100<R.cycle.pct)out.push({rule:'cycle',text:'Only '+p+' of '+c.length+' classes this cycle'});}
+    if(R.drop.on){const rec=h.slice(-R.drop.recent),pri=h.slice(-(R.drop.recent+R.drop.prior),-R.drop.recent);
+      if(rec.length>=R.drop.recent&&pri.length>=Math.min(4,R.drop.prior)){
+        const rr=rec.filter(x=>x.v==='P').length/rec.length*100,pr=pri.filter(x=>x.v==='P').length/pri.length*100;
+        if(pr-rr>=R.drop.dropPct)out.push({rule:'drop',text:'Attendance down from '+Math.round(pr)+'% to '+Math.round(rr)+'%'});}}
+  }
+  if(R.away.on&&!isNew){const lastP=h.filter(x=>x.v==='P').map(x=>x.d).pop()||s.firstDate||'';
+    if(lastP&&radarDaysBetween(lastP,today)>R.away.days)out.push({rule:'away',text:'No class attended in '+radarDaysBetween(lastP,today)+' days'});}
+  const offRoster=R.notOnRoster.on&&typeof missingFromRoster==='function'&&missingFromRoster(s);
+  if(offRoster)out.push({rule:'notOnRoster',text:'Not on this month\'s roster'});
+  else if(R.unregistered.on&&s.registered==='No')out.push({rule:'unregistered',text:'Not registered this month'});
+  return out;
+}
+function radarSnoozed(s){return !!(s&&s.checkinSnooze&&s.checkinSnooze>=localToday());}
+function isAtRisk(s){return !!s&&s.status==='Active'&&!radarSnoozed(s)&&radarReasons(s).length>0;}
+// Kept for older callers: true when an attendance rule (not registration) is flagging the student.
+function missedRecent(sid){const s=DB.students.find(x=>x.id===sid);return radarReasons(s).some(r=>r.rule!=='notOnRoster'&&r.rule!=='unregistered');}
+
+// ── Radar settings modal ──
+function openRadarSettings(){
+  const c=radarCfg(),R=c.rules;
+  const num=(id,v,min,max)=>`<input type="number" id="${id}" class="form-input" value="${v}" min="${min}" max="${max}" style="width:64px;display:inline-block;padding:4px 6px;" oninput="radarPreview()">`;
+  const row=(k,label,extra)=>`<label class="checkbox-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);"><input type="checkbox" id="rd-${k}" ${R[k].on?'checked':''} onchange="radarPreview()"> <span style="flex:1;min-width:220px;">${label}</span>${extra||''}</label>`;
+  $('rd-body').innerHTML=`
+    <div style="font-size:12px;color:var(--ink-muted);margin-bottom:8px;">Choose what flags a student as at-risk. Every flag shows its reason, and attending the latest class clears attendance flags (if that option is on).</div>
+    ${row('streak','Missed classes in a row',num('rd-streak-n',R.streak.n,1,20)+' in a row')}
+    ${row('recent','Missed several recent classes',num('rd-recent-missed',R.recent.missed,1,20)+' of the last '+num('rd-recent-window',R.recent.window,1,30))}
+    ${row('cycle','Low attendance this belt cycle','under '+num('rd-cycle-pct',R.cycle.pct,1,100)+'% (after '+num('rd-cycle-min',R.cycle.minHeld,1,50)+' classes)')}
+    ${row('drop','Attendance dropped vs. their own normal','down '+num('rd-drop-pct',R.drop.dropPct,5,100)+' points (last '+num('rd-drop-recent',R.drop.recent,2,20)+' vs. prior '+num('rd-drop-prior',R.drop.prior,2,40)+')')}
+    ${row('away','Hasn\'t attended in a while','more than '+num('rd-away-days',R.away.days,1,365)+' days')}
+    ${row('notOnRoster','Missing from this month\'s roster (after the roster check)')}
+    ${row('unregistered','Registration marked "No" (any time of the month)')}
+    <div style="margin-top:12px;padding-top:10px;border-top:2px solid var(--border);display:grid;gap:8px;font-size:13px;">
+      <label>New students: wait ${num('rd-grace',c.graceDays,0,90)} days before attendance flags</label>
+      <label class="checkbox-row"><input type="checkbox" id="rd-unmarked" ${c.unmarkedIsAbsent?'checked':''} onchange="radarPreview()"> On a scheduled class day, a student with no mark counts as missed</label>
+      <label class="checkbox-row"><input type="checkbox" id="rd-back" ${c.backInClassClears?'checked':''} onchange="radarPreview()"> Attending the most recent class clears attendance flags</label>
+      <label>"Called / Talked / Snooze" hides a student for ${num('rd-snooze',c.snoozeDays,1,90)} days</label>
+    </div>
+    <div id="rd-preview" style="margin-top:12px;padding:10px 12px;background:var(--surface-2,var(--surface));border:1px solid var(--border);border-radius:10px;font-size:12px;"></div>`;
+  radarPreview();
+  $('modal-radar').classList.add('open');
+}
+function radarReadForm(){
+  const v=id=>{const n=parseInt(($(id)||{}).value,10);return isNaN(n)?null:n;};
+  const on=id=>!!($(id)&&$(id).checked);
+  const d=RADAR_DEFAULTS.rules;
+  const pick=(id,def)=>{const n=v(id);return n==null?def:n;};
+  return {graceDays:pick('rd-grace',RADAR_DEFAULTS.graceDays),unmarkedIsAbsent:on('rd-unmarked'),backInClassClears:on('rd-back'),snoozeDays:pick('rd-snooze',RADAR_DEFAULTS.snoozeDays),
+    rules:{streak:{on:on('rd-streak'),n:pick('rd-streak-n',d.streak.n)},
+      recent:{on:on('rd-recent'),window:pick('rd-recent-window',d.recent.window),missed:pick('rd-recent-missed',d.recent.missed)},
+      cycle:{on:on('rd-cycle'),minHeld:pick('rd-cycle-min',d.cycle.minHeld),pct:pick('rd-cycle-pct',d.cycle.pct)},
+      drop:{on:on('rd-drop'),recent:pick('rd-drop-recent',d.drop.recent),prior:pick('rd-drop-prior',d.drop.prior),dropPct:pick('rd-drop-pct',d.drop.dropPct)},
+      away:{on:on('rd-away'),days:pick('rd-away-days',d.away.days)},
+      notOnRoster:{on:on('rd-notOnRoster')},unregistered:{on:on('rd-unregistered')}}};
+}
+function radarPreview(){
+  const cfg=radarReadForm();
+  const flagged=DB.students.filter(s=>s.status==='Active'&&!radarSnoozed(s)&&radarReasons(s,cfg).length);
+  const el=$('rd-preview');if(!el)return;
+  el.innerHTML=`<strong>With these settings: ${flagged.length} student${flagged.length===1?'':'s'} flagged</strong> (snoozed students not counted)`+
+    (flagged.length?'<div style="margin-top:6px;max-height:160px;overflow:auto;">'+flagged.slice(0,40).map(s=>`<div style="padding:2px 0;">${grEsc(s.first+' '+s.last)} <span style="color:var(--amber);">— ${radarReasons(s,cfg).map(r=>grEsc(r.text)).join(' · ')}</span></div>`).join('')+'</div>':'');
+}
+function saveRadarSettings(){
+  DB.radar=radarReadForm();
+  save();closeModal('modal-radar');
+  if(typeof renderDashboard==='function')try{renderDashboard();}catch(e){}
+  if(typeof renderGrowthDash==='function')try{renderGrowthDash();}catch(e){}
+  toast('Retention Radar settings saved.');
+}
+function resetRadarSettings(){if(!confirm('Reset Retention Radar to the default settings?'))return;DB.radar=null;openRadarSettings();}
+
 function fmtDate(d){if(!d)return'';return new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});}
 function fmtFull(d){if(!d)return'';return new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});}
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
@@ -3384,10 +3522,10 @@ function renderDashboard(){
   const risk=active.filter(isAtRisk);const stripeReady=active.filter(stripeEligible);
   $('stats-row').innerHTML=`
     <div class="stat-card"><div class="stat-label">Active students</div><div class="stat-value">${active.length}</div><div class="stat-sub">Total roster</div></div>
-    <div class="stat-card danger"><div class="stat-label">At-risk</div><div class="stat-value">${risk.length}</div><div class="stat-sub">Low attendance or unregistered</div></div>
+    <div class="stat-card danger"><div class="stat-label">At-risk</div><div class="stat-value">${risk.length}</div><div class="stat-sub">Retention Radar</div></div>
     <div class="stat-card warn"><div class="stat-label">Stripe-ready</div><div class="stat-value">${stripeReady.length}</div><div class="stat-sub">Eligible to test</div></div>
     <div class="stat-card good"><div class="stat-label">Registered</div><div class="stat-value">${active.filter(s=>s.registered==='Yes').length}</div><div class="stat-sub">This month</div></div>`;
-  $('risk-tbody').innerHTML=risk.length?risk.map(s=>`<tr><td><strong>${s.first} ${s.last}</strong></td><td>${missedRecent(s.id)?'<span class="badge badge-red">Missed classes</span>':'<span class="badge badge-amber">Unregistered</span>'}</td><td><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--ink-muted);">No at-risk students 🎉</td></tr>';
+  $('risk-tbody').innerHTML=risk.length?risk.map(s=>`<tr><td><strong>${s.first} ${s.last}</strong></td><td>${radarReasons(s).map(r=>`<span class="badge ${r.rule==='notOnRoster'||r.rule==='unregistered'?'badge-amber':'badge-red'}" title="${grEsc(r.text)}">${grEsc(r.text)}</span>`).join(' ')}</td><td><span class="belt-pill" style="${beltStyle(s.belt)}">${s.belt}</span></td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--ink-muted);">No at-risk students 🎉</td></tr>';
   $('stripe-tbody').innerHTML=stripeReady.length?stripeReady.map(s=>`<tr><td><strong>${s.first} ${s.last}</strong></td><td>${stripeDots(s.stripes,maxStripes(s))}</td><td style="font-size:12px;color:var(--ink-muted);">${s.group}</td></tr>`).join(''):'<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--ink-muted);">None ready yet</td></tr>';
   const upcoming=DB.testEvents.filter(e=>e.date>=localToday()).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);
   $('upcoming-events').innerHTML=upcoming.length?upcoming.map(e=>`<div style="display:flex;align-items:center;gap:13px;padding:8px 0;border-bottom:1px solid var(--border);"><div style="min-width:60px;font-family:var(--font-display);font-weight:700;font-size:16px;">${fmtDate(e.date)}</div><div><div style="font-weight:500;">${e.name}</div><div style="font-size:12px;color:var(--ink-muted);">${e.type}${e.fee>0?' · $'+e.fee:''}</div></div><div class="spacer"></div><span class="badge ${e.type==='Stripe Test'?'badge-amber':e.type==='Black Belt Test'?'badge-dark':'badge-green'}">${e.type}</span></div>`).join(''):'<div style="color:var(--ink-muted);font-size:13px;">No upcoming events. Schedule one in Belt Testing.</div>';
@@ -17698,36 +17836,19 @@ function openQuickEmailWith(key,tmplId,after){
 })();
 
 // ── 1. Early warning: students drifting away ──
-function riskReasons(s){
-  if(!s||s.status!=='Active'||s.omitFromReg)return [];
-  const out=[];
-  const days=Object.keys(DB.attendance||{}).filter(d=>d<=localToday()&&DB.attendance[d]&&Object.keys(DB.attendance[d]).length).sort();
-  const mine=days.filter(d=>DB.attendance[d][s.id]!=null).slice(-3);
-  const missed=mine.filter(d=>DB.attendance[d][s.id]!=='present').length;
-  // Showing up to the most recent class clears the attendance warnings.
-  const backInClass=mine.length&&DB.attendance[mine[mine.length-1]][s.id]==='present';
-  if(!backInClass){
-    if(mine.length>=3&&missed>=2)out.push('Missed '+missed+' of the last 3 classes');
-    const c=classesThisCycle(s);
-    if(c.held>=4&&c.present/c.held<0.5&&!out.length)out.push('Only '+c.present+' of '+c.held+' classes this cycle');
-  }
-  if(typeof missingFromRoster==='function'&&missingFromRoster(s))out.push('Not on this month\'s roster');
-  return out;
-}
-function atRiskList(){
-  const today=localToday();
-  return DB.students.filter(s=>{if(s.checkinSnooze&&s.checkinSnooze>=today)return false;return riskReasons(s).length;});
-}
+// Early warning now uses the Retention Radar (configurable, see RADAR_DEFAULTS).
+function riskReasons(s){return radarReasons(s).map(r=>r.text);}
+function atRiskList(){return DB.students.filter(isAtRisk);}
 function grCheckedIn(id,how){
   const s=DB.students.find(x=>x.id===id);if(!s)return;
-  s.checkinSnooze=localDateOffset(21);
+  s.checkinSnooze=localDateOffset(radarCfg().snoozeDays);
   if(how){if(!DB.commLog)DB.commLog=[];DB.commLog.push({id:DB.nextId++,studentId:s.id,date:localToday(),type:how,notes:'At-risk check-in ('+riskReasons(s).join('; ')+')',followup:false});addHistory(s,'note','At-risk check-in: '+how);}
-  save();renderGrowthDash();toast(how?'Logged — '+s.first+' is hidden for 3 weeks.':s.first+' snoozed for 3 weeks.');
+  save();renderGrowthDash();toast(how?'Logged — '+s.first+' is hidden for '+radarCfg().snoozeDays+' days.':s.first+' snoozed for '+radarCfg().snoozeDays+' days.');
 }
 function grEmailCheckin(id){
   const s=DB.students.find(x=>x.id===id);if(!s)return;
   if(!s.email){alert(s.first+' has no email on file.');return;}
-  openQuickEmailWith(emailKey('s',id),'checkin_care',()=>{s.checkinSnooze=localDateOffset(21);if(!DB.commLog)DB.commLog=[];DB.commLog.push({id:DB.nextId++,studentId:s.id,date:localToday(),type:'Email',notes:'At-risk check-in email',followup:true});});
+  openQuickEmailWith(emailKey('s',id),'checkin_care',()=>{s.checkinSnooze=localDateOffset(radarCfg().snoozeDays);if(!DB.commLog)DB.commLog=[];DB.commLog.push({id:DB.nextId++,studentId:s.id,date:localToday(),type:'Email',notes:'At-risk check-in email',followup:true});});
 }
 
 // ── 2. First 30 days ──
@@ -17913,12 +18034,12 @@ function renderGrowthDash(){
   const risk=atRiskList();const ob=onboardDue();const rv=reviewCandidates();
   const card=(title,body)=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:14px;"><div style="font-family:var(--font-display);font-size:15px;font-weight:700;margin-bottom:6px;">${title}</div>${body}</div>`;
   let h='';
-  if(risk.length)h+=card(`⚠️ Check in with these families <span style="font-weight:400;font-size:12px;color:var(--ink-muted);">(${risk.length})</span>`,risk.slice(0,12).map(s=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13px;">
+  if(risk.length)h+=card(`⚠️ Check in with these families <span style="font-weight:400;font-size:12px;color:var(--ink-muted);">(${risk.length})</span> <a href="#" style="font-size:12px;font-weight:400;margin-left:6px;" onclick="openRadarSettings();return false;">⚙ Radar settings</a>`,risk.slice(0,12).map(s=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13px;">
       <span style="flex:1;min-width:180px;"><strong style="cursor:pointer;" onclick="nav('roster');openProfile(${s.id})">${grEsc(s.first+' '+s.last)}</strong> <span style="color:var(--ink-muted);font-size:11px;">${grEsc(s.group)}</span><br><span style="font-size:12px;color:var(--amber);">${riskReasons(s).map(grEsc).join(' · ')}</span></span>
       <button class="btn small primary" onclick="grEmailCheckin(${s.id})">✉ Check-in email</button>
       <button class="btn small" onclick="grCheckedIn(${s.id},'Phone call')">📞 Called</button>
       <button class="btn small" onclick="grCheckedIn(${s.id},'In person')">🗣 Talked</button>
-      <button class="btn small" title="Hide for 3 weeks" onclick="grCheckedIn(${s.id},'')">Snooze</button></div>`).join('')+(risk.length>12?`<div style="font-size:12px;color:var(--ink-muted);padding-top:6px;">+${risk.length-12} more on the Business page.</div>`:''));
+      <button class="btn small" title="Hide for a while (set in Radar settings)" onclick="grCheckedIn(${s.id},'')">Snooze</button></div>`).join('')+(risk.length>12?`<div style="font-size:12px;color:var(--ink-muted);padding-top:6px;">+${risk.length-12} more on the Business page.</div>`:''));
   if(ob.length)h+=card(`🌱 New students — first 30 days <span style="font-weight:400;font-size:12px;color:var(--ink-muted);">(${ob.length})</span>`,ob.map(o=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13px;">
       <span style="flex:1;min-width:180px;"><strong>${grEsc(o.s.first+' '+o.s.last)}</strong> <span style="color:var(--ink-muted);font-size:11px;">day ${o.age} · ${grEsc(o.s.group)}</span><br>
       <span style="font-size:11px;">${o.steps.map(x=>`<span style="color:${x.done?'var(--green)':x===o.next?'var(--amber)':'var(--ink-faint)'};${x.missed?'text-decoration:line-through;':''}">${x.done?'✓':x===o.next?'●':'○'} ${grEsc(x.st.label)}</span>`).join(' &nbsp; ')}</span></span>
